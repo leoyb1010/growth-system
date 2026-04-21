@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented } from 'antd';
-import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined } from '@ant-design/icons';
+import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../hooks/useAuth';
 import moment from 'moment';
+import PageHeader from '../components/ui/PageHeader';
+import PanelCard from '../components/ui/PanelCard';
+import MetricCard from '../components/ui/MetricCard';
 
 function DashboardPage() {
   const [data, setData] = useState(null);
@@ -45,131 +48,75 @@ function DashboardPage() {
   if (!data) return <div style={{ textAlign: 'center', padding: 80, fontSize: 16, color: '#8c8c8c' }}>加载中...</div>;
 
   const modeLabel = viewMode === 'year' ? '全年累计' : `${data.current_quarter} 季度`;
+  const riskCount = data.kpi_cards?.risk_project_count || 0;
 
-  // 四张核心卡片配置
+  // 四张核心指标 — 白底克制风格
   const kpiCards = [
     {
       title: '部门 GMV',
-      subtitle: '拓展+运营合计',
-      icon: <TeamOutlined style={{ fontSize: 26, color: '#fff' }} />,
-      rate: data.kpi_cards?.total_gmv_rate || 0,
-      target: data.kpi_cards?.total_gmv_target || 0,
-      actual: data.kpi_cards?.total_gmv_actual || 0,
-      color: '#1677ff',
-      gradient: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
+      value: `${data.kpi_cards?.total_gmv_rate || 0}%`,
+      suffix: '完成率',
+      hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString()} 万`,
+      status: (data.kpi_cards?.total_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_gmv_rate || 0) >= 60 ? 'warning' : 'error',
+      icon: <TeamOutlined style={{ fontSize: 20, color: '#3B5AFB' }} />,
     },
     {
       title: '部门利润',
-      subtitle: '拓展+运营合计',
-      icon: <DollarOutlined style={{ fontSize: 26, color: '#fff' }} />,
-      rate: data.kpi_cards?.total_profit_rate || 0,
-      target: data.kpi_cards?.total_profit_target || 0,
-      actual: data.kpi_cards?.total_profit_actual || 0,
-      color: '#eb2f96',
-      gradient: 'linear-gradient(135deg, #eb2f96 0%, #f759ab 100%)',
+      value: `${data.kpi_cards?.total_profit_rate || 0}%`,
+      suffix: '完成率',
+      hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString()} 万`,
+      status: (data.kpi_cards?.total_profit_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_profit_rate || 0) >= 60 ? 'warning' : 'error',
+      icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
     {
       title: '拓展组 GMV',
-      subtitle: '拓展部门',
-      icon: <FundOutlined style={{ fontSize: 26, color: '#fff' }} />,
-      rate: data.kpi_cards?.expand_gmv_rate || 0,
-      target: data.kpi_cards?.expand_gmv_target || 0,
-      actual: data.kpi_cards?.expand_gmv_actual || 0,
-      color: '#722ed1',
-      gradient: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+      value: `${data.kpi_cards?.expand_gmv_rate || 0}%`,
+      suffix: '完成率',
+      hint: `目标 ${(data.kpi_cards?.expand_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.expand_gmv_actual || 0).toLocaleString()} 万`,
+      status: (data.kpi_cards?.expand_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.expand_gmv_rate || 0) >= 60 ? 'warning' : 'error',
+      icon: <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} />,
     },
     {
       title: '运营组 GMV',
-      subtitle: '运营部门',
-      icon: <RiseOutlined style={{ fontSize: 26, color: '#fff' }} />,
-      rate: data.kpi_cards?.ops_gmv_rate || 0,
-      target: data.kpi_cards?.ops_gmv_target || 0,
-      actual: data.kpi_cards?.ops_gmv_actual || 0,
-      color: '#13c2c2',
-      gradient: 'linear-gradient(135deg, #13c2c2 0%, #36cfc9 100%)',
+      value: `${data.kpi_cards?.ops_gmv_rate || 0}%`,
+      suffix: '完成率',
+      hint: `目标 ${(data.kpi_cards?.ops_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.ops_gmv_actual || 0).toLocaleString()} 万`,
+      status: (data.kpi_cards?.ops_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.ops_gmv_rate || 0) >= 60 ? 'warning' : 'error',
+      icon: <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
     },
   ];
 
-  // 季度对比柱状图（全年模式显示）
+  // 季度对比柱状图（仅全年模式）
   const quarterChartOption = {
-    title: { text: '各季度 GMV 完成', left: 'center', textStyle: { fontSize: 15 } },
     tooltip: { trigger: 'axis' },
-    legend: { data: ['拓展组', '运营组'], bottom: 0 },
-    grid: { left: 50, right: 20, top: 40, bottom: 40 },
-    xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'] },
-    yAxis: { type: 'value', name: '万元' },
+    legend: { data: ['拓展组', '运营组'], bottom: 0, textStyle: { fontSize: 12 } },
+    grid: { left: 50, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'], axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', name: '万元', nameTextStyle: { fontSize: 11 }, axisLabel: { fontSize: 11 } },
     series: [
-      {
-        name: '拓展组',
-        type: 'bar',
-        data: (data.quarter_comparison || []).map(q => q.expand_gmv_actual),
-        itemStyle: { color: '#722ed1', borderRadius: [4, 4, 0, 0] },
-        barWidth: '30%',
-      },
-      {
-        name: '运营组',
-        type: 'bar',
-        data: (data.quarter_comparison || []).map(q => q.ops_gmv_actual),
-        itemStyle: { color: '#13c2c2', borderRadius: [4, 4, 0, 0] },
-        barWidth: '30%',
-      }
+      { name: '拓展组', type: 'bar', data: (data.quarter_comparison || []).map(q => q.expand_gmv_actual), itemStyle: { color: '#7C3AED', borderRadius: [4, 4, 0, 0] }, barWidth: '28%' },
+      { name: '运营组', type: 'bar', data: (data.quarter_comparison || []).map(q => q.ops_gmv_actual), itemStyle: { color: '#0891B2', borderRadius: [4, 4, 0, 0] }, barWidth: '28%' },
     ]
-  };
-
-  // 指标对比雷达图
-  const radarOption = {
-    title: { text: '核心指标完成概览', left: 'center', textStyle: { fontSize: 15 } },
-    tooltip: {},
-    radar: {
-      indicator: [
-        { name: '部门GMV', max: 100 },
-        { name: '部门利润', max: 100 },
-        { name: '拓展GMV', max: 100 },
-        { name: '运营GMV', max: 100 },
-        { name: '拓展利润', max: 100 },
-        { name: '运营利润', max: 100 },
-      ],
-      shape: 'circle',
-      radius: '65%',
-    },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: [
-          Math.min(data.kpi_cards?.total_gmv_rate || 0, 100),
-          Math.min(data.kpi_cards?.total_profit_rate || 0, 100),
-          Math.min(data.kpi_cards?.expand_gmv_rate || 0, 100),
-          Math.min(data.kpi_cards?.ops_gmv_rate || 0, 100),
-          Math.min(data.kpi_cards?.expand_profit_rate || 0, 100),
-          Math.min(data.kpi_cards?.ops_profit_rate || 0, 100),
-        ],
-        name: '完成率 %',
-        areaStyle: { color: 'rgba(22, 119, 255, 0.15)' },
-        lineStyle: { color: '#1677ff', width: 2 },
-        itemStyle: { color: '#1677ff' }
-      }]
-    }]
   };
 
   // 工作状态分布饼图
   const statusChartOption = {
-    title: { text: '重点工作状态分布', left: 'center', textStyle: { fontSize: 15 } },
     tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
-    legend: { bottom: 0 },
+    legend: { bottom: 0, textStyle: { fontSize: 12 } },
     series: [{
       name: '状态',
       type: 'pie',
-      radius: ['40%', '70%'],
+      radius: ['42%', '72%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
-      label: { show: true, formatter: '{b}\n{c}个' },
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{c}个', fontSize: 12 },
       data: (data.project_status_distribution || []).map(item => ({
         name: item.status,
         value: item.count,
         itemStyle: {
-          color: item.status === '完成' ? '#52c41a' :
-                 item.status === '进行中' ? '#1677ff' :
-                 item.status === '风险' ? '#ff4d4f' : '#bfbfbf'
+          color: item.status === '完成' ? '#16A34A' :
+                 item.status === '进行中' ? '#3B5AFB' :
+                 item.status === '风险' ? '#DC2626' : '#9CA3AF'
         }
       }))
     }]
@@ -194,163 +141,167 @@ function DashboardPage() {
   ];
 
   return (
-    <div>
-      {/* 顶部栏 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 22 }}>仪表盘</h2>
-          <p style={{ margin: '4px 0 0 0', color: '#8c8c8c', fontSize: 14 }}>
-            {data.current_year}年 · {modeLabel} · 实时数据概览
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div className="app-page">
+      {/* 摘要头部 */}
+      <PageHeader
+        title="增长业务驾驶舱"
+        subtitle={`${data.current_year}年 · ${modeLabel} · 聚焦目标达成、重点项目推进与近期风险变化`}
+        extra={[
           <Segmented
+            key="mode"
             value={viewMode}
             onChange={(v) => setViewMode(v)}
             options={[
               { label: `${data.current_quarter} 季度`, value: 'quarter' },
               { label: '全年累计', value: 'year' },
             ]}
-          />
-          <Button type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>
+          />,
+          <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>
             生成周报
+          </Button>,
+        ]}
+      />
+
+      {/* 风险提示条 */}
+      {riskCount > 0 && (
+        <div style={{
+          marginBottom: 20,
+          padding: '10px 20px',
+          background: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
+          <span style={{ fontSize: 14, color: '#991B1B' }}>
+            当前有 <strong>{riskCount}</strong> 个风险项目需要关注
+          </span>
+          <Button type="link" size="small" onClick={() => navigate('/projects')} style={{ padding: 0, height: 'auto', fontWeight: 600 }}>
+            立即查看 →
           </Button>
         </div>
-      </div>
+      )}
 
-      {/* 四张核心指标卡片 - 大卡片 */}
-      <Row gutter={[20, 20]} style={{ marginBottom: 24 }}>
+      {/* KPI 指标行 — 白底克制 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {kpiCards.map((card, idx) => (
           <Col xs={24} sm={12} xl={6} key={idx}>
-            <Card
-              style={{ borderRadius: 16, overflow: 'hidden', border: 'none' }}
-              bodyStyle={{ padding: 0 }}
-            >
-              {/* 顶部渐变头部 */}
-              <div style={{
-                background: card.gradient,
-                padding: '20px 24px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}>
-                <div>
-                  <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>{card.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{card.subtitle}</div>
-                </div>
+            <Card className="surface-card hover-lift" bodyStyle={{ padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div className="metric-label">{card.title}</div>
                 <div style={{
-                  width: 46, height: 46, borderRadius: 12,
-                  background: 'rgba(255,255,255,0.2)',
+                  width: 36, height: 36, borderRadius: 10,
+                  background: '#F5F7FB',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {card.icon}
                 </div>
               </div>
-              {/* 数据区 */}
-              <div style={{ padding: '18px 24px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, gap: 8 }}>
-                  <span style={{ fontSize: 36, fontWeight: 700, color: card.color, lineHeight: 1, whiteSpace: 'nowrap' }}>
-                    {card.rate}%
-                  </span>
-                  <span style={{
-                    fontSize: 12,
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    fontWeight: 600,
-                    flexShrink: 0,
-                    background: card.rate >= 90 ? '#f6ffed' : card.rate >= 60 ? '#fffbe6' : '#fff2f0',
-                    color: card.rate >= 90 ? '#52c41a' : card.rate >= 60 ? '#faad14' : '#ff4d4f',
-                  }}>
-                    {card.rate >= 90 ? '✓ 达标' : card.rate >= 60 ? '⚡ 追赶中' : '⚠ 落后'}
-                  </span>
-                </div>
-                <Progress
-                  percent={Math.min(card.rate, 100)}
-                  strokeColor={card.color}
-                  trailColor="#f0f0f0"
-                  showInfo={false}
-                  strokeWidth={8}
-                  style={{ marginBottom: 12 }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div style={{ textAlign: 'center', flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>目标</div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(card.target).toLocaleString()}<span style={{ fontSize: 12, color: '#8c8c8c' }}> 万</span></div>
-                  </div>
-                  <div style={{ width: 1, background: '#f0f0f0' }} />
-                  <div style={{ textAlign: 'center', flex: 1, overflow: 'hidden' }}>
-                    <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>实际</div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: card.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(card.actual).toLocaleString()}<span style={{ fontSize: 12, color: '#8c8c8c' }}> 万</span></div>
-                  </div>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+                <span className="metric-value">{card.value}</span>
+                <span className="subtle-text" style={{ fontSize: 13 }}>{card.suffix}</span>
               </div>
+              <Progress
+                percent={Math.min(parseFloat(card.value), 100)}
+                strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'}
+                trailColor="#F1F5F9"
+                showInfo={false}
+                strokeWidth={6}
+                style={{ marginBottom: 10 }}
+              />
+              <div className="subtle-text" style={{ fontSize: 12 }}>{card.hint}</div>
             </Card>
           </Col>
         ))}
       </Row>
 
-      {/* 风险项目提醒 */}
-      {(data.kpi_cards?.risk_project_count || 0) > 0 && (
-        <Card
-          style={{ marginBottom: 24, background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 12 }}
-          bodyStyle={{ padding: '12px 20px' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <WarningOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />
-            <span style={{ fontSize: 15, color: '#cf1322', fontWeight: 500 }}>
-              当前有 <strong>{data.kpi_cards.risk_project_count}</strong> 个风险项目需要关注，
-              <Button type="link" size="small" onClick={() => navigate('/projects')} style={{ padding: 0, height: 'auto' }}>立即查看</Button>
-            </span>
-          </div>
-        </Card>
-      )}
-
-      {/* 图表区 */}
-      <Row gutter={[20, 20]} style={{ marginBottom: 24 }}>
-        {viewMode === 'year' && (
-          <Col xs={24} lg={8}>
-            <Card style={{ borderRadius: 12 }}>
-              <ReactECharts option={quarterChartOption} style={{ height: 300 }} />
-            </Card>
-          </Col>
-        )}
-        <Col xs={24} lg={viewMode === 'year' ? 8 : 12}>
-          <Card style={{ borderRadius: 12 }}>
-            <ReactECharts option={radarOption} style={{ height: 300 }} />
-          </Card>
+      {/* 图表区 — 状态分布 + 趋势对比 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={viewMode === 'year' ? 12 : 14}>
+          <PanelCard title="重点工作状态分布">
+            <ReactECharts option={statusChartOption} style={{ height: 280 }} />
+          </PanelCard>
         </Col>
-        <Col xs={24} lg={viewMode === 'year' ? 8 : 12}>
-          <Card style={{ borderRadius: 12 }}>
-            <ReactECharts option={statusChartOption} style={{ height: 300 }} />
-          </Card>
+        <Col xs={24} lg={viewMode === 'year' ? 12 : 10}>
+          <PanelCard title={viewMode === 'year' ? '各季度 GMV 完成' : '核心指标完成概览'}>
+            <ReactECharts
+              option={viewMode === 'year' ? quarterChartOption : {
+                tooltip: {},
+                radar: {
+                  indicator: [
+                    { name: '部门GMV', max: 100 },
+                    { name: '部门利润', max: 100 },
+                    { name: '拓展GMV', max: 100 },
+                    { name: '运营GMV', max: 100 },
+                    { name: '拓展利润', max: 100 },
+                    { name: '运营利润', max: 100 },
+                  ],
+                  shape: 'circle',
+                  radius: '65%',
+                },
+                series: [{
+                  type: 'radar',
+                  data: [{
+                    value: [
+                      Math.min(data.kpi_cards?.total_gmv_rate || 0, 100),
+                      Math.min(data.kpi_cards?.total_profit_rate || 0, 100),
+                      Math.min(data.kpi_cards?.expand_gmv_rate || 0, 100),
+                      Math.min(data.kpi_cards?.ops_gmv_rate || 0, 100),
+                      Math.min(data.kpi_cards?.expand_profit_rate || 0, 100),
+                      Math.min(data.kpi_cards?.ops_profit_rate || 0, 100),
+                    ],
+                    name: '完成率 %',
+                    areaStyle: { color: 'rgba(59, 90, 251, 0.12)' },
+                    lineStyle: { color: '#3B5AFB', width: 2 },
+                    itemStyle: { color: '#3B5AFB' }
+                  }]
+                }]
+              }}
+              style={{ height: 280 }}
+            />
+          </PanelCard>
         </Col>
       </Row>
 
-      {/* 列表区 */}
-      <Row gutter={[20, 20]}>
+      {/* 行动列表区 — 风险项目 + 即将到期 */}
+      <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card title="最近更新项目 (Top 10)" style={{ borderRadius: 12 }}>
-            <Table
-              dataSource={data.recent_projects || []}
-              columns={recentColumns}
-              rowKey="id"
-              pagination={false}
-              size="small"
-              scroll={{ x: 'max-content' }}
-            />
-          </Card>
+          <PanelCard
+            title={<span><AlertOutlined style={{ color: '#DC2626', marginRight: 8 }} />高风险项目</span>}
+            extra={<Button type="link" size="small" onClick={() => navigate('/projects')}>查看全部</Button>}
+          >
+            {(data.recent_projects || []).filter(p => p.status === '风险').slice(0, 5).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无风险项目 ✌️</div>
+            ) : (
+              <Table
+                dataSource={(data.recent_projects || []).filter(p => p.status === '风险').slice(0, 5)}
+                columns={recentColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            )}
+          </PanelCard>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="即将到期项目 (7天内)" style={{ borderRadius: 12 }}>
-            <Table
-              dataSource={data.due_soon_projects || []}
-              columns={dueSoonColumns}
-              rowKey="id"
-              pagination={false}
-              size="small"
-              scroll={{ x: 'max-content' }}
-            />
-          </Card>
+          <PanelCard
+            title={<span><ClockCircleOutlined style={{ color: '#F59E0B', marginRight: 8 }} />7天内到期</span>}
+            extra={<Button type="link" size="small" onClick={() => navigate('/projects')}>查看全部</Button>}
+          >
+            {(data.due_soon_projects || []).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无即将到期项目</div>
+            ) : (
+              <Table
+                dataSource={(data.due_soon_projects || []).slice(0, 5)}
+                columns={dueSoonColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            )}
+          </PanelCard>
         </Col>
       </Row>
     </div>
