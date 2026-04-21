@@ -231,6 +231,34 @@ th { background: #fafafa; font-weight: 600; }
           📅 {content.week_start} 至 {content.week_end}
         </div>
 
+        {/* 本周结论（新增） */}
+        {content.week_conclusion && (
+          <div style={{
+            background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10,
+            padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#1E40AF', lineHeight: 1.7
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>📋 本周结论</div>
+            {content.week_conclusion}
+          </div>
+        )}
+
+        {/* 关键变化（新增） */}
+        {content.key_changes && content.key_changes.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: compact ? 13 : 15, marginBottom: 8 }}>⚡ 关键变化</div>
+            {content.key_changes.map((c, idx) => {
+              const iconMap = { risk: '🔴', progress: '📈', deviation: '📉', achieved: '✅' };
+              const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#DC2626', achieved: '#16A34A' };
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: compact ? 12 : 13 }}>
+                  <span>{iconMap[c.type] || '📌'}</span>
+                  <span style={{ color: colorMap[c.type] || '#111827' }}>{c.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* 摘要卡片行 */}
         <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
           <Col span={8}>

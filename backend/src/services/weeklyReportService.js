@@ -154,6 +154,10 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
     week_start: weekStartStr,
     week_end: weekEndStr,
     generated_at: moment().format('YYYY-MM-DD HH:mm:ss'),
+    // ===== 新增：本周结论（规则驱动） =====
+    week_conclusion: generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects),
+    // ===== 新增：关键变化 =====
+    key_changes: extractKeyChanges(kpiSummary, updatedProjects, riskList),
     summary: {
       kpi_summary: kpiSummary,
       total_updated_projects: updatedProjects.length,
@@ -174,6 +178,80 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
     },
     new_achievements: achievementList
   };
+}
+
+/**
+ * 规则驱动生成周报结论
+ */
+function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects) {
+  const conclusions = [];
+  
+  // 1. 整体完成率判断
+  const totalTarget = kpiSummary.reduce((s, k) => s + parseFloat(k.target || 0), 0);
+  const totalActual = kpiSummary.reduce((s, k) => s + parseFloat(k.actual || 0), 0);
+  const totalRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;
+  
+  if (totalRate >= 90) {
+    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，达到目标进度。`);
+  } else if (totalRate >= 60) {
+    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，低于时间进度，需加速追赶。`);
+  } else {
+    conclusions.push(`整体完成率仅${totalRate.toFixed(0)}%，严重低于时间进度，需重点关注。`);
+  }
+
+  // 2. 偏差最大指标
+  const lowKpis = kpiSummary.filter(k => k.completion_rate < 60);
+  if (lowKpis.length > 0) {
+    const worst = lowKpis.sort((a, b) => a.completion_rate - b.completion_rate)[0];
+    conclusions.push(`${worst.dept_name}${worst.indicator}完成率最低（${worst.completion_rate}%），偏差最大。`);
+  }
+
+  // 3. 风险项
+  if (riskList.length > 0) {
+    conclusions.push(`当前有${riskList.length}个风险项目需关注。`);
+  }
+
+  // 4. 严重预警
+  if (severeWarnings.length > 0) {
+    conclusions.push(`${severeWarnings.length}项业务线指标严重预警。`);
+  }
+
+  // 5. 本周活跃度
+  if (updatedProjects.length === 0) {
+    conclusions.push('本周无项目更新，请各负责人及时录入进展。');
+  }
+
+  return conclusions.join(' ');
+}
+
+/**
+ * 提取关键变化
+ */
+function extractKeyChanges(kpiSummary, updatedProjects, riskList) {
+  const changes = [];
+
+  // 状态变更 -> 风险的项目
+  riskList.forEach(p => {
+    changes.push({ type: 'risk', text: `${p.dept_name}·${p.name} 状态变为风险` });
+  });
+
+  // 进度有推进的项目
+  updatedProjects.forEach(p => {
+    if (p.progress_pct >= 80) {
+      changes.push({ type: 'progress', text: `${p.name} 进度达${p.progress_pct}%` });
+    }
+  });
+
+  // KPI 偏差
+  kpiSummary.forEach(k => {
+    if (k.completion_rate < 60) {
+      changes.push({ type: 'deviation', text: `${k.dept_name}·${k.indicator} 完成率仅${k.completion_rate}%` });
+    } else if (k.completion_rate >= 90) {
+      changes.push({ type: 'achieved', text: `${k.dept_name}·${k.indicator} 已达标` });
+    }
+  });
+
+  return changes;
 }
 
 module.exports = { generateWeeklyReportData };

@@ -217,6 +217,79 @@ function DashboardPage() {
         ))}
       </Row>
 
+      {/* 今日变化 + 本周关注（双列） */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={12}>
+          <PanelCard
+            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日变化</span>}
+            extra={data.today_changes?.length > 0 && <span className="subtle-text" style={{ fontSize: 12 }}>{data.today_changes.length} 条</span>}
+          >
+            {(!data.today_changes || data.today_changes.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
+                <ClockCircleOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
+                <div style={{ fontSize: 13 }}>今日暂无数据变更</div>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                {data.today_changes.slice(0, 15).map((c, idx) => {
+                  const tableLabel = { projects: '项目', kpis: '指标', performances: '业绩', monthly_tasks: '月度', achievements: '成果' }[c.table_name] || c.table_name;
+                  const actionConfig = { create: { label: '新增', color: '#16A34A', tag: 'success' }, update: { label: '更新', color: '#3B5AFB', tag: 'processing' }, delete: { label: '删除', color: '#DC2626', tag: 'error' } }[c.action] || { label: c.action, color: '#9CA3AF', tag: 'default' };
+                  return (
+                    <div key={c.id || idx} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      padding: '8px 0', borderBottom: idx < Math.min(data.today_changes.length, 15) - 1 ? '1px solid #F1F5F9' : 'none'
+                    }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionConfig.color, marginTop: 7, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: '#111827', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Tag color={actionConfig.tag} style={{ margin: 0, fontSize: 11, lineHeight: '18px', padding: '0 4px' }}>{actionConfig.label}</Tag>
+                          <span>{tableLabel}</span>
+                          {c.operator_name && <span className="subtle-text" style={{ marginLeft: 4 }}>by {c.operator_name}</span>}
+                        </div>
+                        <div className="subtle-text" style={{ fontSize: 11, marginTop: 2 }}>{moment(c.created_at).format('HH:mm')}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </PanelCard>
+        </Col>
+        <Col xs={24} lg={12}>
+          <PanelCard
+            title={<span><AlertOutlined style={{ color: '#F59E0B', marginRight: 8 }} />本周关注</span>}
+            extra={data.week_focus?.length > 0 && <span className="subtle-text" style={{ fontSize: 12 }}>{data.week_focus.reduce((s, f) => s + f.count, 0)} 项</span>}
+          >
+            {(!data.week_focus || data.week_focus.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
+                <AlertOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
+                <div style={{ fontSize: 13 }}>本周暂无特别关注事项</div>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                {data.week_focus.map((f, idx) => {
+                  const iconMap = { due_soon: '⏰', risk: '🔴', stale: '💤', deviation: '📉' };
+                  const bgMap = { due_soon: '#FFFBEB', risk: '#FEF2F2', stale: '#F9FAFB', deviation: '#F5F3FF' };
+                  return (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px', marginBottom: idx < data.week_focus.length - 1 ? 8 : 0,
+                      background: bgMap[f.type] || '#F9FAFB', borderRadius: 8
+                    }}>
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{iconMap[f.type] || '📌'}</span>
+                      <div style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{f.text}</div>
+                      <Tag color={f.type === 'risk' ? 'error' : f.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0 }}>
+                        {f.count}
+                      </Tag>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </PanelCard>
+        </Col>
+      </Row>
+
       {/* 图表区 — 状态分布 + 趋势对比 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} lg={viewMode === 'year' ? 12 : 14}>

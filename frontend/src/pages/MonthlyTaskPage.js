@@ -3,6 +3,7 @@ import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, messag
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
+import { STATUS_COLORS, getStatusStyle, getProgressColor } from '../utils/constants';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -58,20 +59,9 @@ function MonthlyTaskPage() {
 
   const showDetail = (record) => { setDetailRecord(record); setDrawerVisible(true); };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case '完成': return 'success';
-      case '进行中': return 'processing';
-      case '风险': return 'error';
-      default: return 'default';
-    }
-  };
+  const getStatusColor = (status) => getStatusStyle(status).tag;
 
-  const getCompletionColor = (rate) => {
-    if (rate >= 80) return '#52c41a';
-    if (rate >= 60) return '#faad14';
-    return '#ff4d4f';
-  };
+  const getCompletionColor = (rate) => getProgressColor(rate);
 
   // 卡片视图
   const renderCardView = () => (
@@ -83,7 +73,7 @@ function MonthlyTaskPage() {
         <Col xs={24} sm={12} lg={8} key={item.id}>
           <Card
             hoverable
-            style={{ borderRadius: 12, borderLeft: `4px solid ${item.status === '风险' ? '#ff4d4f' : item.status === '完成' ? '#52c41a' : item.status === '进行中' ? '#1677ff' : '#d9d9d9'}` }}
+            style={{ borderRadius: 12, borderLeft: `4px solid ${getStatusStyle(item.status).border}` }}
             bodyStyle={{ padding: 20 }}
             actions={[
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,

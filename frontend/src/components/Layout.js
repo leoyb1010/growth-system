@@ -5,7 +5,6 @@ import {
   DashboardOutlined,
   BarChartOutlined,
   ProjectOutlined,
-  TrophyOutlined,
   CalendarOutlined,
   StarOutlined,
   TeamOutlined,
@@ -14,7 +13,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   HistoryOutlined,
-  FormOutlined
+  FormOutlined,
+  FileTextOutlined,
+  ContainerOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 
@@ -26,25 +27,27 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 侧边栏菜单 - 精简后
+  // 侧边栏菜单 - V3管理动作视角
   const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
-    { key: '/kpis', icon: <BarChartOutlined />, label: '核心指标' },
-    { key: '/projects', icon: <ProjectOutlined />, label: '重点工作' },
-    { key: '/performances', icon: <TrophyOutlined />, label: '业务线业绩' },
-    { key: '/monthly-tasks', icon: <CalendarOutlined />, label: '月度工作' },
-    { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
+    { key: '/', icon: <DashboardOutlined />, label: '总览' },
+    { key: '/week', icon: <CalendarOutlined />, label: '本周' },
+    { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
+    { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
+    { key: '/settlement', icon: <ContainerOutlined />, label: '沉淀' },
+    { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     ...(isAdmin ? [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
     ] : [])
   ];
 
-  // 头像下拉菜单 - 审计日志移到这里
+  // 头像下拉菜单 - 审计日志/数据录入/归档管理移到这里
   const userMenuItems = [
     { key: 'profile', label: user?.name || '用户', icon: <UserOutlined />, disabled: true },
     { type: 'divider' },
     ...(isAdmin ? [
+      { key: '/data-entry', label: '数据录入', icon: <FormOutlined /> },
       { key: '/audit-logs', label: '审计日志', icon: <HistoryOutlined /> },
+      { key: '/archives', label: '归档管理', icon: <ContainerOutlined /> },
     ] : []),
     { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, danger: true }
   ];
@@ -82,18 +85,6 @@ function AppLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* 数据录入按钮 - 头像前面 */}
-            {isAdmin && (
-              <Tooltip title="数据录入">
-                <Button
-                  type={location.pathname === '/data-entry' ? 'primary' : 'default'}
-                  icon={<FormOutlined />}
-                  onClick={() => navigate('/data-entry')}
-                >
-                  数据录入
-                </Button>
-              </Tooltip>
-            )}
             <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Avatar icon={<UserOutlined />} />

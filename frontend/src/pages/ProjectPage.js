@@ -1,29 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
+import { STATUS_COLORS, defaultStatusColor, getStatusStyle, getProgressColor } from '../utils/constants';
 
 const { Option } = Select;
 const { TextArea } = Input;
-
-// 统一状态色映射
-const STATUS_COLORS = {
-  '完成': { tag: 'success', border: '#16A34A', dot: 'green' },
-  '进行中': { tag: 'processing', border: '#3B5AFB', dot: 'blue' },
-  '风险': { tag: 'error', border: '#DC2626', dot: 'red' },
-  '未启动': { tag: 'default', border: '#9CA3AF', dot: 'gray' },
-};
-const defaultStatusColor = { tag: 'default', border: '#9CA3AF', dot: 'gray' };
-const getStatusStyle = (status) => STATUS_COLORS[status] || defaultStatusColor;
-
-const getProgressColor = (pct) => {
-  if (pct >= 80) return '#16A34A';
-  if (pct >= 60) return '#F59E0B';
-  return '#DC2626';
-};
 
 function ProjectPage() {
   const [data, setData] = useState([]);
@@ -34,8 +19,15 @@ function ProjectPage() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [viewMode, setViewMode] = useState('card');
   const [activeTab, setActiveTab] = useState('current');
+  const [sortMode, setSortMode] = useState('priority'); // priority | time
   const [form] = Form.useForm();
   const { isAdmin, user } = useAuth();
+  // 就地更新状态
+  const [editingProgressId, setEditingProgressId] = useState(null);
+  const [editingProgressValue, setEditingProgressValue] = useState(0);
+  const [quickUpdateVisible, setQuickUpdateVisible] = useState(false);
+  const [quickUpdateItem, setQuickUpdateItem] = useState(null);
+  const [quickWeeklyProgress, setQuickWeeklyProgress] = useState('');
 
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
@@ -50,7 +42,7 @@ function ProjectPage() {
   };
   const nextWeek = getNextWeekRange();
 
-  useEffect(() => { fetchData(); }, [filters, activeTab]);
+  useEffect(() => { fetchData(); }, [filters, activeTab, sortMode]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -58,6 +50,9 @@ function ProjectPage() {
       const params = { ...filters };
       if (activeTab === 'nextweek') {
         params.type = '下周重点';
+      }
+      if (sortMode === 'priority') {
+        params.sort = 'priority';
       }
       const res = await api.get('/projects', { params });
       if (res.code === 0) setData(res.data);
@@ -106,6 +101,39 @@ function ProjectPage() {
     setDrawerVisible(true);
   };
 
+  // 进度条点击就地更新
+  const handleProgressClick = (item) => {
+    if (!isAdmin) return;
+    setEditingProgressId(item.id);
+    setEditingProgressValue(item.progress_pct);
+  };
+
+  const handleProgressSave = async (id) => {
+    try {
+      await api.put(`/projects/${id}/quick-update`, { progress_pct: editingProgressValue });
+      message.success('进度更新成功');
+      setEditingProgressId(null);
+      fetchData();
+    } catch (err) {
+      message.error('更新失败');
+    }
+  };
+
+  // 快速更新本周进展
+  const handleQuickUpdate = async () => {
+    if (!quickUpdateItem || !quickWeeklyProgress.trim()) return;
+    try {
+      await api.put(`/projects/${quickUpdateItem.id}/quick-update`, { weekly_progress: quickWeeklyProgress });
+      message.success('本周进展更新成功');
+      setQuickUpdateVisible(false);
+      setQuickUpdateItem(null);
+      setQuickWeeklyProgress('');
+      fetchData();
+    } catch (err) {
+      message.error('更新失败');
+    }
+  };
+
   const isNextWeek = activeTab === 'nextweek';
 
   // ===== 卡片视图 — 更像项目面板 =====
@@ -146,18 +174,64 @@ function ProjectPage() {
               {/* 负责人 + 截止 — 2个核心信息 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, fontSize: 13 }}>
                 <span className="subtle-text">👤 {item.owner_name || '-'}</span>
-                {item.due_date && <span className="subtle-text" style={{ fontSize: 12 }}>截止 {item.due_date}</span>}
+                {item.due_date && (
+                  <span className="subtle-text" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    截止 {item.due_date}
+                    {item.days_until_due !== undefined && (
+                      <Tag color={item.days_until_due < 0 ? 'error' : item.days_until_due <= 3 ? 'warning' : 'default'} style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>
+                        {item.days_until_due < 0 ? `逾期${Math.abs(item.days_until_due)}天` : item.days_until_due === 0 ? '今天到期' : `剩${item.days_until_due}天`}
+                      </Tag>
+                    )}
+                  </span>
+                )}
               </div>
 
-              {/* 进度条（本周） */}
+              {/* 进度条（本周）— 点击可就地编辑 */}
               {!isNextWeek && (
-                <Progress
-                  percent={item.progress_pct}
-                  strokeColor={getProgressColor(item.progress_pct)}
-                  trailColor="#F1F5F9"
-                  size="small"
-                  style={{ marginBottom: 10 }}
-                />
+                editingProgressId === item.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    <InputNumber
+                      min={0} max={100}
+                      value={editingProgressValue}
+                      onChange={(v) => setEditingProgressValue(v)}
+                      size="small"
+                      style={{ width: 70 }}
+                      onPressEnter={() => handleProgressSave(item.id)}
+                    />
+                    <span style={{ fontSize: 12, color: '#6B7280' }}>%</span>
+                    <Button type="link" size="small" onClick={() => handleProgressSave(item.id)}>保存</Button>
+                    <Button type="link" size="small" onClick={() => setEditingProgressId(null)}>取消</Button>
+                  </div>
+                ) : (
+                  <Tooltip title={isAdmin ? '点击编辑进度' : ''}>
+                    <div onClick={() => handleProgressClick(item)} style={{ cursor: isAdmin ? 'pointer' : 'default' }}>
+                      <Progress
+                        percent={item.progress_pct}
+                        strokeColor={getProgressColor(item.progress_pct)}
+                        trailColor="#F1F5F9"
+                        size="small"
+                        style={{ marginBottom: 10 }}
+                      />
+                    </div>
+                  </Tooltip>
+                )
+              )}
+
+              {/* 本周进展摘要 — 点击可快速更新 */}
+              {!isNextWeek && item.weekly_progress && (
+                <Tooltip title={isAdmin ? '点击快速更新' : ''}>
+                  <div
+                    onClick={() => isAdmin && (setQuickUpdateItem(item), setQuickWeeklyProgress(item.weekly_progress || ''), setQuickUpdateVisible(true))}
+                    style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: isAdmin ? 'pointer' : 'default' }}
+                  >
+                    📝 {item.weekly_progress}
+                  </div>
+                </Tooltip>
+              )}
+              {!isNextWeek && !item.weekly_progress && isAdmin && (
+                <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => { setQuickUpdateItem(item); setQuickWeeklyProgress(''); setQuickUpdateVisible(true); }}>
+                  + 补充本周进展
+                </Button>
               )}
 
               {/* 目标 — 一行概括 */}
@@ -174,12 +248,20 @@ function ProjectPage() {
                 </div>
               )}
 
-              {/* 风险标记 */}
-              {item.is_risk && (
-                <div style={{ marginTop: 8 }}>
-                  <Tag color="error" style={{ margin: 0 }}><WarningOutlined /> 风险</Tag>
-                </div>
-              )}
+              {/* 底部时间标签行 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid #F1F5F9' }}>
+                {item.updated_at && (
+                  <span className="subtle-text" style={{ fontSize: 11 }}>
+                    🕐 {moment(item.updated_at).fromNow()}
+                  </span>
+                )}
+                {item.is_risk && (
+                  <Tag color="error" style={{ margin: 0, fontSize: 11 }}><WarningOutlined /> 风险</Tag>
+                )}
+                {item.is_due_soon && !item.is_risk && (
+                  <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>⏰ 临期</Tag>
+                )}
+              </div>
             </Card>
           </Col>
         );
@@ -216,6 +298,10 @@ function ProjectPage() {
         extra={[
           <Select key="q" value={filters.quarter} onChange={(v) => setFilters({ ...filters, quarter: v })} style={{ width: 100 }}>
             <Option value="Q1">Q1</Option><Option value="Q2">Q2</Option><Option value="Q3">Q3</Option><Option value="Q4">Q4</Option>
+          </Select>,
+          <Select key="sort" value={sortMode} onChange={(v) => setSortMode(v)} style={{ width: 120 }}>
+            <Option value="priority">管理优先级</Option>
+            <Option value="time">更新时间</Option>
           </Select>,
           <Button
             key="view"
@@ -311,7 +397,14 @@ function ProjectPage() {
 
             <Descriptions column={2} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', color: '#334155' }}>
               <Descriptions.Item label="项目类型" span={1}>{detailRecord.type}</Descriptions.Item>
-              <Descriptions.Item label="预计完成" span={1}>{detailRecord.due_date || '-'}</Descriptions.Item>
+              <Descriptions.Item label="预计完成" span={1}>
+                {detailRecord.due_date || '-'}
+                {detailRecord.days_until_due !== undefined && (
+                  <Tag color={detailRecord.days_until_due < 0 ? 'error' : detailRecord.days_until_due <= 3 ? 'warning' : 'default'} style={{ marginLeft: 8, fontSize: 11 }}>
+                    {detailRecord.days_until_due < 0 ? `逾期${Math.abs(detailRecord.days_until_due)}天` : detailRecord.days_until_due === 0 ? '今天到期' : `剩${detailRecord.days_until_due}天`}
+                  </Tag>
+                )}
+              </Descriptions.Item>
               <Descriptions.Item label="工作目标" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div>
               </Descriptions.Item>
@@ -332,6 +425,18 @@ function ProjectPage() {
                 <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#DC2626' : '#9CA3AF' }}>
                   {detailRecord.risk_desc || '无'}
                 </div>
+              </Descriptions.Item>
+              {/* 闭环信息行 */}
+              <Descriptions.Item label="上次更新" span={1}>
+                <span style={{ fontSize: 12, color: '#6B7280' }}>{detailRecord.updated_at ? moment(detailRecord.updated_at).fromNow() : '-'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="状态标记" span={1}>
+                <span>
+                  {detailRecord.is_risk && <Tag color="error" style={{ marginRight: 4 }}>🔴 风险</Tag>}
+                  {detailRecord.is_due_soon && <Tag color="warning" style={{ marginRight: 4 }}>⏰ 临期</Tag>}
+                  {detailRecord.severe_warning && <Tag color="error">⚠ 严重预警</Tag>}
+                  {!detailRecord.is_risk && !detailRecord.is_due_soon && !detailRecord.severe_warning && <Tag>正常</Tag>}
+                </span>
               </Descriptions.Item>
             </Descriptions>
           </div>
@@ -404,6 +509,35 @@ function ProjectPage() {
           <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={3} /></Form.Item>
         </Form>
       </Modal>
+
+      {/* 快速更新本周进展抽屉 */}
+      <Drawer
+        title={quickUpdateItem ? `快速更新：${quickUpdateItem.name}` : '快速更新'}
+        open={quickUpdateVisible}
+        onClose={() => { setQuickUpdateVisible(false); setQuickUpdateItem(null); setQuickWeeklyProgress(''); }}
+        width={480}
+        extra={<Button type="primary" onClick={handleQuickUpdate}>保存</Button>}
+      >
+        {quickUpdateItem && (
+          <div>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+              <Tag color={getStatusStyle(quickUpdateItem.status).tag}>{quickUpdateItem.status}</Tag>
+              <Tag>{quickUpdateItem.Department?.name}</Tag>
+              <span className="subtle-text">{quickUpdateItem.owner_name}</span>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <Progress percent={quickUpdateItem.progress_pct} strokeColor={getProgressColor(quickUpdateItem.progress_pct)} />
+            </div>
+            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>本周进展</div>
+            <TextArea
+              rows={4}
+              value={quickWeeklyProgress}
+              onChange={(e) => setQuickWeeklyProgress(e.target.value)}
+              placeholder="输入本周进展..."
+            />
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

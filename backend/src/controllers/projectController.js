@@ -15,7 +15,7 @@ function getOperator(req) {
  */
 async function getProjects(req, res) {
   try {
-    const { quarter, status, dept_id, search } = req.query;
+    const { quarter, status, dept_id, search, sort } = req.query;
     const where = {};
 
     if (quarter) where.quarter = quarter;
@@ -29,10 +29,14 @@ async function getProjects(req, res) {
       ];
     }
 
+    const order = sort === 'priority'
+      ? [['status', 'ASC'], ['progress_pct', 'ASC'], ['updated_at', 'DESC']]
+      : [['updated_at', 'DESC']];
+
     const projects = await Project.findAll({
       where,
       include: [{ model: Department, attributes: ['id', 'name'] }],
-      order: [['updated_at', 'DESC']]
+      order
     });
 
     // 添加预警标记
@@ -50,6 +54,19 @@ async function getProjects(req, res) {
       }
       return data;
     });
+
+    // 管理优先级排序：风险 > 临期 > 低进度 > 其他
+    if (sort === 'priority') {
+      result.sort((a, b) => {
+        const getPriority = (p) => {
+          if (p.is_risk) return 0;
+          if (p.is_due_soon) return 1;
+          if (p.severe_warning) return 2;
+          return 3;
+        };
+        return getPriority(a) - getPriority(b);
+      });
+    }
 
     success(res, result);
   } catch (err) {
@@ -187,4 +204,70 @@ async function getProjectStats(req, res) {
   }
 }
 
-module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats };
+/**
+ * 获取超N天未更新的项目
+ * GET /api/projects/stale?days=3
+ */
+async function getStaleProjects(req, res) {
+  try {
+    const days = parseInt(req.query.days) || 3;
+    const staleDate = moment().subtract(days, 'days').toDate();
+    const where = {
+      updated_at: { [Op.lt]: staleDate },
+      status: { [Op.ne]: '完成' }
+    };
+    if (req.deptFilter) where.dept_id = req.deptFilter;
+
+    const projects = await Project.findAll({
+      where,
+      include: [{ model: Department, attributes: ['name'] }],
+      order: [['updated_at', 'ASC']]
+    });
+
+    success(res, projects.map(p => ({
+      ...p.toJSON(),
+      days_since_update: moment().diff(moment(p.updated_at), 'days')
+    })));
+  } catch (err) {
+    console.error('获取待更新项目失败:', err);
+    error(res, '获取待更新项目失败', 1, 500);
+  }
+}
+
+/**
+ * 快速更新项目（仅更新进度/状态/进展）
+ * PUT /api/projects/:id/quick-update
+ */
+async function quickUpdateProject(req, res) {
+  try {
+    const { id } = req.params;
+    const project = await Project.findByPk(id);
+
+    if (!project) {
+      return error(res, '项目不存在');
+    }
+
+    if (req.deptFilter && req.deptFilter !== project.dept_id) {
+      return error(res, '无权修改其他部门数据', 403, 403);
+    }
+
+    const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
+    if (isBlocked) return;
+
+    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'risk_desc'];
+    const updateData = {};
+    allowedFields.forEach(f => {
+      if (req.body[f] !== undefined) updateData[f] = req.body[f];
+    });
+
+    const oldValues = project.toJSON();
+    await project.update(updateData);
+    await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
+    success(res, project, '快速更新成功');
+  } catch (err) {
+    console.error('快速更新项目失败:', err);
+    error(res, '快速更新项目失败', 1, 500);
+  }
+}
+
+module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats, getStaleProjects, quickUpdateProject };

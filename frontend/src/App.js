@@ -4,11 +4,13 @@ import { AuthProvider } from './hooks/useAuth';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import WeekPage from './pages/WeekPage';
 import KpiPage from './pages/KpiPage';
 import ProjectPage from './pages/ProjectPage';
 import PerformancePage from './pages/PerformancePage';
 import MonthlyTaskPage from './pages/MonthlyTaskPage';
 import AchievementPage from './pages/AchievementPage';
+import SettlementPage from './pages/SettlementPage';
 import WeeklyReportPage from './pages/WeeklyReportPage';
 import DataEntryPage from './pages/DataEntryPage';
 import UserPage from './pages/UserPage';
@@ -24,11 +26,13 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<DashboardPage />} />
+            <Route path="week" element={<WeekPage />} />
             <Route path="kpis" element={<KpiPage />} />
             <Route path="projects" element={<ProjectPage />} />
             <Route path="performances" element={<PerformancePage />} />
             <Route path="monthly-tasks" element={<MonthlyTaskPage />} />
             <Route path="achievements" element={<AchievementPage />} />
+            <Route path="settlement" element={<SettlementPage />} />
             <Route path="weekly-reports" element={<WeeklyReportPage />} />
             <Route path="data-entry" element={<DataEntryPage />} />
             <Route path="users" element={<UserPage />} />

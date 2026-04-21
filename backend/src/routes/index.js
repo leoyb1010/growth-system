@@ -47,8 +47,10 @@ router.delete('/kpis/:id', authenticate, requireAdmin, kpiController.deleteKpi);
 // ==================== B表：重点工作 ====================
 router.get('/projects', authenticate, requireDeptAccess, projectController.getProjects);
 router.get('/projects/dashboard', authenticate, projectController.getProjectStats);
+router.get('/projects/stale', authenticate, requireDeptAccess, projectController.getStaleProjects);
 router.post('/projects', authenticate, requireDeptAccess, projectController.createProject);
 router.put('/projects/:id', authenticate, requireDeptAccess, projectController.updateProject);
+router.put('/projects/:id/quick-update', authenticate, requireDeptAccess, projectController.quickUpdateProject);
 router.delete('/projects/:id', authenticate, requireAdmin, projectController.deleteProject);
 
 // ==================== C表：业务线业绩 ====================
@@ -72,6 +74,9 @@ router.delete('/achievements/:id', authenticate, requireAdmin, achievementContro
 
 // ==================== 仪表盘 ====================
 router.get('/dashboard', authenticate, dashboardController.getDashboard);
+router.get('/dashboard/today-changes', authenticate, dashboardController.getTodayChanges);
+router.get('/dashboard/week-focus', authenticate, dashboardController.getWeekFocus);
+router.get('/dashboard/week-summary', authenticate, dashboardController.getWeekSummary);
 
 // ==================== 周报 ====================
 router.post('/weekly-reports/generate', authenticate, weeklyReportController.generateReport);

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Table } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { api, useAuth } from '../hooks/useAuth';
+import PageHeader from '../components/ui/PageHeader';
+import PanelCard from '../components/ui/PanelCard';
 
 const { Option } = Select;
 
@@ -19,8 +21,9 @@ function KpiPage() {
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
   const [filters, setFilters] = useState({ quarter: currentQuarter, year: now.getFullYear() });
+  const [performances, setPerformances] = useState([]);
 
-  useEffect(() => { fetchData(); }, [filters]);
+  useEffect(() => { fetchData(); fetchPerformances(); }, [filters]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,6 +35,13 @@ function KpiPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPerformances = async () => {
+    try {
+      const res = await api.get('/performances');
+      if (res.code === 0) setPerformances(res.data);
+    } catch (err) { /* 静默处理 */ }
   };
 
   const handleSubmit = async (values) => {
@@ -332,6 +342,42 @@ function KpiPage() {
               );
             })}
           </Row>
+        </>
+      )}
+
+      {/* 业务线业绩区块 */}
+      {performances.length > 0 && (
+        <>
+          <div style={{ marginTop: 24, marginBottom: 12, fontSize: 15, fontWeight: 600, color: '#262626' }}>
+            业务线业绩
+          </div>
+          <PanelCard>
+            <Table
+              dataSource={performances}
+              rowKey="id"
+              size="small"
+              pagination={false}
+              columns={[
+                { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 80 },
+                { title: '业务类型', dataIndex: 'business_type', key: 'biz', width: 120 },
+                { title: '指标', dataIndex: 'indicator', key: 'indicator', width: 80 },
+                { title: '预警', dataIndex: 'warning_status', key: 'warning', width: 70, render: (s) => <Tag color={s === '正常' ? 'success' : s === '预警' ? 'warning' : 'error'}>{s}</Tag> },
+                { title: 'Q1目标', dataIndex: 'q1_target', key: 'q1t', width: 80, render: v => Number(v).toLocaleString() },
+                { title: 'Q1实际', dataIndex: 'q1_actual', key: 'q1a', width: 80, render: v => Number(v).toLocaleString() },
+                { title: 'Q2目标', dataIndex: 'q2_target', key: 'q2t', width: 80, render: v => Number(v).toLocaleString() },
+                { title: 'Q2实际', dataIndex: 'q2_actual', key: 'q2a', width: 80, render: v => Number(v).toLocaleString() },
+                {
+                  title: '年度完成率', key: 'rate', width: 120,
+                  render: (_, r) => {
+                    const totalTarget = parseFloat(r.q1_target) + parseFloat(r.q2_target) + parseFloat(r.q3_target) + parseFloat(r.q4_target);
+                    const totalActual = parseFloat(r.q1_actual) + parseFloat(r.q2_actual) + parseFloat(r.q3_actual) + parseFloat(r.q4_actual);
+                    const rate = totalTarget > 0 ? (totalActual / totalTarget * 100).toFixed(1) : 0;
+                    return <Progress percent={Math.min(parseFloat(rate), 100)} strokeColor={getCompletionColor(parseFloat(rate))} size="small" format={() => `${rate}%`} />;
+                  }
+                },
+              ]}
+            />
+          </PanelCard>
         </>
       )}
 

@@ -3,8 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
-const { sequelize } = require('./models');
+const { sequelize, Department, User } = require('./models');
 const routes = require('./routes');
 const { initCronJobs } = require('./services/cronService');
 
@@ -54,6 +55,35 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 种子数据初始化
+async function seedDatabase() {
+  try {
+    // 部门种子数据
+    const deptCount = await Department.count();
+    if (deptCount === 0) {
+      await Department.bulkCreate([
+        { id: 1, name: '拓展组' },
+        { id: 2, name: '运营组' },
+      ]);
+      console.log('种子数据：已插入 2 个部门');
+    }
+
+    // 用户种子数据
+    const userCount = await User.count();
+    if (userCount === 0) {
+      const defaultHash = await bcrypt.hash('123456', 10);
+      await User.bulkCreate([
+        { id: 1, username: 'admin', name: '管理员', role: 'admin', dept_id: null, password_hash: defaultHash },
+        { id: 2, username: 'expand', name: '拓展组账号', role: 'dept', dept_id: 1, password_hash: defaultHash },
+        { id: 3, username: 'ops', name: '运营组账号', role: 'dept', dept_id: 2, password_hash: defaultHash },
+      ]);
+      console.log('种子数据：已插入 3 个默认用户（密码均为 123456）');
+    }
+  } catch (err) {
+    console.error('种子数据初始化失败:', err.message);
+  }
+}
+
 // 数据库连接并启动服务
 async function startServer() {
   try {
@@ -61,10 +91,16 @@ async function startServer() {
     console.log('数据库连接成功');
 
     // 同步模型（开发环境自动建表，生产环境建议用迁移）
+    const dialect = process.env.DB_DIALECT || 'postgres';
     if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync({ alter: true });
+      // SQLite 不支持 alter: true（外键约束会导致重建失败），用 force: false 只创建不存在的表
+      const syncOptions = dialect === 'sqlite' ? { force: false } : { alter: true };
+      await sequelize.sync(syncOptions);
       console.log('数据库模型同步完成');
     }
+
+    // 种子数据：确保部门和初始用户存在
+    await seedDatabase();
 
     // 启动定时任务
     initCronJobs();
