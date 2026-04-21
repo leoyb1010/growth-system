@@ -2,6 +2,21 @@
 
 > 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
 
+## 系统截图
+
+<table>
+  <tr>
+    <td align="center"><b>管理驾驶舱</b></td>
+    <td align="center"><b>周管理</b></td>
+    <td align="center"><b>重点工作</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-dashboard.png" alt="管理驾驶舱" width="400" /></td>
+    <td><img src="docs/screenshot-week.png" alt="周管理" width="400" /></td>
+    <td><img src="docs/screenshot-projects.png" alt="重点工作" width="400" /></td>
+  </tr>
+</table>
+
 ## 技术栈
 
 - **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
