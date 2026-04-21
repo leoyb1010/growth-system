@@ -6,7 +6,6 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import KpiPage from './pages/KpiPage';
 import ProjectPage from './pages/ProjectPage';
-import NextWeekFocusPage from './pages/NextWeekFocusPage';
 import PerformancePage from './pages/PerformancePage';
 import MonthlyTaskPage from './pages/MonthlyTaskPage';
 import AchievementPage from './pages/AchievementPage';
@@ -27,7 +26,6 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="kpis" element={<KpiPage />} />
             <Route path="projects" element={<ProjectPage />} />
-            <Route path="next-week-focus" element={<NextWeekFocusPage />} />
             <Route path="performances" element={<PerformancePage />} />
             <Route path="monthly-tasks" element={<MonthlyTaskPage />} />
             <Route path="achievements" element={<AchievementPage />} />

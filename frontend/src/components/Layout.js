@@ -14,8 +14,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   HistoryOutlined,
-  FormOutlined,
-  ThunderboltOutlined
+  FormOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 
@@ -32,7 +31,6 @@ function AppLayout() {
     { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '核心指标' },
     { key: '/projects', icon: <ProjectOutlined />, label: '重点工作' },
-    { key: '/next-week-focus', icon: <ThunderboltOutlined />, label: '下周重点' },
     { key: '/performances', icon: <TrophyOutlined />, label: '业务线业绩' },
     { key: '/monthly-tasks', icon: <CalendarOutlined />, label: '月度工作' },
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },

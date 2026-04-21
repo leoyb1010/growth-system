@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 
@@ -15,6 +15,7 @@ function ProjectPage() {
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [viewMode, setViewMode] = useState('card');
+  const [activeTab, setActiveTab] = useState('current');
   const [form] = Form.useForm();
   const { isAdmin, user } = useAuth();
 
@@ -22,12 +23,26 @@ function ProjectPage() {
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
   const [filters, setFilters] = useState({ quarter: currentQuarter });
 
-  useEffect(() => { fetchData(); }, [filters]);
+  // 下周日期范围
+  const getNextWeekRange = () => {
+    const today = moment();
+    const dayOfWeek = today.isoWeekday();
+    const nextMonday = today.clone().add(8 - dayOfWeek, 'days');
+    const nextSunday = nextMonday.clone().add(6, 'days');
+    return { start: nextMonday.format('YYYY-MM-DD'), end: nextSunday.format('YYYY-MM-DD') };
+  };
+  const nextWeek = getNextWeekRange();
+
+  useEffect(() => { fetchData(); }, [filters, activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/projects', { params: filters });
+      const params = { ...filters };
+      if (activeTab === 'nextweek') {
+        params.type = '下周重点';
+      }
+      const res = await api.get('/projects', { params });
       if (res.code === 0) setData(res.data);
     } catch (err) {
       message.error('获取数据失败');
@@ -38,7 +53,12 @@ function ProjectPage() {
 
   const handleSubmit = async (values) => {
     try {
-      const payload = { ...values, due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : null };
+      const isNextWeek = activeTab === 'nextweek';
+      const payload = {
+        ...values,
+        due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
+        ...(isNextWeek && !editingRecord ? { type: '下周重点', status: values.status || '进行中', progress_pct: values.progress_pct || 0 } : {}),
+      };
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);
         message.success('更新成功');
@@ -93,71 +113,89 @@ function ProjectPage() {
     return '#ff4d4f';
   };
 
+  const isNextWeek = activeTab === 'nextweek';
+
   // ===== 卡片视图 =====
   const renderCardView = () => (
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
-        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#bfbfbf' }}>暂无数据</div></Col>
-      )}
-      {data.map(item => (
-        <Col xs={24} sm={12} lg={8} xl={6} key={item.id}>
-          <Card
-            hoverable
-            style={{ borderRadius: 12, borderLeft: `4px solid ${item.status === '风险' ? '#ff4d4f' : item.status === '完成' ? '#52c41a' : item.status === '进行中' ? '#1677ff' : '#d9d9d9'}` }}
-            bodyStyle={{ padding: 20 }}
-            actions={[
-              <EyeOutlined key="view" onClick={() => showDetail(item)} />,
-              ...(isAdmin ? [
-                <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <DeleteOutlined key="del" style={{ color: '#ff4d4f' }} onClick={() => handleDelete(item.id)} />
-              ] : [])
-            ]}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <div style={{ flex: 1, marginRight: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#262626', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                <div style={{ fontSize: 12, color: '#8c8c8c' }}>{item.type}</div>
-              </div>
-              <Tag color={getStatusColor(item.status)}>{item.status}</Tag>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <Tag style={{ margin: 0 }}>{item.Department?.name || '-'}</Tag>
-              <Tag style={{ margin: 0 }}>{item.owner_name || '-'}</Tag>
-              {item.is_risk && <Tag color="error" style={{ margin: 0 }}><WarningOutlined /> 风险</Tag>}
-            </div>
-
-            <Progress
-              percent={item.progress_pct}
-              strokeColor={getProgressColor(item.progress_pct)}
-              size="small"
-              style={{ marginBottom: 8 }}
-            />
-
-            {item.goal && (
-              <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                🎯 {item.goal}
-              </div>
-            )}
-
-            {item.due_date && (
-              <div style={{ fontSize: 11, color: '#bfbfbf', marginTop: 6 }}>
-                截止：{item.due_date}
-              </div>
-            )}
-          </Card>
+        <Col span={24}>
+          <div style={{ textAlign: 'center', padding: 60, color: '#bfbfbf' }}>
+            {isNextWeek ? <ThunderboltOutlined style={{ fontSize: 48, marginBottom: 16, display: 'block' }} /> : null}
+            {isNextWeek ? '暂无下周重点工作，点击右上角录入' : '暂无数据'}
+          </div>
         </Col>
-      ))}
+      )}
+      {data.map(item => {
+        const borderColor = item.status === '风险' ? '#ff4d4f' : item.status === '完成' ? '#52c41a' : item.status === '进行中' ? '#1677ff' : '#d9d9d9';
+        return (
+          <Col xs={24} sm={12} lg={8} xl={6} key={item.id}>
+            <Card
+              hoverable
+              style={{ borderRadius: 12, borderLeft: `4px solid ${borderColor}`, height: '100%' }}
+              bodyStyle={{ padding: 20 }}
+              actions={[
+                <EyeOutlined key="view" onClick={() => showDetail(item)} />,
+                ...(isAdmin ? [
+                  <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
+                  <DeleteOutlined key="del" style={{ color: '#ff4d4f' }} onClick={() => handleDelete(item.id)} />
+                ] : [])
+              ]}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div style={{ flex: 1, marginRight: 8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#262626', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                  <div style={{ fontSize: 12, color: '#8c8c8c' }}>{item.type}</div>
+                </div>
+                <Tag color={getStatusColor(item.status)}>{item.status}</Tag>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <Tag style={{ margin: 0 }}>{item.Department?.name || '-'}</Tag>
+                <Tag style={{ margin: 0 }}>{item.owner_name || '-'}</Tag>
+                {item.is_risk && <Tag color="error" style={{ margin: 0 }}><WarningOutlined /> 风险</Tag>}
+              </div>
+
+              {!isNextWeek && (
+                <Progress
+                  percent={item.progress_pct}
+                  strokeColor={getProgressColor(item.progress_pct)}
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                />
+              )}
+
+              {item.goal && (
+                <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  🎯 {item.goal}
+                </div>
+              )}
+
+              {item.weekly_progress && isNextWeek && (
+                <div style={{ background: '#f6f8fa', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#595959', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  💡 {item.weekly_progress}
+                </div>
+              )}
+
+              {item.due_date && (
+                <div style={{ fontSize: 11, color: '#bfbfbf', marginTop: 6 }}>
+                  截止：{item.due_date}
+                </div>
+              )}
+            </Card>
+          </Col>
+        );
+      })}
     </Row>
   );
 
   // ===== 表格视图 =====
   const columns = [
     { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 90 },
-    { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
+    ...(isNextWeek ? [] : [{ title: '类型', dataIndex: 'type', key: 'type', width: 110 }]),
     { title: '项目名称', dataIndex: 'name', key: 'name', width: 180 },
     { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
-    { title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct, r) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> },
+    ...(isNextWeek ? [] : [{ title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> }]),
     { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s) => <Tag color={getStatusColor(s)}>{s}</Tag> },
     { title: '截止', dataIndex: 'due_date', key: 'due', width: 100 },
     {
@@ -187,12 +225,43 @@ function ProjectPage() {
             {viewMode === 'card' ? '列表' : '卡片'}
           </Button>
           {isAdmin && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
-              新增项目
+            <Button type="primary" icon={isNextWeek ? <ThunderboltOutlined /> : <PlusOutlined />} onClick={() => {
+              setEditingRecord(null);
+              form.resetFields();
+              if (isNextWeek) {
+                form.setFieldsValue({ dept_id: 1, status: '进行中', progress_pct: 0, quarter: currentQuarter });
+              }
+              setModalVisible(true);
+            }}>
+              {isNextWeek ? '录入下周重点' : '新增项目'}
             </Button>
           )}
         </div>
       </div>
+
+      {/* Tab 切换 */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key)}
+        style={{ marginBottom: 8 }}
+        items={[
+          {
+            key: 'current',
+            label: '📋 本周重点',
+          },
+          {
+            key: 'nextweek',
+            label: (
+              <span>
+                <ThunderboltOutlined /> 下周重点
+                <span style={{ fontSize: 11, color: '#8c8c8c', marginLeft: 6 }}>
+                  {nextWeek.start} ~ {nextWeek.end}
+                </span>
+              </span>
+            ),
+          },
+        ]}
+      />
 
       {viewMode === 'card' ? renderCardView() : (
         <Card style={{ borderRadius: 12 }}>
@@ -236,7 +305,9 @@ function ProjectPage() {
               <span style={{ color: '#8c8c8c' }}>{detailRecord.owner_name}</span>
             </div>
 
-            <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
+            {!isNextWeek && (
+              <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
+            )}
 
             <Descriptions column={2} bordered size="small" labelStyle={{ fontWeight: 600, background: '#fafafa' }}>
               <Descriptions.Item label="项目类型" span={1}>{detailRecord.type}</Descriptions.Item>
@@ -244,15 +315,19 @@ function ProjectPage() {
               <Descriptions.Item label="工作目标" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div>
               </Descriptions.Item>
-              <Descriptions.Item label="本周进展" span={2}>
+              <Descriptions.Item label={isNextWeek ? '计划/进展' : '本周进展'} span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
               </Descriptions.Item>
-              <Descriptions.Item label="本月累计" span={2}>
-                <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.monthly_progress || '-'}</div>
-              </Descriptions.Item>
-              <Descriptions.Item label="本季进展" span={2}>
-                <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.quarterly_progress || '-'}</div>
-              </Descriptions.Item>
+              {!isNextWeek && (
+                <>
+                  <Descriptions.Item label="本月累计" span={2}>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.monthly_progress || '-'}</div>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="本季进展" span={2}>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.quarterly_progress || '-'}</div>
+                  </Descriptions.Item>
+                </>
+              )}
               <Descriptions.Item label="风险与问题" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#cf1322' : '#8c8c8c' }}>
                   {detailRecord.risk_desc || '无'}
@@ -265,7 +340,7 @@ function ProjectPage() {
 
       {/* 编辑弹窗 */}
       <Modal
-        title={editingRecord ? '编辑项目' : '新增项目'}
+        title={editingRecord ? '编辑项目' : (isNextWeek ? '录入下周重点工作' : '新增项目')}
         open={modalVisible}
         onOk={() => form.submit()}
         onCancel={() => { setModalVisible(false); setEditingRecord(null); }}
@@ -284,37 +359,49 @@ function ProjectPage() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="type" label="项目类型" rules={[{ required: true }]}>
-            <Input placeholder="如：新客拓展、渠道合作" />
-          </Form.Item>
-          <Form.Item name="name" label="项目名称" rules={[{ required: true }]}>
-            <Input />
+          {!isNextWeek && (
+            <Form.Item name="type" label="项目类型" rules={[{ required: true }]}>
+              <Input placeholder="如：新客拓展、渠道合作" />
+            </Form.Item>
+          )}
+          <Form.Item name="name" label={isNextWeek ? '工作名称' : '项目名称'} rules={[{ required: true }]}>
+            <Input placeholder={isNextWeek ? '下周重点推进的工作' : '项目名称'} />
           </Form.Item>
           <Form.Item name="owner_name" label="负责人" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="goal" label="工作目标"><TextArea rows={4} /></Form.Item>
-          <Form.Item name="weekly_progress" label="本周进展"><TextArea rows={4} /></Form.Item>
-          <Form.Item name="monthly_progress" label="本月累计"><TextArea rows={4} /></Form.Item>
-          <Form.Item name="quarterly_progress" label="本季进展"><TextArea rows={4} /></Form.Item>
+          <Form.Item name="goal" label="工作目标"><TextArea rows={3} placeholder="预期达成的目标" /></Form.Item>
+          <Form.Item name="weekly_progress" label={isNextWeek ? '当前进展/计划' : '本周进展'}>
+            <TextArea rows={3} placeholder={isNextWeek ? '当前进展或下周具体计划' : '本周进展'} />
+          </Form.Item>
+          {!isNextWeek && (
+            <>
+              <Form.Item name="monthly_progress" label="本月累计"><TextArea rows={3} /></Form.Item>
+              <Form.Item name="quarterly_progress" label="本季进展"><TextArea rows={3} /></Form.Item>
+            </>
+          )}
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="progress_pct" label="进度%" rules={[{ required: true }]} initialValue={0}>
+              <Form.Item name="progress_pct" label="进度%" initialValue={0}>
                 <InputNumber min={0} max={100} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="status" label="状态" rules={[{ required: true }]} initialValue="未启动">
+              <Form.Item name="status" label="状态" initialValue="进行中">
                 <Select><Option value="未启动">未启动</Option><Option value="进行中">进行中</Option><Option value="风险">风险</Option><Option value="完成">完成</Option></Select>
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="due_date" label="预计完成时间">
-                <DatePicker style={{ width: '100%' }} />
+                {isNextWeek ? (
+                  <Input disabled value={nextWeek.end} />
+                ) : (
+                  <Input disabled value="" />
+                )}
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={4} /></Form.Item>
+          <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={3} /></Form.Item>
         </Form>
       </Modal>
     </div>
