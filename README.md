@@ -1,0 +1,311 @@
+# 增长组业务管理系统
+
+> 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
+
+## 技术栈
+
+- **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
+- **后端**：Node.js + Express 4 + Sequelize ORM
+- **数据库**：PostgreSQL 14+
+- **认证**：JWT + bcrypt
+- **部署**：Docker + Docker Compose
+
+## 快速开始
+
+### 方式一：Docker 一键部署（推荐）
+
+```bash
+# 1. 克隆项目
+cd growth-system
+
+# 2. 启动所有服务（PostgreSQL + 后端 + 前端 Nginx）
+docker-compose up -d
+
+# 3. 查看服务状态
+docker-compose ps
+
+# 4. 访问系统
+# 前端：http://localhost
+# 后端 API：http://localhost:3001
+# 健康检查：http://localhost:3001/health
+```
+
+### 方式二：本地开发
+
+#### 后端启动
+
+```bash
+cd backend
+
+# 安装依赖
+npm install
+
+# 配置环境变量（可选，默认连接本地 PostgreSQL）
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=growth_system
+export DB_USER=growth
+export DB_PASSWORD=growth123
+export JWT_SECRET=growth-secret-key-2026
+export JWT_EXPIRES_IN=7d
+
+# 启动开发服务器
+npm run dev
+```
+
+#### 前端启动
+
+```bash
+cd frontend
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm start
+
+# 访问 http://localhost:3000
+```
+
+#### 数据库初始化
+
+系统首次启动时会自动同步表结构。如需手动初始化数据：
+
+```bash
+# 连接 PostgreSQL 后执行 init.sql
+psql -U growth -d growth_system -f backend/init.sql
+```
+
+## 测试账号
+
+| 账号 | 密码 | 角色 | 权限 |
+|------|------|------|------|
+| admin | 123456 | 管理员 | 全量数据读写、用户管理、系统配置 |
+| expand | 123456 | 部门账号 | 仅可录入/修改拓展组数据 |
+| ops | 123456 | 部门账号 | 仅可录入/修改运营组数据 |
+
+## 项目结构
+
+```
+growth-system/
+├── docker-compose.yml          # Docker 编排配置
+├── backend/                    # 后端服务
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── init.sql               # 数据库初始化脚本
+│   ├── config/
+│   │   └── database.js        # 数据库配置
+│   └── src/
+│       ├── app.js             # 应用入口
+│       ├── routes/            # 路由配置
+│       ├── models/            # Sequelize 数据模型
+│       ├── controllers/       # 业务控制器
+│       ├── services/          # 业务服务（周报生成、定时任务）
+│       ├── middleware/        # 中间件（认证、权限）
+│       └── utils/             # 工具函数
+├── frontend/                   # 前端应用
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── nginx.conf             # Nginx 配置
+│   └── src/
+│       ├── App.js             # 路由配置
+│       ├── index.js           # 入口文件
+│       ├── hooks/             # 自定义 Hooks（useAuth）
+│       ├── components/        # 公共组件
+│       └── pages/             # 页面组件
+│           ├── DashboardPage.js      # 仪表盘
+│           ├── KpiPage.js            # 核心指标
+│           ├── ProjectPage.js        # 重点工作
+│           ├── PerformancePage.js    # 业务线业绩
+│           ├── MonthlyTaskPage.js    # 月度工作
+│           ├── AchievementPage.js    # 季度成果
+│           ├── WeeklyReportPage.js   # 周报管理
+│           ├── ImportPage.js         # 数据导入
+│           └── UserPage.js           # 用户管理
+└── README.md
+```
+
+## 核心功能
+
+### 1. 五大业务模块
+
+| 模块 | 对应表 | 核心功能 |
+|------|--------|----------|
+| A - 核心指标 | kpis | 按部门×季度管理 GMV/净利润，后端硬计算完成率 |
+| B - 重点工作 | projects | 项目追踪、进度可视化、风险标红、严重预警 |
+| C - 业务线业绩 | performances | Q1-Q4 目标/完成追踪、后端硬计算预警状态 |
+| D - 月度工作 | monthly_tasks | 按月筛选、完成度追踪、下月跟进 |
+| E - 季度成果 | achievements | 成果沉淀、跨季度复用、优先级筛选 |
+
+### 2. 可视化仪表盘
+
+- **KPI 卡片**：当前季度两部门 GMV 完成率、净利润完成率、风险项目数
+- **图表区**：季度指标对比柱状图、工作状态分布饼图、预警状态分布柱状图
+- **列表区**：最近更新项目 Top 10、即将到期项目（7天内）
+
+### 3. 智能周报生成
+
+**触发方式**：
+- 手动：仪表盘点击"生成周报"按钮
+- 自动：每周五 18:00 自动生成周报草稿（node-cron）
+
+**周报内容**：
+1. 本周数据摘要（KPI 完成率对比）
+2. 重点工作进展（本周更新项目清单）
+3. 风险与预警（风险项目 + 严重预警指标）
+4. 下周焦点（即将到期项目 + 下月跟进事项）
+5. 新增成果（本周新增/更新成果记录）
+
+**输出格式**：
+- HTML 网页版：浏览器直接打开，支持打印
+- PNG 长图：宽度固定 1200px，高度自适应，适合手机查看/转发
+- PDF 文档：浏览器打印生成，带页眉页脚
+
+### 4. 数据导入导出
+
+- **Excel 导入**：支持从现有"部门追踪总表.xlsx"一键导入，自动识别 5 个 Sheet
+- **Excel 导出**：按模块导出数据，包含后端计算的完成率和预警状态
+- **PDF 导出**：按季度导出周报 PDF
+
+## API 文档
+
+### 认证
+- `POST /api/auth/login` - 登录
+- `GET /api/auth/me` - 获取当前用户
+- `POST /api/auth/change-password` - 修改密码
+
+### 用户管理（管理员）
+- `GET /api/users` - 用户列表
+- `POST /api/users` - 创建用户
+- `PUT /api/users/:id` - 更新用户
+- `DELETE /api/users/:id` - 删除用户
+
+### 核心指标
+- `GET /api/kpis?quarter=Q1&year=2026` - KPI 列表
+- `GET /api/kpis/dashboard` - 仪表盘 KPI 数据
+- `POST /api/kpis` - 创建 KPI
+- `PUT /api/kpis/:id` - 更新 KPI
+- `DELETE /api/kpis/:id` - 删除 KPI
+
+### 重点工作
+- `GET /api/projects?quarter=Q1&status=进行中` - 项目列表
+- `GET /api/projects/dashboard` - 项目统计
+- `POST /api/projects` - 创建项目
+- `PUT /api/projects/:id` - 更新项目
+- `DELETE /api/projects/:id` - 删除项目
+
+### 业务线业绩
+- `GET /api/performances` - 业绩列表
+- `GET /api/performances/dashboard` - 业绩统计
+- `POST /api/performances` - 创建业绩
+- `PUT /api/performances/:id` - 更新业绩
+- `DELETE /api/performances/:id` - 删除业绩
+
+### 月度工作
+- `GET /api/monthly-tasks?month=2026-04` - 月度工作列表
+- `POST /api/monthly-tasks` - 创建月度工作
+- `PUT /api/monthly-tasks/:id` - 更新月度工作
+- `DELETE /api/monthly-tasks/:id` - 删除月度工作
+
+### 季度成果
+- `GET /api/achievements?quarter=Q1&priority=高` - 成果列表
+- `POST /api/achievements` - 创建成果
+- `PUT /api/achievements/:id` - 更新成果
+- `DELETE /api/achievements/:id` - 删除成果
+
+### 仪表盘
+- `GET /api/dashboard` - 综合仪表盘数据
+
+### 周报
+- `POST /api/weekly-reports/generate` - 生成周报
+- `GET /api/weekly-reports` - 周报列表
+- `GET /api/weekly-reports/latest` - 最新周报
+- `GET /api/weekly-reports/:id` - 周报详情
+- `PUT /api/weekly-reports/:id/html` - 保存 HTML 内容
+- `PUT /api/weekly-reports/:id/files` - 保存文件链接
+
+### 导入导出
+- `POST /api/import/excel` - 导入 Excel（multipart/form-data）
+- `GET /api/export/:module` - 导出模块数据（module: kpis/projects/performances/monthly-tasks/achievements）
+
+### 统一响应格式
+
+```json
+{
+  "code": 0,      // 0=成功，非0=失败
+  "data": {},     // 响应数据
+  "message": ""   // 提示信息
+}
+```
+
+## 数据库表结构
+
+| 表名 | 说明 |
+|------|------|
+| departments | 部门表（拓展组、运营组） |
+| users | 用户表（管理员/部门账号） |
+| kpis | A表：核心指标 |
+| projects | B表：重点工作追踪 |
+| performances | C表：业务线业绩追踪 |
+| monthly_tasks | D表：月度重点工作 |
+| achievements | E表：季度成果沉淀 |
+| weekly_reports | 周报表 |
+| audit_logs | 审计日志 |
+
+## 部署到 Ubuntu 服务器
+
+```bash
+# 1. 将项目上传到服务器
+scp -r growth-system user@VM-1-48-ubuntu:/opt/
+
+# 2. 服务器上执行
+cd /opt/growth-system
+docker-compose up -d
+
+# 3. 查看日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 4. 更新部署
+docker-compose down
+git pull  # 或上传新版本
+docker-compose up -d --build
+```
+
+## 注意事项
+
+1. **生产环境部署前**：
+   - 修改 `JWT_SECRET` 为强密码
+   - 修改数据库密码
+   - 关闭 `sequelize.sync({ alter: true })`，改用迁移脚本
+   - 配置 HTTPS
+
+2. **数据备份**：
+   ```bash
+   # 备份数据库
+   docker exec growth-db pg_dump -U growth growth_system > backup.sql
+   
+   # 恢复数据库
+   docker exec -i growth-db psql -U growth growth_system < backup.sql
+   ```
+
+3. **周报 PNG 生成**：
+   - 使用 html-to-image 在前端生成，宽度固定 1200px
+   - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
+
+## 开发计划
+
+- [x] 五大业务模块 CRUD
+- [x] 可视化仪表盘
+- [x] 智能周报生成（手动 + 自动）
+- [x] Excel 导入导出
+- [x] 用户权限管理
+- [x] Docker 部署
+- [x] 季度归档功能
+- [x] 审计日志页面
+- [x] 数据版本对比
+- [x] 飞书/企业微信推送集成
+
+## License
+
+MIT
