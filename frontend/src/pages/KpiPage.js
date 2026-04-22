@@ -357,6 +357,7 @@ function KpiPage() {
               rowKey="id"
               size="small"
               pagination={false}
+              scroll={{ x: 'max-content' }}
               columns={[
                 { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 80 },
                 { title: '业务类型', dataIndex: 'business_type', key: 'biz', width: 120 },

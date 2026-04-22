@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid } from 'antd';
 import {
   DashboardOutlined,
   BarChartOutlined,
@@ -23,9 +23,13 @@ import {
 import { useAuth } from '../hooks/useAuth';
 
 const { Header, Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;          // < 768px 视为移动端
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,54 +72,107 @@ function AppLayout() {
       logout();
       navigate('/login');
     } else if (key.startsWith('/')) {
-      // 支持 ?entry= 参数的路由跳转
       const [path, search] = key.split('?');
       navigate(path + (search ? `?${search}` : ''));
     }
+    // 移动端关闭 Drawer
+    if (isMobile) setMobileMenuOpen(false);
   };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
-          <h3 style={{ margin: 0, fontSize: collapsed ? 11 : 14, color: '#1890ff', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center' }}>
-            {collapsed ? '有道' : '网易有道 X 增长部门管理系统'}
-          </h3>
-        </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 0 }}
-        />
-      </Sider>
-      <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
+      {/* ===== 桌面端侧边栏 ===== */}
+      {!isMobile && (
+        <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
+          <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
+            <h3 style={{ margin: 0, fontSize: collapsed ? 11 : 14, color: '#1890ff', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center' }}>
+              {collapsed ? '有道' : '网易有道 X 增长部门管理系统'}
+            </h3>
+          </div>
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems}
+            onClick={({ key }) => navigate(key)}
+            style={{ borderRight: 0 }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* 显性数据录入入口 — 始终可见，头像左侧 */}
+        </Sider>
+      )}
+
+      {/* ===== 移动端 Drawer 菜单 ===== */}
+      {isMobile && (
+        <Drawer
+          title="网易有道 X 增长部门"
+          placement="left"
+          onClose={() => setMobileMenuOpen(false)}
+          open={mobileMenuOpen}
+          width={220}
+          bodyStyle={{ padding: 0 }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems}
+            onClick={({ key }) => handleMenuClick({ key })}
+            style={{ borderRight: 0 }}
+          />
+        </Drawer>
+      )}
+
+      <Layout>
+        <Header style={{
+          background: '#fff',
+          padding: isMobile ? '0 12px' : '0 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* 移动端汉堡菜单 */}
+            {isMobile && (
+              <Button
+                type="text"
+                icon={<MenuUnfoldOutlined />}
+                onClick={() => setMobileMenuOpen(true)}
+              />
+            )}
+            {/* 桌面端折叠按钮 */}
+            {!isMobile && (
+              <Button
+                type="text"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+              />
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
+            {/* 数据录入入口 */}
             {isAdmin && (
               <Dropdown menu={{ items: dataEntryItems, onClick: handleMenuClick }} placement="bottomRight">
-                <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600 }}>
-                  数据录入
+                <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600, fontSize: isMobile ? 12 : 14, padding: isMobile ? '0 8px' : undefined }}>
+                  {isMobile ? '录入' : '数据录入'}
                 </Button>
               </Dropdown>
             )}
             <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
-              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Avatar icon={<UserOutlined />} />
-                <span>{user?.name}</span>
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8 }}>
+                <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
+                {!isMobile && <span>{user?.name}</span>}
                 <Badge status={user?.role === 'admin' ? 'error' : 'processing'} />
               </div>
             </Dropdown>
           </div>
         </Header>
-        <Content style={{ margin: 24, padding: 24, background: '#fff', borderRadius: 8, minHeight: 280 }}>
+
+        <Content style={{
+          margin: isMobile ? 8 : 24,
+          padding: isMobile ? 12 : 24,
+          background: '#fff',
+          borderRadius: 8,
+          minHeight: 280
+        }}>
           <Outlet />
         </Content>
       </Layout>

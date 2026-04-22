@@ -106,7 +106,7 @@ function ImportPage() {
       {result && (
         <Card title="导入结果">
           {result.sheets?.length > 0 ? (
-            <Table dataSource={result.sheets} columns={resultColumns} rowKey="name" pagination={false} />
+            <Table dataSource={result.sheets} columns={resultColumns} rowKey="name" pagination={false} scroll={{ x: 'max-content' }} />
           ) : (
             <Alert message="未导入任何数据" description="系统未识别到可导入的 Sheet，请检查文件中的 Sheet 名称是否包含对应关键词（如“核心指标”、“重点工作”等）" type="warning" showIcon />
           )}

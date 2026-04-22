@@ -466,7 +466,7 @@ th { background: #fafafa; font-weight: 600; }
         </Tabs.TabPane>
         <Tabs.TabPane tab="历史周报" key="history">
           <PanelCard>
-            <Table dataSource={reports} columns={reportColumns} rowKey="id" />
+            <Table dataSource={reports} columns={reportColumns} rowKey="id" scroll={{ x: 'max-content' }} />
           </PanelCard>
         </Tabs.TabPane>
       </Tabs>

@@ -318,6 +318,7 @@ function AchievementPage() {
           loading={archiveLoading}
           size="small"
           pagination={false}
+          scroll={{ x: 'max-content' }}
           columns={[
             { title: '归档名称', dataIndex: 'archive_name', key: 'name' },
             { title: '归档季度', dataIndex: 'quarter', key: 'quarter' },

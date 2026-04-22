@@ -135,6 +135,7 @@ function ArchivePage() {
           loading={loading}
           pagination={{ pageSize: 10 }}
           size="small"
+          scroll={{ x: 'max-content' }}
         />
       </Card>
 

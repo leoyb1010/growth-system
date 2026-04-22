@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined, FormOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined, FormOutlined, MoreOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
@@ -9,6 +9,8 @@ import { STATUS_COLORS, defaultStatusColor, getStatusStyle, getProgressColor } f
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+const { useBreakpoint } = Grid;
 
 function ProjectPage() {
   const [data, setData] = useState([]);
@@ -22,6 +24,8 @@ function ProjectPage() {
   const [sortMode, setSortMode] = useState('priority'); // priority | time
   const [form] = Form.useForm();
   const { isAdmin, user } = useAuth();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   // 就地更新状态
   const [editingProgressId, setEditingProgressId] = useState(null);
   const [editingProgressValue, setEditingProgressValue] = useState(0);
@@ -232,11 +236,20 @@ function ProjectPage() {
               style={{ borderLeft: `3px solid ${sc.border}`, height: '100%' }}
               bodyStyle={{ padding: 20 }}
               actions={[
-                <EyeOutlined key="view" onClick={() => showDetail(item)} />,
+                <Tooltip key="view" title="查看"><EyeOutlined onClick={() => showDetail(item)} /></Tooltip>,
                 ...(isAdmin ? [
                   <Tooltip key="today" title="今日更新"><FormOutlined onClick={() => openTodayUpdate(item)} /></Tooltip>,
-                  <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                  <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
+                  ...(isMobile ? [
+                    <Dropdown key="more" menu={{ items: [
+                      { key: 'edit', label: '编辑', icon: <EditOutlined />, onClick: () => handleEdit(item) },
+                      { key: 'del', label: '删除', icon: <DeleteOutlined style={{ color: '#DC2626' }} />, danger: true, onClick: () => handleDelete(item.id) }
+                    ] }}>
+                      <MoreOutlined />
+                    </Dropdown>
+                  ] : [
+                    <Tooltip key="edit" title="编辑"><EditOutlined onClick={() => handleEdit(item)} /></Tooltip>,
+                    <Tooltip key="del" title="删除"><DeleteOutlined style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} /></Tooltip>
+                  ])
                 ] : [])
               ]}
             >

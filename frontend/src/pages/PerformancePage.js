@@ -134,7 +134,7 @@ function PerformancePage() {
         columns={columns}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1600 }}
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

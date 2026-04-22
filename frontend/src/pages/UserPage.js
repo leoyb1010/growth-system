@@ -124,7 +124,7 @@ function UserPage() {
         </Button>
       </div>
 
-      <Table dataSource={users} columns={columns} rowKey="id" loading={loading} />
+      <Table dataSource={users} columns={columns} rowKey="id" loading={loading} scroll={{ x: 'max-content' }} />
 
       {/* 用户编辑/创建弹窗 */}
       <Modal

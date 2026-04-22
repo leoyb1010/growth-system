@@ -147,6 +147,7 @@ function AuditLogPage() {
           loading={loading}
           pagination={false}
           size="small"
+          scroll={{ x: 'max-content' }}
         />
         <Pagination
           style={{ marginTop: 16, textAlign: 'right' }}
