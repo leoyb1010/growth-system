@@ -23,6 +23,16 @@ async function getMonthlyTasks(req, res) {
     if (dept_id) where.dept_id = parseInt(dept_id);
     if (req.deptFilter) where.dept_id = req.deptFilter;
 
+    // self 范围：department_member 只能看自己负责或创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      const userId = req.dataScope.userId;
+      const userName = req.user?.name || req.user?.username;
+      where[Op.or] = [
+        { creator_id: userId },
+        { owner_name: userName }
+      ];
+    }
+
     const tasks = await MonthlyTask.findAll({
       where,
       include: [{ model: Department, attributes: ['id', 'name'] }],
@@ -59,7 +69,14 @@ async function createMonthlyTask(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
-    const task = await MonthlyTask.create(data);
+    // 字段白名单
+    const allowedFields = ['dept_id', 'project_id', 'month', 'owner_name', 'category', 'task', 'goal', 'actual_result', 'output', 'completion_rate', 'status', 'highlights', 'next_month_plan', 'quarter'];
+    const payload = {};
+    allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
+    payload.creator_id = req.user?.id || null;
+    payload.updater_id = req.user?.id || null;
+
+    const task = await MonthlyTask.create(payload);
     await logAudit('monthly_tasks', task.id, 'create', getOperator(req), null, task.toJSON());
     success(res, task, '月度工作创建成功');
   } catch (err) {
@@ -88,8 +105,14 @@ async function updateMonthlyTask(req, res) {
     const isBlocked = await checkArchived('monthly_tasks', task.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
+    // 字段白名单
+    const allowedFields = ['dept_id', 'project_id', 'month', 'owner_name', 'category', 'task', 'goal', 'actual_result', 'output', 'completion_rate', 'status', 'highlights', 'next_month_plan', 'quarter'];
+    const updateData = {};
+    allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+    updateData.updater_id = req.user?.id || null;
+
     const oldValues = task.toJSON();
-    await task.update(req.body);
+    await task.update(updateData);
     await logAudit('monthly_tasks', task.id, 'update', getOperator(req), oldValues, task.toJSON());
     success(res, task, '月度工作更新成功');
   } catch (err) {

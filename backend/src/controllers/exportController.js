@@ -16,6 +16,9 @@ async function exportModule(req, res) {
     if (quarter) where.quarter = quarter;
     if (dept_id) where.dept_id = parseInt(dept_id);
 
+    // 数据范围过滤：非 admin 只能导出自己部门的数据
+    if (req.deptFilter) where.dept_id = req.deptFilter;
+
     let data = [];
     let sheetName = '';
     let headers = [];

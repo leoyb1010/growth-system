@@ -14,7 +14,8 @@ async function globalSearch(req, res) {
       return success(res, []);
     }
     const keyword = q.trim();
-    const likeQuery = { [Op.iLike]: `%${keyword}%` };
+    // SQLite 不支持 ILIKE，使用 LIKE（SQLite 对 ASCII 默认大小写不敏感）
+    const likeQuery = { [Op.like]: `%${keyword}%` };
 
     const deptWhere = req.deptFilter ? { dept_id: req.deptFilter } : {};
 

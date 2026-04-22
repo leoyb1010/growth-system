@@ -23,11 +23,11 @@ INSERT INTO kpis (dept_id, quarter, year, indicator_name, target, actual, unit) 
 
 -- B表：重点工作示例数据（字段与 Project Model 严格对齐）
 -- 注意：不再有 monthly_progress 和 quarterly_progress 字段
-INSERT INTO projects (dept_id, type, name, owner_name, goal, weekly_progress, progress_pct, status, risk_desc, next_week_focus, due_date, quarter, creator_id, updater_id) VALUES
-  (1, '新客拓展', 'Q2新客增长项目', '张三', '新增1200个企业客户', '本周完成200个新客签约', 60, '进行中', '', '持续拓展重点客户', '2026-06-30', 'Q2', 2, 2),
-  (1, '渠道合作', '渠道伙伴招募', '李四', '签约60家渠道伙伴', '本周签约3家', 50, '进行中', '渠道反馈政策吸引力不足', '调整渠道政策方案', '2026-06-15', 'Q2', 2, 2),
-  (2, '用户运营', '用户留存提升', '王五', '月留存率提升至75%', '本周留存率72%', 70, '进行中', '', '推进留存策略优化', '2026-06-30', 'Q2', 3, 3),
-  (2, '活动策划', '夏季大促活动', '赵六', 'GMV目标600万', '活动方案已确认', 20, '风险', '活动预算审批延迟，可能影响上线时间', '跟进预算审批', '2026-06-20', 'Q2', 3, 3);
+INSERT INTO projects (dept_id, type, name, owner_name, goal, weekly_progress, progress_pct, status, risk_desc, next_week_focus, due_date, quarter, year, creator_id, updater_id) VALUES
+  (1, '新客拓展', 'Q2新客增长项目', '张三', '新增1200个企业客户', '本周完成200个新客签约', 60, '进行中', '', '持续拓展重点客户', '2026-06-30', 'Q2', 2026, 2, 2),
+  (1, '渠道合作', '渠道伙伴招募', '李四', '签约60家渠道伙伴', '本周签约3家', 50, '进行中', '渠道反馈政策吸引力不足', '调整渠道政策方案', '2026-06-15', 'Q2', 2026, 2, 2),
+  (2, '用户运营', '用户留存提升', '王五', '月留存率提升至75%', '本周留存率72%', 70, '进行中', '', '推进留存策略优化', '2026-06-30', 'Q2', 2026, 3, 3),
+  (2, '活动策划', '夏季大促活动', '赵六', 'GMV目标600万', '活动方案已确认', 20, '风险', '活动预算审批延迟，可能影响上线时间', '跟进预算审批', '2026-06-20', 'Q2', 2026, 3, 3);
 
 -- C表：业务线业绩示例数据
 INSERT INTO performances (dept_id, business_type, indicator, unit, q1_target, q1_actual, q2_target, q2_actual, q3_target, q3_actual, q4_target, q4_actual, total_target, total_actual, gap, warning_status) VALUES

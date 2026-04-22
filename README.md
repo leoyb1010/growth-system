@@ -361,6 +361,32 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v4.3.0 — 2026-04-22 · V4 上线加固收尾
+
+> 核心改动：SQLite 兼容修复、数据权限全量落地、字段白名单加固、前端 owner 自动填充。
+
+**P0 — SQLite 兼容修复**
+- Project 模型新增 `year` 字段，SQLite 同步 ALTER TABLE，解决 Dashboard 查询报错
+- 全仓库 `Op.iLike` → `Op.like`（SQLite 不支持 ILIKE），覆盖 searchController/projectController/achievementController
+- JSONB/ENUM 类型排查确认：Sequelize 自动映射，无兼容问题
+
+**P0 — 数据权限全量落地**
+- MonthlyTask/Achievement controller 新增 `self` 范围过滤（department_member 只能看自己负责/创建的）
+- Export controller 新增 `deptFilter` 过滤，防止越权导出全量数据
+- 6 个 controller（monthlyTask/achievement/performance/kpi/project/search）create/update 全部加字段白名单，禁止任意字段直传
+
+**P1 — 上线验收**
+- 14 项 API Smoke Test 全部通过（admin + dept 账号双验证）
+- README 运行说明真实性校验通过（3 个测试账号可登录、start.sh 可用、Docker 配置完整）
+- 周报部门隔离已验证（deptFilter 在 generate/get/filter 三处生效）
+
+**P1 — 高风险接口修复**
+- 前端项目创建自动填充 `owner_user_id`（从当前登录用户），确保后端角色过滤可匹配
+- Export 越权已修复（加 deptFilter）
+- 周报隔离已确认（deptFilter 在 controller 中正确使用）
+
+---
+
 ### v4.2.0 — 2026-04-22 · 角色化仪表盘 + 项目看板 + 季度回退 + 审计覆盖
 
 > 核心改动：仪表盘按角色分视图；项目页新增看板模式与闭环字段；空季度自动回退；审计日志全量覆盖。
@@ -633,6 +659,7 @@ docker-compose up -d --build
 - [x] v3.3.0 移动端基础适配（响应式 Layout / 表格横向滚动 / 卡片操作收敛）
 - [x] v4.1.0 周报部门权限隔离 + 年度指标独立录入 + 入口更名
 - [x] v4.2.0 角色化仪表盘 + 项目看板 + 季度回退 + 审计覆盖 + 上线清单
+- [x] v4.3.0 V4 上线加固收尾（SQLite兼容 + 数据权限全量落地 + 字段白名单 + smoke test + export越权修复）
 
 ## License
 

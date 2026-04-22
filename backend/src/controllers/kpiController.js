@@ -99,8 +99,13 @@ async function updateKpi(req, res) {
     const isBlocked = await checkArchived('kpis', kpi.quarter, kpi.year, error, res);
     if (isBlocked) return;
 
+    // 字段白名单
+    const allowedFields = ['dept_id', 'quarter', 'year', 'indicator_name', 'target', 'actual', 'unit'];
+    const updateData = {};
+    allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+
     const oldValues = kpi.toJSON();
-    await kpi.update(req.body);
+    await kpi.update(updateData);
     await logAudit('kpis', kpi.id, 'update', getOperator(req), oldValues, kpi.toJSON());
     success(res, kpi, 'KPI 更新成功');
   } catch (err) {

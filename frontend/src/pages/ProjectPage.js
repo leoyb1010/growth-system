@@ -79,6 +79,7 @@ function ProjectPage() {
       const payload = {
         ...values,
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
+        owner_user_id: values.owner_user_id || user?.id,
       };
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);

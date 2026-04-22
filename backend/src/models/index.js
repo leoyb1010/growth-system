@@ -66,6 +66,7 @@ const Project = sequelize.define('Project', {
   next_week_focus: { type: DataTypes.TEXT, allowNull: true }, // 下周重点工作
   due_date: { type: DataTypes.DATEONLY, allowNull: true }, // 预计完成时间
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
+  year: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2026 },
   creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // 创建人
   updater_id: { type: DataTypes.INTEGER, allowNull: true }, // 最后更新人
   // V4 闭环字段

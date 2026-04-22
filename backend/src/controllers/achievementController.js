@@ -19,10 +19,20 @@ async function getAchievements(req, res) {
 
     if (quarter) where.quarter = quarter;
     if (priority) where.priority = priority;
-    if (owner_name) where.owner_name = { [Op.iLike]: `%${owner_name}%` };
+    if (owner_name) where.owner_name = { [Op.like]: `%${owner_name}%` };
     if (dept_id) where.dept_id = parseInt(dept_id);
     if (include_next_quarter !== undefined) where.include_next_quarter = include_next_quarter === 'true';
     if (req.deptFilter) where.dept_id = req.deptFilter;
+
+    // self 范围：department_member 只能看自己负责或创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      const userId = req.dataScope.userId;
+      const userName = req.user?.name || req.user?.username;
+      where[Op.or] = [
+        { creator_id: userId },
+        { owner_name: userName }
+      ];
+    }
 
     const achievements = await Achievement.findAll({
       where,
@@ -57,7 +67,14 @@ async function createAchievement(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
-    const achievement = await Achievement.create(data);
+    // 字段白名单
+    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority'];
+    const payload = {};
+    allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
+    payload.creator_id = req.user?.id || null;
+    payload.updater_id = req.user?.id || null;
+
+    const achievement = await Achievement.create(payload);
     await logAudit('achievements', achievement.id, 'create', getOperator(req), null, achievement.toJSON());
     success(res, achievement, '成果创建成功');
   } catch (err) {
@@ -86,8 +103,14 @@ async function updateAchievement(req, res) {
     const isBlocked = await checkArchived('achievements', achievement.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
+    // 字段白名单
+    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority'];
+    const updateData = {};
+    allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+    updateData.updater_id = req.user?.id || null;
+
     const oldValues = achievement.toJSON();
-    await achievement.update(req.body);
+    await achievement.update(updateData);
     await logAudit('achievements', achievement.id, 'update', getOperator(req), oldValues, achievement.toJSON());
     success(res, achievement, '成果更新成功');
   } catch (err) {

@@ -72,7 +72,12 @@ async function createPerformance(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
-    const performance = await Performance.create(data);
+    // 字段白名单
+    const allowedFields = ['dept_id', 'business_type', 'indicator', 'unit', 'q1_target', 'q1_actual', 'q2_target', 'q2_actual', 'q3_target', 'q3_actual', 'q4_target', 'q4_actual'];
+    const payload = {};
+    allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
+
+    const performance = await Performance.create(payload);
     await logAudit('performances', performance.id, 'create', getOperator(req), null, performance.toJSON());
     success(res, performance, '业绩记录创建成功');
   } catch (err) {
@@ -99,7 +104,13 @@ async function updatePerformance(req, res) {
     }
 
     const oldValues = performance.toJSON();
-    await performance.update(req.body);
+
+    // 字段白名单
+    const allowedFields = ['dept_id', 'business_type', 'indicator', 'unit', 'q1_target', 'q1_actual', 'q2_target', 'q2_actual', 'q3_target', 'q3_actual', 'q4_target', 'q4_actual'];
+    const updateData = {};
+    allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+
+    await performance.update(updateData);
     await logAudit('performances', performance.id, 'update', getOperator(req), oldValues, performance.toJSON());
     success(res, performance, '业绩记录更新成功');
   } catch (err) {

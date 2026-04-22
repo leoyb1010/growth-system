@@ -61,8 +61,8 @@ async function getProjects(req, res) {
     if (req.deptFilter) where.dept_id = req.deptFilter;
     if (search) {
       where[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { owner_name: { [Op.iLike]: `%${search}%` } }
+        { name: { [Op.like]: `%${search}%` } },
+        { owner_name: { [Op.like]: `%${search}%` } }
       ];
     }
 
@@ -137,7 +137,7 @@ async function createProject(req, res) {
     }
 
     // 字段白名单
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'year', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
     const payload = {};
     allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
 
@@ -178,7 +178,7 @@ async function updateProject(req, res) {
     if (isBlocked) return;
 
     // 字段白名单，禁止任意字段直传
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'year', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
