@@ -49,13 +49,13 @@ const Project = sequelize.define('Project', {
   owner_name: { type: DataTypes.STRING(50), allowNull: false }, // 负责人
   goal: { type: DataTypes.TEXT, allowNull: true }, // 工作目标
   weekly_progress: { type: DataTypes.TEXT, allowNull: true }, // 本周进展
-  monthly_progress: { type: DataTypes.TEXT, allowNull: true }, // 本月累计
-  quarterly_progress: { type: DataTypes.TEXT, allowNull: true }, // 本季进展
   progress_pct: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, // 进度%
-  status: { type: DataTypes.ENUM('未启动', '进行中', '风险', '完成'), allowNull: false, defaultValue: '未启动' },
+  status: { type: DataTypes.ENUM('未启动', '进行中', '合作中', '阻塞中', '风险', '完成'), allowNull: false, defaultValue: '未启动' },
   risk_desc: { type: DataTypes.TEXT, allowNull: true }, // 风险与问题
   due_date: { type: DataTypes.DATEONLY, allowNull: true }, // 预计完成时间
-  quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false }
+  quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
+  creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // 创建人
+  updater_id: { type: DataTypes.INTEGER, allowNull: true }, // 最后更新人
 }, {
   tableName: 'projects',
   timestamps: true,
@@ -94,6 +94,7 @@ const Performance = sequelize.define('Performance', {
 const MonthlyTask = sequelize.define('MonthlyTask', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   dept_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: Department, key: 'id' } },
+  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Project', key: 'id' } }, // 关联项目（可空）
   month: { type: DataTypes.STRING(10), allowNull: false }, // 格式：2026-04
   owner_name: { type: DataTypes.STRING(50), allowNull: false },
   category: { type: DataTypes.STRING(50), allowNull: false }, // 工作类别
@@ -105,7 +106,9 @@ const MonthlyTask = sequelize.define('MonthlyTask', {
   status: { type: DataTypes.ENUM('未启动', '进行中', '风险', '完成'), allowNull: false, defaultValue: '未启动' },
   highlights: { type: DataTypes.TEXT, allowNull: true }, // 亮点与问题
   next_month_plan: { type: DataTypes.TEXT, allowNull: true }, // 下月跟进
-  quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false }
+  quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
+  creator_id: { type: DataTypes.INTEGER, allowNull: true },
+  updater_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   tableName: 'monthly_tasks',
   timestamps: true,
@@ -117,6 +120,7 @@ const MonthlyTask = sequelize.define('MonthlyTask', {
 const Achievement = sequelize.define('Achievement', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   dept_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: Department, key: 'id' } },
+  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Project', key: 'id' } }, // 关联项目（可空）
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
   owner_name: { type: DataTypes.STRING(50), allowNull: false },
   achievement_type: { type: DataTypes.STRING(50), allowNull: false }, // 成果类型
@@ -128,7 +132,9 @@ const Achievement = sequelize.define('Achievement', {
   include_next_quarter: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }, // 纳入下季计划
   archive_owner: { type: DataTypes.STRING(50), allowNull: true }, // 沉淀负责人
   completed_at: { type: DataTypes.DATEONLY, allowNull: true }, // 完成时间
-  priority: { type: DataTypes.ENUM('高', '中', '低'), allowNull: false, defaultValue: '中' }
+  priority: { type: DataTypes.ENUM('高', '中', '低'), allowNull: false, defaultValue: '中' },
+  creator_id: { type: DataTypes.INTEGER, allowNull: true },
+  updater_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   tableName: 'achievements',
   timestamps: true,
@@ -182,6 +188,23 @@ const QuarterArchive = sequelize.define('QuarterArchive', {
   timestamps: false
 });
 
+// F表：项目更新日志（每日内容更新，非操作审计）
+const ProjectUpdateLog = sequelize.define('ProjectUpdateLog', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  project_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Project', key: 'id' } },
+  update_date: { type: DataTypes.DATEONLY, allowNull: false }, // 更新日期
+  progress_content: { type: DataTypes.TEXT, allowNull: true }, // 本次进展
+  status: { type: DataTypes.STRING(20), allowNull: true }, // 更新时状态
+  progress_pct: { type: DataTypes.INTEGER, allowNull: true }, // 更新时进度
+  risk_desc: { type: DataTypes.TEXT, allowNull: true }, // 风险说明
+  next_action: { type: DataTypes.TEXT, allowNull: true }, // 下一步动作
+  created_by: { type: DataTypes.INTEGER, allowNull: true }, // 更新人
+  created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'project_update_logs',
+  timestamps: false
+});
+
 // 建立关联关系
 Department.hasMany(User, { foreignKey: 'dept_id' });
 User.belongsTo(Department, { foreignKey: 'dept_id' });
@@ -201,6 +224,16 @@ MonthlyTask.belongsTo(Department, { foreignKey: 'dept_id' });
 Department.hasMany(Achievement, { foreignKey: 'dept_id' });
 Achievement.belongsTo(Department, { foreignKey: 'dept_id' });
 
+// 项目关联：更新日志、月度任务、季度成果
+Project.hasMany(ProjectUpdateLog, { foreignKey: 'project_id', as: 'UpdateLogs' });
+ProjectUpdateLog.belongsTo(Project, { foreignKey: 'project_id' });
+
+Project.hasMany(MonthlyTask, { foreignKey: 'project_id', as: 'MonthlyTasks' });
+MonthlyTask.belongsTo(Project, { foreignKey: 'project_id' });
+
+Project.hasMany(Achievement, { foreignKey: 'project_id', as: 'Achievements' });
+Achievement.belongsTo(Project, { foreignKey: 'project_id' });
+
 module.exports = {
   sequelize,
   Department,
@@ -212,5 +245,6 @@ module.exports = {
   Achievement,
   WeeklyReport,
   AuditLog,
-  QuarterArchive
+  QuarterArchive,
+  ProjectUpdateLog
 };

@@ -116,13 +116,11 @@ async function importProjects(rows, headers, deptMap, results) {
       owner_name: row[3] || '',
       goal: row[4] || '',
       weekly_progress: row[5] || '',
-      monthly_progress: row[6] || '',
-      quarterly_progress: row[7] || '',
-      progress_pct: parseInt(row[8]) || 0,
-      status: ['未启动', '进行中', '风险', '完成'].includes(row[9]) ? row[9] : '未启动',
-      risk_desc: row[10] || '',
-      due_date: row[11] || null,
-      quarter: row[12] || 'Q1'
+      progress_pct: parseInt(row[6]) || 0,
+      status: ['未启动', '进行中', '合作中', '阻塞中', '风险', '完成'].includes(row[7]) ? row[7] : '未启动',
+      risk_desc: row[8] || '',
+      due_date: row[9] || null,
+      quarter: row[10] || 'Q1'
     });
     count++;
   }

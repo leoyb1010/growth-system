@@ -42,7 +42,7 @@ async function exportModule(req, res) {
 
       case 'projects':
         sheetName = '重点工作';
-        headers = ['部门', '项目类型', '项目名称', '负责人', '工作目标', '本周进展', '本月累计', '本季进展', '进度%', '状态', '风险与问题', '预计完成时间', '季度'];
+        headers = ['部门', '项目类型', '项目名称', '负责人', '工作目标', '本周进展', '进度%', '状态', '风险与问题', '预计完成时间', '季度'];
         const projects = await Project.findAll({
           where,
           include: [{ model: Department, attributes: ['name'] }]
@@ -54,8 +54,6 @@ async function exportModule(req, res) {
           p.owner_name,
           p.goal,
           p.weekly_progress,
-          p.monthly_progress,
-          p.quarterly_progress,
           p.progress_pct,
           p.status,
           p.risk_desc,

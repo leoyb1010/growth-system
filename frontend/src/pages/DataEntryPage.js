@@ -171,20 +171,8 @@ function DataEntryPage() {
               <Form.Item name="goal" label="工作目标">
                 <TextArea rows={4} placeholder="描述项目的整体目标" />
               </Form.Item>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="weekly_progress" label="本周进展">
-                    <TextArea rows={4} placeholder="本周具体进展" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="monthly_progress" label="本月累计">
-                    <TextArea rows={4} placeholder="本月累计完成情况" />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Form.Item name="quarterly_progress" label="本季进展">
-                <TextArea rows={4} placeholder="本季度整体进展" />
+              <Form.Item name="weekly_progress" label="本周进展">
+                <TextArea rows={4} placeholder="本周具体进展" />
               </Form.Item>
               <Row gutter={16}>
                 <Col span={12}>

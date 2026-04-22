@@ -79,58 +79,12 @@ function ProjectPage() {
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
         ...(isNextWeek && !editingRecord ? { type: '下周重点', status: values.status || '进行中', progress_pct: values.progress_pct || 0 } : {}),
       };
-      // 清理辅助字段
-      delete payload.is_monthly_focus;
-      delete payload.is_quarter_achievement;
-      delete payload.achievement_type;
-      delete payload.achievement_result;
-
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);
         message.success('更新成功');
       } else {
         await api.post('/projects', payload);
         message.success('项目创建成功');
-
-        // 如果勾选了"标记为月度重点工作"，同时创建月度任务
-        if (values.is_monthly_focus) {
-          try {
-            const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-            await api.post('/monthly-tasks', {
-              dept_id: values.dept_id,
-              month: currentMonth,
-              quarter: values.quarter,
-              owner_name: values.owner_name,
-              category: values.type || '项目关联',
-              task: values.name,
-              goal: values.goal || '',
-              status: '进行中',
-              completion_rate: values.progress_pct || 0,
-            });
-            message.success('已同步创建月度重点工作');
-          } catch (err) {
-            message.warning('月度重点工作创建失败，请手动补充');
-          }
-        }
-
-        // 如果勾选了"标记为季度成果"，同时创建季度成果
-        if (values.is_quarter_achievement) {
-          try {
-            await api.post('/achievements', {
-              dept_id: values.dept_id,
-              quarter: values.quarter,
-              owner_name: values.owner_name,
-              project_name: values.name,
-              achievement_type: values.achievement_type || '项目关联成果',
-              priority: '中',
-              description: values.goal || '',
-              quantified_result: values.achievement_result || '',
-            });
-            message.success('已同步创建季度成果');
-          } catch (err) {
-            message.warning('季度成果创建失败，请手动补充');
-          }
-        }
       }
       setModalVisible(false);
       setEditingRecord(null);
@@ -509,16 +463,6 @@ function ProjectPage() {
               <Descriptions.Item label={isNextWeek ? '计划/进展' : '本周进展'} span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
               </Descriptions.Item>
-              {!isNextWeek && (
-                <>
-                  <Descriptions.Item label="本月累计" span={2}>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.monthly_progress || '-'}</div>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="本季进展" span={2}>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.quarterly_progress || '-'}</div>
-                  </Descriptions.Item>
-                </>
-              )}
               <Descriptions.Item label="风险与问题" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#DC2626' : '#9CA3AF' }}>
                   {detailRecord.risk_desc || '无'}
@@ -577,12 +521,6 @@ function ProjectPage() {
           <Form.Item name="weekly_progress" label={isNextWeek ? '当前进展/计划' : '本周进展'}>
             <TextArea rows={3} placeholder={isNextWeek ? '当前进展或下周具体计划' : '本周进展'} />
           </Form.Item>
-          {!isNextWeek && (
-            <>
-              <Form.Item name="monthly_progress" label="本月累计"><TextArea rows={3} /></Form.Item>
-              <Form.Item name="quarterly_progress" label="本季进展"><TextArea rows={3} /></Form.Item>
-            </>
-          )}
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="progress_pct" label="进度%" initialValue={0}>
@@ -591,7 +529,14 @@ function ProjectPage() {
             </Col>
             <Col span={8}>
               <Form.Item name="status" label="状态" initialValue="进行中">
-                <Select><Option value="未启动">未启动</Option><Option value="进行中">进行中</Option><Option value="风险">风险</Option><Option value="完成">完成</Option></Select>
+                <Select>
+                  <Option value="未启动">未启动</Option>
+                  <Option value="进行中">进行中</Option>
+                  <Option value="合作中">合作中</Option>
+                  <Option value="阻塞中">阻塞中</Option>
+                  <Option value="风险">风险</Option>
+                  <Option value="完成">完成</Option>
+                </Select>
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -605,39 +550,6 @@ function ProjectPage() {
             </Col>
           </Row>
           <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={3} /></Form.Item>
-          {/* 月度/季度关联 — 仅新增时显示 */}
-          {!editingRecord && !isNextWeek && (
-            <div style={{ background: '#F0F4FF', borderRadius: 10, padding: 16, marginTop: 8 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 12 }}>📋 数据关联（可选）</div>
-              <Form.Item name="is_monthly_focus" valuePropName="checked" initialValue={false} style={{ marginBottom: 8 }}>
-                <Checkbox>同步创建为<strong>月度重点工作</strong></Checkbox>
-              </Form.Item>
-              <Form.Item name="is_quarter_achievement" valuePropName="checked" initialValue={false} style={{ marginBottom: 8 }}>
-                <Checkbox>同步创建为<strong>季度成果</strong></Checkbox>
-              </Form.Item>
-              <Form.Item noStyle shouldUpdate={(prev, cur) => prev.is_quarter_achievement !== cur.is_quarter_achievement}>
-                {({ getFieldValue }) => getFieldValue('is_quarter_achievement') ? (
-                  <div style={{ paddingLeft: 24 }}>
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item name="achievement_type" label="成果类型" style={{ marginBottom: 8 }}>
-                          <Input placeholder="如：流程优化、工具开发" size="small" />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item name="achievement_result" label="量化结果" style={{ marginBottom: 8 }}>
-                          <Input placeholder="如：签约周期缩短40%" size="small" />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </div>
-                ) : null}
-              </Form.Item>
-              <div className="subtle-text" style={{ fontSize: 11, marginTop: 4 }}>
-                💡 勾选后系统会自动在对应模块创建关联记录，无需重复录入
-              </div>
-            </div>
-          )}
         </Form>
       </Modal>
 
@@ -692,6 +604,8 @@ function ProjectPage() {
               >
                 <Option value="未启动">未启动</Option>
                 <Option value="进行中">进行中</Option>
+                <Option value="合作中">🤝 合作中</Option>
+                <Option value="阻塞中">🚧 阻塞中</Option>
                 <Option value="风险">🔴 风险</Option>
                 <Option value="完成">✅ 完成</Option>
               </Select>

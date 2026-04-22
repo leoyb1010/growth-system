@@ -7,6 +7,8 @@
 export const STATUS_COLORS = {
   '完成': { tag: 'success', border: '#16A34A', dot: 'green' },
   '进行中': { tag: 'processing', border: '#3B5AFB', dot: 'blue' },
+  '合作中': { tag: 'geekblue', border: '#722ED1', dot: 'purple' },
+  '阻塞中': { tag: 'warning', border: '#F59E0B', dot: 'orange' },
   '风险': { tag: 'error', border: '#DC2626', dot: 'red' },
   '未启动': { tag: 'default', border: '#9CA3AF', dot: 'gray' },
   // Performance 专用

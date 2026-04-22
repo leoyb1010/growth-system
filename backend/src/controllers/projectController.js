@@ -1,4 +1,4 @@
-const { Project, Department } = require('../models');
+const { Project, Department, ProjectUpdateLog } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
@@ -91,7 +91,15 @@ async function createProject(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
-    const project = await Project.create(data);
+    // 字段白名单
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const payload = {};
+    allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
+
+    payload.creator_id = req.user?.id || null;
+    payload.updater_id = req.user?.id || null;
+
+    const project = await Project.create(payload);
     await logAudit('projects', project.id, 'create', getOperator(req), null, project.toJSON());
     success(res, project, '项目创建成功');
   } catch (err) {
@@ -120,8 +128,16 @@ async function updateProject(req, res) {
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
+    // 字段白名单，禁止任意字段直传
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const updateData = {};
+    allowedFields.forEach(f => {
+      if (req.body[f] !== undefined) updateData[f] = req.body[f];
+    });
+    updateData.updater_id = req.user?.id || null;
+
     const oldValues = project.toJSON();
-    await project.update(req.body);
+    await project.update(updateData);
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
     success(res, project, '项目更新成功');
   } catch (err) {
@@ -176,6 +192,8 @@ async function getProjectStats(req, res) {
       total: projects.length,
       not_started: projects.filter(p => p.status === '未启动').length,
       in_progress: projects.filter(p => p.status === '进行中').length,
+      cooperating: projects.filter(p => p.status === '合作中').length,
+      blocked: projects.filter(p => p.status === '阻塞中').length,
       risk: projects.filter(p => p.status === '风险').length,
       completed: projects.filter(p => p.status === '完成').length,
       risk_list: projects
@@ -254,14 +272,28 @@ async function quickUpdateProject(req, res) {
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
-    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'risk_desc'];
+    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'risk_desc', 'next_action'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
     });
+    updateData.updater_id = req.user?.id || null;
 
     const oldValues = project.toJSON();
     await project.update(updateData);
+
+    // 写入项目每日更新日志（内容更新，非操作审计）
+    await ProjectUpdateLog.create({
+      project_id: project.id,
+      update_date: moment().format('YYYY-MM-DD'),
+      progress_content: updateData.weekly_progress || oldValues.weekly_progress || '',
+      status: updateData.status || oldValues.status,
+      progress_pct: updateData.progress_pct !== undefined ? updateData.progress_pct : oldValues.progress_pct,
+      risk_desc: updateData.risk_desc || oldValues.risk_desc || '',
+      next_action: updateData.next_action || '',
+      created_by: req.user?.id || null,
+    });
+
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
     success(res, project, '快速更新成功');
   } catch (err) {
