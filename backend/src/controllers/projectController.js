@@ -10,6 +10,40 @@ function getOperator(req) {
 }
 
 /**
+ * 按角色追加项目查询过滤条件
+ * admin: 无额外限制
+ * dept_manager: 本部门
+ * dept_staff: 本部门 + 自己负责/创建的项目
+ */
+function applyProjectRoleFilter(where, req) {
+  const { roleLevel, id, name } = req.user;
+  if (roleLevel === 0) return where; // admin
+  if (roleLevel === 1) {
+    // dept_manager: 已由 requireDeptAccess 限制 dept_id
+    return where;
+  }
+  // dept_staff: 只能看自己负责或创建的项目
+  where[Op.or] = [
+    { owner_name: name },
+    { creator_id: id }
+  ];
+  return where;
+}
+
+/**
+ * 校验项目操作权限
+ * admin: 任意
+ * dept_manager: 本部门任意
+ * dept_staff: 只能操作自己负责/创建的项目
+ */
+function canModifyProject(project, req) {
+  const { roleLevel, id, name, dept_id } = req.user;
+  if (roleLevel === 0) return true;
+  if (roleLevel === 1) return project.dept_id === dept_id;
+  return project.owner_name === name || project.creator_id === id;
+}
+
+/**
  * 获取重点工作列表
  * GET /api/projects?quarter=Q1&status=进行中&dept_id=1
  */
@@ -28,6 +62,9 @@ async function getProjects(req, res) {
         { owner_name: { [Op.iLike]: `%${search}%` } }
       ];
     }
+
+    // 按角色过滤
+    applyProjectRoleFilter(where, req);
 
     const order = sort === 'priority'
       ? [['status', 'ASC'], ['progress_pct', 'ASC'], ['updated_at', 'DESC']]
@@ -91,6 +128,11 @@ async function createProject(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
+    // dept_staff 不能创建项目
+    if (req.user.roleLevel === 2) {
+      return error(res, '无权创建项目', 403, 403);
+    }
+
     // 字段白名单
     const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
     const payload = {};
@@ -123,6 +165,10 @@ async function updateProject(req, res) {
 
     if (req.deptFilter && req.deptFilter !== project.dept_id) {
       return error(res, '无权修改其他部门数据', 403, 403);
+    }
+
+    if (!canModifyProject(project, req)) {
+      return error(res, '无权修改此项目', 403, 403);
     }
 
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
@@ -163,6 +209,11 @@ async function deleteProject(req, res) {
       return error(res, '无权删除其他部门数据', 403, 403);
     }
 
+    // dept_staff 不能删除项目；dept_manager 只能删本部门
+    if (req.user.roleLevel === 2) {
+      return error(res, '无权删除项目', 403, 403);
+    }
+
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
@@ -185,6 +236,7 @@ async function getProjectStats(req, res) {
     const { quarter } = req.query;
     const where = quarter ? { quarter } : {};
     if (req.deptFilter) where.dept_id = req.deptFilter;
+    applyProjectRoleFilter(where, req);
 
     const projects = await Project.findAll({ where });
 
@@ -235,6 +287,7 @@ async function getStaleProjects(req, res) {
       status: { [Op.ne]: '完成' }
     };
     if (req.deptFilter) where.dept_id = req.deptFilter;
+    applyProjectRoleFilter(where, req);
 
     const projects = await Project.findAll({
       where,
@@ -267,6 +320,10 @@ async function quickUpdateProject(req, res) {
 
     if (req.deptFilter && req.deptFilter !== project.dept_id) {
       return error(res, '无权修改其他部门数据', 403, 403);
+    }
+
+    if (!canModifyProject(project, req)) {
+      return error(res, '无权更新此项目', 403, 403);
     }
 
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
@@ -314,6 +371,10 @@ async function getProjectUpdateLogs(req, res) {
 
     if (req.deptFilter && req.deptFilter !== project.dept_id) {
       return error(res, '无权查看其他部门数据', 403, 403);
+    }
+
+    if (!canModifyProject(project, req)) {
+      return error(res, '无权查看此项目日志', 403, 403);
     }
 
     const logs = await ProjectUpdateLog.findAll({

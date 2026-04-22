@@ -19,7 +19,10 @@ function authenticate(req, res, next) {
     return error(res, '认证令牌已过期或无效', 401, 401);
   }
 
-  req.user = decoded;
+  // 角色层级注入（兼容旧 dept 角色）
+  const role = decoded.role || 'dept_staff';
+  const roleLevel = role === 'admin' ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
+  req.user = { ...decoded, role, roleLevel };
   next();
 }
 
@@ -27,7 +30,7 @@ function authenticate(req, res, next) {
  * 管理员权限校验中间件
  */
 function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
+  if (req.user.roleLevel !== 0) {
     return error(res, '需要管理员权限', 403, 403);
   }
   next();
@@ -35,19 +38,19 @@ function requireAdmin(req, res, next) {
 
 /**
  * 部门权限校验中间件
- * 部门账号只能访问本部门数据
+ * admin: 全部门
+ * dept_manager / dept(兼容): 本部门
+ * dept_staff: 本部门（controller 进一步限制只看自己的数据）
  */
 function requireDeptAccess(req, res, next) {
   const user = req.user;
   
-  // 管理员可以访问所有部门
-  if (user.role === 'admin') {
-    req.deptFilter = null; // null 表示不过滤
+  if (user.roleLevel === 0) {
+    req.deptFilter = null;
     return next();
   }
 
-  // 部门账号只能访问本部门
-  if (user.role === 'dept' && user.dept_id) {
+  if (user.dept_id) {
     req.deptFilter = user.dept_id;
     return next();
   }
@@ -55,4 +58,15 @@ function requireDeptAccess(req, res, next) {
   return error(res, '无权访问该部门数据', 403, 403);
 }
 
-module.exports = { authenticate, requireAdmin, requireDeptAccess };
+/**
+ * 部门负责人权限校验中间件
+ * admin / dept_manager / dept(兼容) 可通过
+ */
+function requireDeptManager(req, res, next) {
+  if (req.user.roleLevel <= 1) {
+    return next();
+  }
+  return error(res, '需要部门负责人权限', 403, 403);
+}
+
+module.exports = { authenticate, requireAdmin, requireDeptAccess, requireDeptManager };

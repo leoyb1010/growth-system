@@ -91,7 +91,10 @@ function MonthlyTaskPage() {
                 </div>
                 <div className="subtle-text" style={{ fontSize: 12 }}>{item.category}</div>
               </div>
-              <Tag color={getStatusColor(item.status)}>{item.status}</Tag>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <Tag color={getStatusColor(item.status)}>{item.status}</Tag>
+                {item.needs_followup && <Tag color="error">需跟进</Tag>}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -153,6 +156,7 @@ function MonthlyTaskPage() {
                   <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>工作事项</th>
                   <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>完成度</th>
                   <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>状态</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>标记</th>
                   <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>操作</th>
                 </tr>
               </thead>
@@ -166,6 +170,9 @@ function MonthlyTaskPage() {
                     <td style={{ padding: '10px 8px', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.task}</td>
                     <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.completion_rate}%</td>
                     <td style={{ padding: '10px 8px', fontSize: 13 }}><Tag color={getStatusColor(item.status)}>{item.status}</Tag></td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>
+                      {item.needs_followup && <Tag color="error">需跟进</Tag>}
+                    </td>
                     <td style={{ padding: '10px 8px', fontSize: 13 }}>
                       <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>详情</Button>
                       {isAdmin && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
@@ -191,8 +198,9 @@ function MonthlyTaskPage() {
       >
         {detailRecord && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
               <Tag color={getStatusColor(detailRecord.status)} style={{ fontSize: 14, padding: '2px 12px' }}>{detailRecord.status}</Tag>
+              {detailRecord.needs_followup && <Tag color="error" style={{ fontSize: 14, padding: '2px 12px' }}>需跟进</Tag>}
               <Tag>{detailRecord.Department?.name}</Tag>
               <span className="subtle-text">{detailRecord.owner_name}</span>
               <span className="subtle-text" style={{ fontSize: 12 }}>{detailRecord.month}</span>

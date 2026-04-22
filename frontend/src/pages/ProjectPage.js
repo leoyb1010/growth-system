@@ -23,7 +23,7 @@ function ProjectPage() {
   const [activeTab, setActiveTab] = useState('current');
   const [sortMode, setSortMode] = useState('priority'); // priority | time
   const [form] = Form.useForm();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isDeptManager, user } = useAuth();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   // 就地更新状态
@@ -121,7 +121,7 @@ function ProjectPage() {
 
   // 进度条点击就地更新
   const handleProgressClick = (item) => {
-    if (!isAdmin) return;
+    if (!isDeptManager) return;
     setEditingProgressId(item.id);
     setEditingProgressValue(item.progress_pct);
   };
@@ -201,7 +201,7 @@ function ProjectPage() {
               bodyStyle={{ padding: 20 }}
               actions={[
                 <Tooltip key="view" title="查看"><EyeOutlined onClick={() => showDetail(item)} /></Tooltip>,
-                ...(isAdmin ? [
+                ...(isDeptManager ? [
                   <Tooltip key="today" title="今日更新"><FormOutlined onClick={() => openTodayUpdate(item)} /></Tooltip>,
                   ...(isMobile ? [
                     <Dropdown key="more" menu={{ items: [
@@ -257,8 +257,8 @@ function ProjectPage() {
                     <Button type="link" size="small" onClick={() => setEditingProgressId(null)}>取消</Button>
                   </div>
                 ) : (
-                  <Tooltip title={isAdmin ? '点击编辑进度' : ''}>
-                    <div onClick={() => handleProgressClick(item)} style={{ cursor: isAdmin ? 'pointer' : 'default' }}>
+                  <Tooltip title={isDeptManager ? '点击编辑进度' : ''}>
+                    <div onClick={() => handleProgressClick(item)} style={{ cursor: isDeptManager ? 'pointer' : 'default' }}>
                       <Progress
                         percent={item.progress_pct}
                         strokeColor={getProgressColor(item.progress_pct)}
@@ -273,16 +273,16 @@ function ProjectPage() {
 
               {/* 本周进展摘要 — 点击可快速更新 */}
               {!isNextWeek && item.weekly_progress && (
-                <Tooltip title={isAdmin ? '点击快速更新' : ''}>
+                <Tooltip title={isDeptManager ? '点击快速更新' : ''}>
                   <div
-                    onClick={() => isAdmin && (setQuickUpdateItem(item), setQuickWeeklyProgress(item.weekly_progress || ''), setQuickUpdateVisible(true))}
-                    style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: isAdmin ? 'pointer' : 'default' }}
+                    onClick={() => isDeptManager && (setQuickUpdateItem(item), setQuickWeeklyProgress(item.weekly_progress || ''), setQuickUpdateVisible(true))}
+                    style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: isDeptManager ? 'pointer' : 'default' }}
                   >
                     📝 {item.weekly_progress}
                   </div>
                 </Tooltip>
               )}
-              {!isNextWeek && !item.weekly_progress && isAdmin && (
+              {!isNextWeek && !item.weekly_progress && isDeptManager && (
                 <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => { setQuickUpdateItem(item); setQuickWeeklyProgress(''); setQuickUpdateVisible(true); }}>
                   + 补充本周进展
                 </Button>
@@ -345,8 +345,8 @@ function ProjectPage() {
       render: (_, r) => (
         <span>
           <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(r)}>详情</Button>
-          {isAdmin && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(r)}>编辑</Button>}
-          {isAdmin && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(r.id)}>删除</Button>}
+          {isDeptManager && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(r)}>编辑</Button>}
+          {isDeptManager && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(r.id)}>删除</Button>}
         </span>
       )
     }
@@ -372,7 +372,7 @@ function ProjectPage() {
           >
             {viewMode === 'card' ? '列表' : '卡片'}
           </Button>,
-          isAdmin && (
+          isDeptManager && (
             <Button key="add" type="primary" icon={isNextWeek ? <ThunderboltOutlined /> : <PlusOutlined />} onClick={() => {
               setEditingRecord(null);
               form.resetFields();
@@ -440,7 +440,7 @@ function ProjectPage() {
         open={drawerVisible}
         onClose={() => { setDrawerVisible(false); setDetailRecord(null); }}
         width={560}
-        extra={isAdmin && detailRecord ? (
+        extra={isDeptManager && detailRecord ? (
           <Button type="primary" icon={<EditOutlined />} onClick={() => { setDrawerVisible(false); handleEdit(detailRecord); }}>编辑</Button>
         ) : null}
       >

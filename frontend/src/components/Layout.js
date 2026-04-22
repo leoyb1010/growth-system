@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, Input, Modal, List, Tag, Spin, Empty } from 'antd';
 import {
   DashboardOutlined,
   BarChartOutlined,
@@ -18,9 +18,11 @@ import {
   ContainerOutlined,
   ThunderboltOutlined,
   ClockCircleOutlined,
-  ContainerOutlined as ArchiveOutlined,
+  InboxOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../hooks/useAuth';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -28,20 +30,52 @@ const { useBreakpoint } = Grid;
 function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef(null);
   const screens = useBreakpoint();
   const isMobile = !screens.md;          // < 768px 视为移动端
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isDeptManager } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 侧边栏菜单 — 结构收敛型：今日更新从驾驶舱弹出，不走独立菜单
+  // 全局搜索
+  const handleSearch = async (value) => {
+    setSearchQuery(value);
+    if (!value || value.trim().length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const res = await api.get('/search', { params: { q: value.trim() } });
+      if (res.code === 0) setSearchResults(res.data);
+    } catch (err) { /* 静默 */ }
+    setSearchLoading(false);
+  };
+
+  const handleSelectResult = (item) => {
+    setSearchVisible(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    navigate(item.url);
+  };
+
+  useEffect(() => {
+    if (searchVisible && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 100);
+    }
+  }, [searchVisible]);
+
+  // 侧边栏菜单 — V3 按管理动作组织
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
-    { key: '/week', icon: <CalendarOutlined />, label: '本周管理' },
-    { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
+    { key: '/week', icon: <CalendarOutlined />, label: '本周' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
-    { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
-    { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
+    { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
+    { key: '/settlement', icon: <ContainerOutlined />, label: '沉淀' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     ...(isAdmin ? [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
@@ -62,7 +96,7 @@ function AppLayout() {
     { type: 'divider' },
     ...(isAdmin ? [
       { key: '/audit-logs', label: '审计日志', icon: <HistoryOutlined /> },
-      { key: '/archives', label: '归档管理', icon: <ArchiveOutlined /> },
+      { key: '/archives', label: '归档管理', icon: <InboxOutlined /> },
     ] : []),
     { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, danger: true }
   ];
@@ -148,8 +182,18 @@ function AppLayout() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
-            {/* 数据录入入口 */}
-            {isAdmin && (
+            {/* 全局搜索入口 */}
+            <Tooltip title="全局搜索">
+              <Button
+                type="text"
+                icon={<SearchOutlined />}
+                onClick={() => setSearchVisible(true)}
+                style={{ fontSize: 16 }}
+              />
+            </Tooltip>
+
+            {/* 数据录入入口 — dept_manager 及以上可见 */}
+            {isDeptManager && (
               <Dropdown menu={{ items: dataEntryItems, onClick: handleMenuClick }} placement="bottomRight">
                 <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600, fontSize: isMobile ? 12 : 14, padding: isMobile ? '0 8px' : undefined }}>
                   {isMobile ? '录入' : '数据录入'}
@@ -176,6 +220,66 @@ function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+
+      {/* ===== 全局搜索弹窗 ===== */}
+      <Modal
+        open={searchVisible}
+        onCancel={() => { setSearchVisible(false); setSearchQuery(''); setSearchResults([]); }}
+        footer={null}
+        title="全局搜索"
+        width={isMobile ? '90%' : 600}
+        bodyStyle={{ padding: '12px 24px 24px' }}
+      >
+        <Input.Search
+          ref={searchInputRef}
+          placeholder="搜索项目、指标、月度工作、季度成果..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          allowClear
+          enterButton
+          loading={searchLoading}
+          style={{ marginBottom: 16 }}
+        />
+        {searchLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+        ) : searchResults.length === 0 ? (
+          searchQuery.trim().length > 0 ? (
+            <Empty description="未找到相关结果" />
+          ) : (
+            <Empty description="输入关键词开始搜索" />
+          )
+        ) : (
+          <List
+            dataSource={searchResults}
+            renderItem={(item) => (
+              <List.Item
+                onClick={() => handleSelectResult(item)}
+                style={{ cursor: 'pointer', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}
+                className="search-result-item"
+              >
+                <List.Item.Meta
+                  title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600 }}>{item.title}</span>
+                      <Tag size="small" color={
+                        item.type === 'project' ? 'blue' :
+                        item.type === 'kpi' ? 'green' :
+                        item.type === 'monthly_task' ? 'orange' : 'purple'
+                      }>{item.typeLabel}</Tag>
+                    </div>
+                  }
+                  description={
+                    <div>
+                      <div style={{ color: '#666', fontSize: 13 }}>{item.subtitle}</div>
+                      <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>{item.meta}</div>
+                    </div>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Modal>
     </Layout>
   );
 }

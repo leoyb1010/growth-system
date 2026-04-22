@@ -17,6 +17,7 @@ const importController = require('../controllers/importController');
 const exportController = require('../controllers/exportController');
 const archiveController = require('../controllers/archiveController');
 const auditLogController = require('../controllers/auditLogController');
+const searchController = require('../controllers/searchController');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.post('/projects', authenticate, requireDeptAccess, projectController.crea
 router.put('/projects/:id', authenticate, requireDeptAccess, projectController.updateProject);
 router.put('/projects/:id/quick-update', authenticate, requireDeptAccess, projectController.quickUpdateProject);
 router.get('/projects/:id/update-logs', authenticate, requireDeptAccess, projectController.getProjectUpdateLogs);
-router.delete('/projects/:id', authenticate, requireAdmin, projectController.deleteProject);
+router.delete('/projects/:id', authenticate, requireDeptAccess, projectController.deleteProject);
 
 // ==================== C表：业务线业绩 ====================
 router.get('/performances', authenticate, requireDeptAccess, performanceController.getPerformances);
@@ -100,5 +101,8 @@ router.get('/archives/check', authenticate, archiveController.checkArchiveStatus
 // ==================== 审计日志 ====================
 router.get('/audit-logs', authenticate, requireAdmin, auditLogController.getAuditLogs);
 router.get('/audit-logs/:table_name/:record_id', authenticate, auditLogController.getRecordHistory);
+
+// ==================== 全局搜索 ====================
+router.get('/search', authenticate, requireDeptAccess, searchController.globalSearch);
 
 module.exports = router;

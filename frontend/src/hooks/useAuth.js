@@ -77,10 +77,14 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const isAdmin = user?.role === 'admin';
+  const role = user?.role || 'dept_staff';
+  const roleLevel = user?.roleLevel ?? 2;
+  const isAdmin = roleLevel === 0;
+  const isDeptManager = roleLevel <= 1;
+  const isDeptStaff = roleLevel === 2;
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAdmin, loading, api }}>
+    <AuthContext.Provider value={{ user, login, logout, isAdmin, isDeptManager, isDeptStaff, role, roleLevel, loading, api }}>
       {children}
     </AuthContext.Provider>
   );

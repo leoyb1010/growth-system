@@ -29,7 +29,14 @@ async function getMonthlyTasks(req, res) {
       order: [['month', 'DESC'], ['updated_at', 'DESC']]
     });
 
-    success(res, tasks);
+    // 自动标记：未完成且无下月跟进的事项
+    const result = tasks.map(t => {
+      const data = t.toJSON();
+      data.needs_followup = data.status !== '完成' && (!data.next_month_plan || data.next_month_plan.trim() === '');
+      return data;
+    });
+
+    success(res, result);
   } catch (err) {
     console.error('获取月度工作失败:', err);
     error(res, '获取月度工作失败', 1, 500);
