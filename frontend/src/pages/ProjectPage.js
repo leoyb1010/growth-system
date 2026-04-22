@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
+import { can } from '../permissions/ability';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -19,7 +20,7 @@ function ProjectPage() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [viewMode, setViewMode] = useState('card');
+  const [viewMode, setViewMode] = useState('card'); // card | table | kanban
   const [sortMode, setSortMode] = useState('priority'); // priority | time
   const [form] = Form.useForm();
   const { isAdmin, isDeptManager, user } = useAuth();
@@ -156,6 +157,8 @@ function ProjectPage() {
       status: item.status || '进行中',
       risk_desc: item.risk_desc || '',
       next_week_focus: item.next_week_focus || '',
+      next_action: item.next_action || '',
+      block_reason: item.block_reason || '',
     });
     setTodayUpdateVisible(true);
   };
@@ -172,6 +175,66 @@ function ProjectPage() {
     } catch (err) {
       message.error('更新失败');
     }
+  };
+
+  // ===== 看板视图 — 按状态分组 =====
+  const renderKanbanView = () => {
+    const columns = [
+      { key: '未启动', label: '未启动', color: '#9CA3AF', bg: '#F9FAFB' },
+      { key: '进行中', label: '进行中', color: '#3B5AFB', bg: '#EFF6FF' },
+      { key: '合作中', label: '合作中', color: '#7C3AED', bg: '#F5F3FF' },
+      { key: '阻塞中', label: '阻塞中', color: '#EA580C', bg: '#FFF7ED' },
+      { key: '风险', label: '风险', color: '#DC2626', bg: '#FEF2F2' },
+      { key: '完成', label: '完成', color: '#16A34A', bg: '#F0FDF4' },
+    ];
+    return (
+      <Row gutter={[12, 0]} style={{ overflowX: 'auto' }}>
+        {columns.map(col => {
+          const items = data.filter(p => p.status === col.key);
+          return (
+            <Col key={col.key} style={{ minWidth: 220, flex: '1 1 0' }}>
+              <div style={{ background: col.bg, borderRadius: 10, padding: '12px 10px', minHeight: 300 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
+                    <span style={{ fontWeight: 600, fontSize: 13, color: col.color }}>{col.label}</span>
+                  </div>
+                  <Tag style={{ margin: 0, fontSize: 11 }}>{items.length}</Tag>
+                </div>
+                {items.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 24, color: '#C0C4CC', fontSize: 12 }}>暂无</div>
+                ) : items.map(item => {
+                  const sc = getStatusStyle(item.status);
+                  return (
+                    <Card
+                      key={item.id}
+                      className="surface-card"
+                      style={{ marginBottom: 8, borderLeft: `3px solid ${sc.border}` }}
+                      bodyStyle={{ padding: 12 }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span className="subtle-text" style={{ fontSize: 11 }}>👤 {item.owner_name}</span>
+                        {item.priority && item.priority !== '中' && <Tag color={item.priority === '高' ? 'red' : 'default'} style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>{item.priority}</Tag>}
+                      </div>
+                      <Progress percent={item.progress_pct} strokeColor={getProgressColor(item.progress_pct)} size="small" style={{ marginBottom: 4 }} />
+                      {/* 闭环字段 */}
+                      {item.next_action && <div style={{ fontSize: 11, color: '#3B5AFB', marginTop: 4 }}>➡️ {item.next_action}</div>}
+                      {item.decision_needed && <Tag color="orange" style={{ fontSize: 10, margin: 0, marginTop: 4 }}>需决策</Tag>}
+                      {item.block_reason && <div style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>🚧 {item.block_reason}</div>}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
+                        <Tooltip title="查看"><EyeOutlined style={{ cursor: 'pointer', color: '#8C8C8C' }} onClick={() => showDetail(item)} /></Tooltip>
+                        {isDeptManager && <Tooltip title="更新"><FormOutlined style={{ cursor: 'pointer', color: '#3B5AFB' }} onClick={() => openTodayUpdate(item)} /></Tooltip>}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </Col>
+          );
+        })}
+      </Row>
+    );
   };
 
   // ===== 卡片视图 — 统一展示本周+下周 =====
@@ -236,6 +299,14 @@ function ProjectPage() {
                 )}
               </div>
 
+              {/* V4 闭环字段：优先级 + 需决策 */}
+              {(item.priority !== '中' || item.decision_needed) && (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                  {item.priority && item.priority !== '中' && <Tag color={item.priority === '高' ? 'red' : 'default'} style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>🔥 {item.priority}优先</Tag>}
+                  {item.decision_needed && <Tag color="orange" style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>⚡ 需决策</Tag>}
+                </div>
+              )}
+
               {/* 进度条 — 点击可就地编辑 */}
               {editingProgressId === item.id ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -293,6 +364,18 @@ function ProjectPage() {
               {item.goal && (
                 <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   🎯 {item.goal}
+                </div>
+              )}
+
+              {/* V4 闭环字段：下一步动作 + 阻塞原因 */}
+              {item.next_action && (
+                <div style={{ background: '#EFF6FF', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#3B5AFB', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  ➡️ {item.next_action}
+                </div>
+              )}
+              {item.block_reason && (
+                <div style={{ background: '#FEF2F2', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#DC2626', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  🚧 {item.block_reason}
                 </div>
               )}
 
@@ -361,10 +444,10 @@ function ProjectPage() {
           </Select>,
           <Button
             key="view"
-            icon={viewMode === 'card' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
-            onClick={() => setViewMode(viewMode === 'card' ? 'table' : 'card')}
+            icon={viewMode === 'card' ? <UnorderedListOutlined /> : viewMode === 'table' ? <ColumnWidthOutlined /> : <AppstoreOutlined />}
+            onClick={() => setViewMode(viewMode === 'card' ? 'table' : viewMode === 'table' ? 'kanban' : 'card')}
           >
-            {viewMode === 'card' ? '列表' : '卡片'}
+            {viewMode === 'card' ? '列表' : viewMode === 'table' ? '看板' : '卡片'}
           </Button>,
           isDeptManager && (
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => {
@@ -378,7 +461,7 @@ function ProjectPage() {
         ]}
       />
 
-      {viewMode === 'card' ? renderCardView() : (
+      {viewMode === 'card' ? renderCardView() : viewMode === 'kanban' ? renderKanbanView() : (
         <PanelCard>
           <div className="ant-table-wrapper">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -450,6 +533,23 @@ function ProjectPage() {
                           {detailRecord.risk_desc || '无'}
                         </div>
                       </Descriptions.Item>
+                      {/* V4 闭环字段 */}
+                      <Descriptions.Item label="优先级" span={1}>
+                        <Tag color={detailRecord.priority === '高' ? 'red' : detailRecord.priority === '低' ? 'default' : 'blue'}>{detailRecord.priority || '中'}</Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="需决策" span={1}>
+                        <Tag color={detailRecord.decision_needed ? 'orange' : 'default'}>{detailRecord.decision_needed ? '是' : '否'}</Tag>
+                      </Descriptions.Item>
+                      {detailRecord.next_action && (
+                        <Descriptions.Item label="下一步动作" span={2}>
+                          <div style={{ whiteSpace: 'pre-wrap', color: '#3B5AFB' }}>{detailRecord.next_action}</div>
+                        </Descriptions.Item>
+                      )}
+                      {detailRecord.block_reason && (
+                        <Descriptions.Item label="阻塞原因" span={2}>
+                          <div style={{ whiteSpace: 'pre-wrap', color: '#DC2626' }}>{detailRecord.block_reason}</div>
+                        </Descriptions.Item>
+                      )}
                       <Descriptions.Item label="上次更新" span={1}>
                         <span style={{ fontSize: 12, color: '#6B7280' }}>{detailRecord.updated_at ? moment(detailRecord.updated_at).fromNow() : '-'}</span>
                       </Descriptions.Item>
@@ -564,6 +664,34 @@ function ProjectPage() {
             </Col>
           </Row>
           <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={3} /></Form.Item>
+
+          {/* V4 闭环字段 */}
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="priority" label="优先级" initialValue="中">
+                <Select>
+                  <Option value="高">🔥 高</Option>
+                  <Option value="中">中</Option>
+                  <Option value="低">低</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="decision_needed" label="需决策" initialValue={false}>
+                <Select>
+                  <Option value={true}>是</Option>
+                  <Option value={false}>否</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="action_due_date" label="动作截止日">
+                <Input placeholder="YYYY-MM-DD" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="next_action" label="下一步动作"><TextArea rows={2} placeholder="下一步要做什么..." /></Form.Item>
+          <Form.Item name="block_reason" label="阻塞原因"><TextArea rows={2} placeholder="如有阻塞，说明原因..." /></Form.Item>
         </Form>
       </Modal>
 
@@ -655,6 +783,26 @@ function ProjectPage() {
                 value={todayUpdateForm.next_week_focus || ''}
                 onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_week_focus: e.target.value })}
                 placeholder="下周计划推进的重点工作..."
+              />
+            </div>
+
+            {/* V4 闭环字段 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>➡️ 下一步动作</div>
+              <Input.TextArea
+                rows={2}
+                value={todayUpdateForm.next_action || ''}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_action: e.target.value })}
+                placeholder="下一步要做什么..."
+              />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>🚧 阻塞原因</div>
+              <Input.TextArea
+                rows={2}
+                value={todayUpdateForm.block_reason || ''}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, block_reason: e.target.value })}
+                placeholder="如有阻塞，说明原因..."
               />
             </div>
 

@@ -52,6 +52,8 @@ async function createUser(req, res) {
       attributes: { exclude: ['password_hash'] }
     });
 
+    await logAudit('users', user.id, 'create', { id: req.user.id, name: req.user.name || req.user.username }, null, result.toJSON());
+
     success(res, result, '用户创建成功');
   } catch (err) {
     console.error('创建用户失败:', err);
@@ -73,12 +75,15 @@ async function updateUser(req, res) {
       return error(res, '用户不存在');
     }
 
+    const oldValues = user.toJSON();
     await user.update({ name, role, dept_id });
 
     const result = await User.findByPk(id, {
       include: [{ model: Department, attributes: ['id', 'name'] }],
       attributes: { exclude: ['password_hash'] }
     });
+
+    await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name || req.user.username }, oldValues, result.toJSON());
 
     success(res, result, '用户更新成功');
   } catch (err) {
@@ -104,7 +109,9 @@ async function deleteUser(req, res) {
       return error(res, '不能删除管理员账号');
     }
 
+    const oldValues = user.toJSON();
     await user.destroy();
+    await logAudit('users', id, 'delete', { id: req.user.id, name: req.user.name || req.user.username }, oldValues, null);
     success(res, null, '用户删除成功');
   } catch (err) {
     console.error('删除用户失败:', err);

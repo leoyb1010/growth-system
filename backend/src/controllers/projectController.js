@@ -332,7 +332,7 @@ async function quickUpdateProject(req, res) {
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
-    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'next_week_focus', 'risk_desc', 'next_action'];
+    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'next_week_focus', 'risk_desc', 'next_action', 'block_reason'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];

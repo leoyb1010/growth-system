@@ -21,6 +21,29 @@ async function getDashboard(req, res) {
     // 模式：quarter=当季, year=全年累计
     const mode = req.query.mode === 'year' ? 'year' : 'quarter';
 
+    // ===== 空态/季度回退逻辑 =====
+    // 检查当前季度是否有数据，无数据则回退到最近有数据的季度
+    let effectiveQuarter = currentQuarter;
+    let quarterFallback = false;
+    if (mode === 'quarter') {
+      const currentQuarterCount = await Project.count({ where: { quarter: currentQuarter, year: currentYear, ...deptFilter } });
+      const currentKpiCount = await Kpi.count({ where: { quarter: currentQuarter, year: currentYear, ...deptFilter } });
+      if (currentQuarterCount === 0 && currentKpiCount === 0) {
+        // 尝试回退到最近有数据的季度
+        const quarterOrder = ['Q4', 'Q3', 'Q2', 'Q1'];
+        for (const q of quarterOrder) {
+          if (q === currentQuarter) continue;
+          const pCount = await Project.count({ where: { quarter: q, year: currentYear, ...deptFilter } });
+          const kCount = await Kpi.count({ where: { quarter: q, year: currentYear, ...deptFilter } });
+          if (pCount > 0 || kCount > 0) {
+            effectiveQuarter = q;
+            quarterFallback = true;
+            break;
+          }
+        }
+      }
+    }
+
     // ========== 1. KPI 卡片区数据 ==========
     let kpis;
     if (mode === 'year') {
@@ -43,7 +66,7 @@ async function getDashboard(req, res) {
       }));
     } else {
       kpis = await Kpi.findAll({
-        where: { quarter: currentQuarter, year: currentYear, ...deptFilter },
+        where: { quarter: effectiveQuarter, year: currentYear, ...deptFilter },
         include: [{ model: Department, attributes: ['id', 'name'] }]
       });
       kpis = kpis.map(k => ({
@@ -76,7 +99,7 @@ async function getDashboard(req, res) {
 
     // ========== 2. 风险项目数 ==========
     const riskProjects = await Project.count({
-      where: { status: '风险', quarter: currentQuarter, ...deptFilter }
+      where: { status: '风险', quarter: effectiveQuarter, ...deptFilter }
     });
 
     // ========== 3. 本周待收口事项数 ==========
@@ -85,14 +108,14 @@ async function getDashboard(req, res) {
       where: {
         due_date: { [Op.lte]: weekEnd },
         status: { [Op.ne]: '完成' },
-        quarter: currentQuarter,
+        quarter: effectiveQuarter,
         ...deptFilter
       }
     });
 
     // ========== 4. 重点工作状态分布 ==========
     const projectStatusStats = await Project.findAll({
-      where: { quarter: currentQuarter, ...deptFilter },
+      where: { quarter: effectiveQuarter, ...deptFilter },
       attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       group: ['status']
     });
@@ -113,7 +136,7 @@ async function getDashboard(req, res) {
 
     // ========== 6. 最近更新项目 Top 10 ==========
     const recentProjects = await Project.findAll({
-      where: { quarter: currentQuarter, ...deptFilter },
+      where: { quarter: effectiveQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }],
       order: [['updated_at', 'DESC']],
       limit: 10
@@ -170,7 +193,7 @@ async function getDashboard(req, res) {
       where: {
         due_date: { [Op.lte]: weekEnd },
         status: { [Op.ne]: '完成' },
-        quarter: currentQuarter
+        quarter: effectiveQuarter
       },
       include: [{ model: Department, attributes: ['name'] }]
     });
@@ -183,7 +206,7 @@ async function getDashboard(req, res) {
     // 长期未更新（>3天）
     const staleDate = moment().subtract(3, 'days').toDate();
     const staleProjects = await Project.count({
-      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: currentQuarter }
+      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: effectiveQuarter }
     });
     if (staleProjects > 0) {
       weekFocus.push({ type: 'stale', text: `${staleProjects}项重点工作超过3天未更新`, count: staleProjects });
@@ -191,6 +214,8 @@ async function getDashboard(req, res) {
 
     success(res, {
       current_quarter: currentQuarter,
+      effective_quarter: effectiveQuarter,
+      quarter_fallback: quarterFallback,
       current_year: currentYear,
       view_mode: mode,
       kpi_cards: {

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { User, Department } = require('../models');
 const { generateToken } = require('../utils/jwt');
 const { success, error } = require('../utils/response');
+const { logAudit } = require('../services/auditLogService');
 
 /**
  * 用户登录
@@ -119,7 +120,9 @@ async function changePassword(req, res) {
     }
 
     const newHash = await bcrypt.hash(new_password, 10);
+    const oldValues = user.toJSON();
     await user.update({ password_hash: newHash });
+    await logAudit('users', user.id, 'update', { id: currentUser.id, name: currentUser.name || currentUser.username }, oldValues, { change_password: true });
 
     success(res, null, '密码修改成功');
   } catch (err) {
