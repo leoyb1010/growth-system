@@ -17,7 +17,7 @@ function KpiPage() {
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [form] = Form.useForm();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isDeptManager, user } = useAuth();
 
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
@@ -207,7 +207,7 @@ function KpiPage() {
             <Option value="Q1">Q1</Option><Option value="Q2">Q2</Option><Option value="Q3">Q3</Option><Option value="Q4">Q4</Option>
           </Select>
           <InputNumber value={filters.year} onChange={(v) => setFilters({ ...filters, year: v })} style={{ width: 100 }} />
-          {isAdmin && (
+          {isDeptManager && (
             <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
               新增指标
             </Button>
@@ -278,7 +278,7 @@ function KpiPage() {
                           <span style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }}>{item.unit}</span>
                         </div>
                       </div>
-                      {isAdmin && (
+                      {isDeptManager && (
                         <div style={{ marginTop: 10, display: 'flex', gap: 8, borderTop: '1px solid #f5f5f5', paddingTop: 10 }}>
                           <Button size="small" type="link" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>编辑</Button>
                           <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}>删除</Button>
@@ -367,7 +367,7 @@ function KpiPage() {
         open={drawerVisible}
         onClose={() => { setDrawerVisible(false); setDetailRecord(null); }}
         width={480}
-        extra={isAdmin && detailRecord ? (
+        extra={isDeptManager && detailRecord ? (
           <Button type="primary" icon={<EditOutlined />} onClick={() => { setDrawerVisible(false); handleEdit(detailRecord); }}>编辑</Button>
         ) : null}
       >

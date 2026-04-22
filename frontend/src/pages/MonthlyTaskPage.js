@@ -19,7 +19,7 @@ function MonthlyTaskPage() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [viewMode, setViewMode] = useState('card');
   const [form] = Form.useForm();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isDeptManager } = useAuth();
 
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -78,7 +78,7 @@ function MonthlyTaskPage() {
             bodyStyle={{ padding: 20 }}
             actions={[
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,
-              ...(isAdmin ? [
+              ...(isDeptManager ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
                 <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
               ] : [])
@@ -135,7 +135,7 @@ function MonthlyTaskPage() {
           >
             {viewMode === 'card' ? '列表' : '卡片'}
           </Button>,
-          isAdmin && (
+          isDeptManager && (
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
               新增工作
             </Button>
@@ -175,8 +175,8 @@ function MonthlyTaskPage() {
                     </td>
                     <td style={{ padding: '10px 8px', fontSize: 13 }}>
                       <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>详情</Button>
-                      {isAdmin && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
-                      {isAdmin && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>删除</Button>}
+                      {isDeptManager && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
+                      {isDeptManager && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>删除</Button>}
                     </td>
                   </tr>
                 ))}
@@ -192,7 +192,7 @@ function MonthlyTaskPage() {
         open={drawerVisible}
         onClose={() => { setDrawerVisible(false); setDetailRecord(null); }}
         width={560}
-        extra={isAdmin && detailRecord ? (
+        extra={isDeptManager && detailRecord ? (
           <Button type="primary" icon={<EditOutlined />} onClick={() => { setDrawerVisible(false); handleEdit(detailRecord); }}>编辑</Button>
         ) : null}
       >

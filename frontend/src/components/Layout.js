@@ -78,7 +78,7 @@ function AppLayout() {
     { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
-    ...(isAdmin ? [
+    ...(isDeptManager ? [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
     ] : [])
   ];
@@ -95,7 +95,7 @@ function AppLayout() {
   const userMenuItems = [
     { key: 'profile', label: user?.name || '用户', icon: <UserOutlined />, disabled: true },
     { type: 'divider' },
-    ...(isAdmin ? [
+    ...(isDeptManager ? [
       { key: '/audit-logs', label: '审计日志', icon: <HistoryOutlined /> },
       { key: '/archives', label: '归档管理', icon: <InboxOutlined /> },
     ] : []),

@@ -29,12 +29,16 @@ async function login(req, res) {
       return error(res, '用户名或密码错误', 1, 401);
     }
 
+    // 计算角色层级
+    const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
+
     const token = generateToken({
       id: user.id,
       username: user.username,
       name: user.name,
       role: user.role,
-      dept_id: user.dept_id
+      dept_id: user.dept_id,
+      roleLevel
     });
 
     success(res, {
@@ -44,6 +48,7 @@ async function login(req, res) {
         username: user.username,
         name: user.name,
         role: user.role,
+        roleLevel,
         dept_id: user.dept_id,
         department: user.Department
       }
@@ -64,7 +69,14 @@ async function getCurrentUser(req, res) {
       include: [{ model: Department, attributes: ['id', 'name'] }],
       attributes: { exclude: ['password_hash'] }
     });
-    success(res, user);
+    if (!user) {
+      return error(res, '用户不存在', 1, 404);
+    }
+    // 注入 roleLevel
+    const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
+    const userData = user.toJSON();
+    userData.roleLevel = roleLevel;
+    success(res, userData);
   } catch (err) {
     error(res, '获取用户信息失败', 1, 500);
   }
