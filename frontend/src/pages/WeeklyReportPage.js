@@ -237,7 +237,10 @@ th { background: #fafafa; font-weight: 600; }
             background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10,
             padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#1E40AF', lineHeight: 1.7
           }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>📋 本周结论</div>
+            <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              📋 本周结论
+              <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>自动生成</Tag>
+            </div>
             {content.week_conclusion}
           </div>
         )}
@@ -407,8 +410,9 @@ th { background: #fafafa; font-weight: 600; }
           )}
         </div>
 
-        <div className="footer" style={{ marginTop: 20, borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
-          自动生成于 {content.generated_at}
+        <div className="footer" style={{ marginTop: 20, borderTop: '1px solid #E5E7EB', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#9CA3AF', fontSize: 12 }}>🤖 本周报基础数据由系统自动汇总生成于 {content.generated_at}</span>
+          <span style={{ color: '#3B5AFB', fontSize: 12 }}>管理评语与复盘结论需手动补充</span>
         </div>
       </div>
     );
@@ -440,8 +444,8 @@ th { background: #fafafa; font-weight: 600; }
   return (
     <div className="app-page">
       <PageHeader
-        title="周报管理"
-        subtitle="生成、查看和导出业务周报"
+        title="周报与复盘"
+        subtitle="结果输出页 · 周报内容自动生成，只需补充管理评语和复盘结论"
         extra={[
           <Button key="gen" type="primary" icon={<FileTextOutlined />} onClick={handleGenerate} loading={generating}>
             生成周报

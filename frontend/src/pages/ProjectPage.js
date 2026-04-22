@@ -250,17 +250,25 @@ function ProjectPage() {
 
               {/* 底部时间标签行 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid #F1F5F9' }}>
-                {item.updated_at && (
-                  <span className="subtle-text" style={{ fontSize: 11 }}>
-                    🕐 {moment(item.updated_at).fromNow()}
-                  </span>
-                )}
-                {item.is_risk && (
-                  <Tag color="error" style={{ margin: 0, fontSize: 11 }}><WarningOutlined /> 风险</Tag>
-                )}
-                {item.is_due_soon && !item.is_risk && (
-                  <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>⏰ 临期</Tag>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {item.updated_at && (
+                    <span className="subtle-text" style={{ fontSize: 11 }}>
+                      🕐 {moment(item.updated_at).fromNow()}
+                    </span>
+                  )}
+                  {/* 长期未更新提醒 — 替代纯"7天内到期"逻辑 */}
+                  {item.updated_at && (() => {
+                    const daysSince = moment().diff(moment(item.updated_at), 'days');
+                    if (daysSince >= 14 && item.status !== '完成') return <Tag color="error" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>🚨 {daysSince}天未更新</Tag>;
+                    if (daysSince >= 10 && item.status !== '完成') return <Tag color="orange" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>⚠ {daysSince}天未更新</Tag>;
+                    if (daysSince >= 7 && item.status !== '完成') return <Tag color="default" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>💤 {daysSince}天未更新</Tag>;
+                    return null;
+                  })()}
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {item.is_risk && <Tag color="error" style={{ margin: 0, fontSize: 11 }}><WarningOutlined /> 风险</Tag>}
+                  {item.is_due_soon && !item.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>⏰ 临期</Tag>}
+                </div>
               </div>
             </Card>
           </Col>
@@ -293,8 +301,8 @@ function ProjectPage() {
   return (
     <div className="app-page">
       <PageHeader
-        title="重点工作推进"
-        subtitle="跟踪当前重点项目、下周安排与风险事项"
+        title="项目推进"
+        subtitle="项目数据的唯一维护入口 · 其他页面的项目信息均自动引用此处数据"
         extra={[
           <Select key="q" value={filters.quarter} onChange={(v) => setFilters({ ...filters, quarter: v })} style={{ width: 100 }}>
             <Option value="Q1">Q1</Option><Option value="Q2">Q2</Option><Option value="Q3">Q3</Option><Option value="Q4">Q4</Option>

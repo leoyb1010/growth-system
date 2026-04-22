@@ -4,6 +4,7 @@ import { AuthProvider } from './hooks/useAuth';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import TodayPage from './pages/TodayPage';
 import WeekPage from './pages/WeekPage';
 import KpiPage from './pages/KpiPage';
 import ProjectPage from './pages/ProjectPage';
@@ -26,6 +27,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<DashboardPage />} />
+            <Route path="today" element={<TodayPage />} />
             <Route path="week" element={<WeekPage />} />
             <Route path="kpis" element={<KpiPage />} />
             <Route path="projects" element={<ProjectPage />} />

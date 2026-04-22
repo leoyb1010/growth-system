@@ -15,7 +15,10 @@ import {
   HistoryOutlined,
   FormOutlined,
   FileTextOutlined,
-  ContainerOutlined
+  ContainerOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined,
+  ContainerOutlined as ArchiveOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 
@@ -27,27 +30,36 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 侧边栏菜单 - V3管理动作视角
+  // 侧边栏菜单 — 结构收敛型：管理节奏优先，数据管理在后
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
-    { key: '/week', icon: <CalendarOutlined />, label: '本周' },
-    { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
+    { key: '/today', icon: <ClockCircleOutlined />, label: '今日更新' },
+    { key: '/week', icon: <CalendarOutlined />, label: '本周管理' },
     { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
-    { key: '/settlement', icon: <ContainerOutlined />, label: '沉淀' },
+    { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
+    { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
+    { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     ...(isAdmin ? [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
     ] : [])
   ];
 
-  // 头像下拉菜单 - 审计日志/数据录入/归档管理移到这里
+  // 数据录入快捷下拉项
+  const dataEntryItems = [
+    { key: '/projects?entry=new', label: '录入项目', icon: <ProjectOutlined /> },
+    { key: '/kpis?entry=new', label: '录入指标', icon: <BarChartOutlined /> },
+    { key: '/monthly-tasks?entry=new', label: '录入月度任务', icon: <FormOutlined /> },
+    { key: '/achievements?entry=new', label: '录入季度成果', icon: <StarOutlined /> },
+  ];
+
+  // 头像下拉菜单 — 只保留低频管理操作
   const userMenuItems = [
     { key: 'profile', label: user?.name || '用户', icon: <UserOutlined />, disabled: true },
     { type: 'divider' },
     ...(isAdmin ? [
-      { key: '/data-entry', label: '数据录入', icon: <FormOutlined /> },
       { key: '/audit-logs', label: '审计日志', icon: <HistoryOutlined /> },
-      { key: '/archives', label: '归档管理', icon: <ContainerOutlined /> },
+      { key: '/archives', label: '归档管理', icon: <ArchiveOutlined /> },
     ] : []),
     { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, danger: true }
   ];
@@ -57,7 +69,9 @@ function AppLayout() {
       logout();
       navigate('/login');
     } else if (key.startsWith('/')) {
-      navigate(key);
+      // 支持 ?entry= 参数的路由跳转
+      const [path, search] = key.split('?');
+      navigate(path + (search ? `?${search}` : ''));
     }
   };
 
@@ -85,6 +99,14 @@ function AppLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* 显性数据录入入口 — 始终可见，头像左侧 */}
+            {isAdmin && (
+              <Dropdown menu={{ items: dataEntryItems, onClick: handleMenuClick }} placement="bottomRight">
+                <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600 }}>
+                  数据录入
+                </Button>
+              </Dropdown>
+            )}
             <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Avatar icon={<UserOutlined />} />

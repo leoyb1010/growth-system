@@ -1,31 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented } from 'antd';
-import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined } from '@ant-design/icons';
+import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, FormOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../hooks/useAuth';
+import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
-import MetricCard from '../components/ui/MetricCard';
 
 function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('quarter');
+  const [staleProjects, setStaleProjects] = useState([]);
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     fetchDashboard();
+    fetchStaleProjects();
   }, [viewMode]);
 
   const fetchDashboard = async () => {
     setLoading(true);
     try {
       const res = await api.get(`/dashboard?mode=${viewMode}`);
-      if (res.code === 0) {
-        setData(res.data);
-      }
+      if (res.code === 0) setData(res.data);
     } catch (err) {
       message.error('获取仪表盘数据失败');
     } finally {
@@ -33,11 +33,18 @@ function DashboardPage() {
     }
   };
 
+  const fetchStaleProjects = async () => {
+    try {
+      const res = await api.get('/projects/stale', { params: { days: 7 } });
+      if (res.code === 0) setStaleProjects(res.data);
+    } catch (err) { /* 静默 */ }
+  };
+
   const handleGenerateReport = async () => {
     try {
       const res = await api.post('/weekly-reports/generate', {});
       if (res.code === 0) {
-        message.success('周报生成成功，可在周报管理页面查看');
+        message.success('周报生成成功，可在周报与复盘页面查看');
         navigate('/weekly-reports');
       }
     } catch (err) {
@@ -50,152 +57,79 @@ function DashboardPage() {
   const modeLabel = viewMode === 'year' ? '全年累计' : `${data.current_quarter} 季度`;
   const riskCount = data.kpi_cards?.risk_project_count || 0;
 
-  // 四张核心指标 — 白底克制风格
+  // 长期未更新项目分级
+  const getStaleLevel = (days) => {
+    if (days >= 14) return { label: `${days}天`, level: 'critical', color: '#DC2626', bg: '#FEF2F2' };
+    if (days >= 10) return { label: `${days}天`, level: 'warning', color: '#EA580C', bg: '#FFF7ED' };
+    return { label: `${days}天`, level: 'caution', color: '#D97706', bg: '#FFFBEB' };
+  };
+
+  // KPI 指标行
   const kpiCards = [
     {
-      title: '部门 GMV',
-      value: `${data.kpi_cards?.total_gmv_rate || 0}%`,
-      suffix: '完成率',
+      title: '部门 GMV', value: `${data.kpi_cards?.total_gmv_rate || 0}%`, suffix: '完成率',
       hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString()} 万`,
       status: (data.kpi_cards?.total_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_gmv_rate || 0) >= 60 ? 'warning' : 'error',
       icon: <TeamOutlined style={{ fontSize: 20, color: '#3B5AFB' }} />,
     },
     {
-      title: '部门利润',
-      value: `${data.kpi_cards?.total_profit_rate || 0}%`,
-      suffix: '完成率',
+      title: '部门利润', value: `${data.kpi_cards?.total_profit_rate || 0}%`, suffix: '完成率',
       hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString()} 万`,
       status: (data.kpi_cards?.total_profit_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_profit_rate || 0) >= 60 ? 'warning' : 'error',
       icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
     {
-      title: '拓展组 GMV',
-      value: `${data.kpi_cards?.expand_gmv_rate || 0}%`,
-      suffix: '完成率',
+      title: '拓展组 GMV', value: `${data.kpi_cards?.expand_gmv_rate || 0}%`, suffix: '完成率',
       hint: `目标 ${(data.kpi_cards?.expand_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.expand_gmv_actual || 0).toLocaleString()} 万`,
       status: (data.kpi_cards?.expand_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.expand_gmv_rate || 0) >= 60 ? 'warning' : 'error',
       icon: <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} />,
     },
     {
-      title: '运营组 GMV',
-      value: `${data.kpi_cards?.ops_gmv_rate || 0}%`,
-      suffix: '完成率',
+      title: '运营组 GMV', value: `${data.kpi_cards?.ops_gmv_rate || 0}%`, suffix: '完成率',
       hint: `目标 ${(data.kpi_cards?.ops_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.ops_gmv_actual || 0).toLocaleString()} 万`,
       status: (data.kpi_cards?.ops_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.ops_gmv_rate || 0) >= 60 ? 'warning' : 'error',
       icon: <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
     },
   ];
 
-  // 季度对比柱状图（仅全年模式）
-  const quarterChartOption = {
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['拓展组', '运营组'], bottom: 0, textStyle: { fontSize: 12 } },
-    grid: { left: 50, right: 20, top: 20, bottom: 40 },
-    xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'], axisLabel: { fontSize: 12 } },
-    yAxis: { type: 'value', name: '万元', nameTextStyle: { fontSize: 11 }, axisLabel: { fontSize: 11 } },
-    series: [
-      { name: '拓展组', type: 'bar', data: (data.quarter_comparison || []).map(q => q.expand_gmv_actual), itemStyle: { color: '#7C3AED', borderRadius: [4, 4, 0, 0] }, barWidth: '28%' },
-      { name: '运营组', type: 'bar', data: (data.quarter_comparison || []).map(q => q.ops_gmv_actual), itemStyle: { color: '#0891B2', borderRadius: [4, 4, 0, 0] }, barWidth: '28%' },
-    ]
-  };
-
   // 工作状态分布饼图
   const statusChartOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
     legend: { bottom: 0, textStyle: { fontSize: 12 } },
     series: [{
-      name: '状态',
-      type: 'pie',
-      radius: ['42%', '72%'],
-      avoidLabelOverlap: false,
+      name: '状态', type: 'pie', radius: ['42%', '72%'], avoidLabelOverlap: false,
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
       label: { show: true, formatter: '{b}\n{c}个', fontSize: 12 },
       data: (data.project_status_distribution || []).map(item => ({
-        name: item.status,
-        value: item.count,
-        itemStyle: {
-          color: item.status === '完成' ? '#16A34A' :
-                 item.status === '进行中' ? '#3B5AFB' :
-                 item.status === '风险' ? '#DC2626' : '#9CA3AF'
-        }
+        name: item.status, value: item.count,
+        itemStyle: { color: item.status === '完成' ? '#16A34A' : item.status === '进行中' ? '#3B5AFB' : item.status === '风险' ? '#DC2626' : '#9CA3AF' }
       }))
     }]
   };
 
-  const recentColumns = [
-    { title: '项目名称', dataIndex: 'name', key: 'name', ellipsis: true },
-    { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 80 },
-    { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
-    { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s) => (
-      <Tag color={s === '完成' ? 'success' : s === '风险' ? 'error' : s === '进行中' ? 'processing' : 'default'}>{s}</Tag>
-    )},
-    { title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 70, render: (p) => `${p}%` },
-    { title: '更新', dataIndex: 'updated_at', key: 'updated', width: 90, render: (t) => moment(t).format('MM-DD HH:mm') }
-  ];
-
-  const dueSoonColumns = [
-    { title: '项目名称', dataIndex: 'name', key: 'name', ellipsis: true },
-    { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 80 },
-    { title: '到期日', dataIndex: 'due_date', key: 'due', width: 100 },
-    { title: '剩余', dataIndex: 'days_until', key: 'days', width: 70, render: (d) => <Tag color="warning">{d}天</Tag> }
-  ];
-
   return (
     <div className="app-page">
-      {/* 摘要头部 */}
       <PageHeader
-        title="增长业务驾驶舱"
-        subtitle={`${data.current_year}年 · ${modeLabel} · 聚焦目标达成、重点项目推进与近期风险变化`}
+        title="总览"
+        subtitle={`${data.current_year}年 · ${modeLabel} · 本周状态、待办事项与风险一览`}
         extra={[
           <Segmented
-            key="mode"
-            value={viewMode}
-            onChange={(v) => setViewMode(v)}
-            options={[
-              { label: `${data.current_quarter} 季度`, value: 'quarter' },
-              { label: '全年累计', value: 'year' },
-            ]}
+            key="mode" value={viewMode} onChange={(v) => setViewMode(v)}
+            options={[{ label: `${data.current_quarter} 季度`, value: 'quarter' }, { label: '全年累计', value: 'year' }]}
           />,
-          <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>
-            生成周报
-          </Button>,
+          <Button key="today" icon={<ClockCircleOutlined />} onClick={() => navigate('/today')}>今日更新</Button>,
+          <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>生成周报</Button>,
         ]}
       />
 
-      {/* 风险提示条 */}
-      {riskCount > 0 && (
-        <div style={{
-          marginBottom: 20,
-          padding: '10px 20px',
-          background: '#FEF2F2',
-          border: '1px solid #FECACA',
-          borderRadius: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}>
-          <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
-          <span style={{ fontSize: 14, color: '#991B1B' }}>
-            当前有 <strong>{riskCount}</strong> 个风险项目需要关注
-          </span>
-          <Button type="link" size="small" onClick={() => navigate('/projects')} style={{ padding: 0, height: 'auto', fontWeight: 600 }}>
-            立即查看 →
-          </Button>
-        </div>
-      )}
-
-      {/* KPI 指标行 — 白底克制 */}
+      {/* ===== 区块1：本周概览（4个KPI） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {kpiCards.map((card, idx) => (
           <Col xs={24} sm={12} xl={6} key={idx}>
             <Card className="surface-card hover-lift" bodyStyle={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div className="metric-label">{card.title}</div>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: '#F5F7FB',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {card.icon}
                 </div>
               </div>
@@ -203,42 +137,33 @@ function DashboardPage() {
                 <span className="metric-value">{card.value}</span>
                 <span className="subtle-text" style={{ fontSize: 13 }}>{card.suffix}</span>
               </div>
-              <Progress
-                percent={Math.min(parseFloat(card.value), 100)}
-                strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'}
-                trailColor="#F1F5F9"
-                showInfo={false}
-                strokeWidth={6}
-                style={{ marginBottom: 10 }}
-              />
+              <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={6} style={{ marginBottom: 10 }} />
               <div className="subtle-text" style={{ fontSize: 12 }}>{card.hint}</div>
             </Card>
           </Col>
         ))}
       </Row>
 
-      {/* 今日变化 + 本周关注（双列） */}
+      {/* ===== 区块2：今日提醒 + 本周关注（双列） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} lg={12}>
           <PanelCard
-            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日变化</span>}
-            extra={data.today_changes?.length > 0 && <span className="subtle-text" style={{ fontSize: 12 }}>{data.today_changes.length} 条</span>}
+            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日提醒</span>}
+            subtitle="系统自动聚合"
+            extra={<Button type="link" size="small" onClick={() => navigate('/today')}>查看全部</Button>}
           >
             {(!data.today_changes || data.today_changes.length === 0) ? (
               <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
                 <ClockCircleOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
-                <div style={{ fontSize: 13 }}>今日暂无数据变更</div>
+                <div style={{ fontSize: 13 }}>今日暂无提醒</div>
               </div>
             ) : (
               <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-                {data.today_changes.slice(0, 15).map((c, idx) => {
+                {data.today_changes.slice(0, 10).map((c, idx) => {
                   const tableLabel = { projects: '项目', kpis: '指标', performances: '业绩', monthly_tasks: '月度', achievements: '成果' }[c.table_name] || c.table_name;
                   const actionConfig = { create: { label: '新增', color: '#16A34A', tag: 'success' }, update: { label: '更新', color: '#3B5AFB', tag: 'processing' }, delete: { label: '删除', color: '#DC2626', tag: 'error' } }[c.action] || { label: c.action, color: '#9CA3AF', tag: 'default' };
                   return (
-                    <div key={c.id || idx} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 10,
-                      padding: '8px 0', borderBottom: idx < Math.min(data.today_changes.length, 15) - 1 ? '1px solid #F1F5F9' : 'none'
-                    }}>
+                    <div key={c.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: idx < Math.min(data.today_changes.length, 10) - 1 ? '1px solid #F1F5F9' : 'none' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionConfig.color, marginTop: 7, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: '#111827', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -258,6 +183,7 @@ function DashboardPage() {
         <Col xs={24} lg={12}>
           <PanelCard
             title={<span><AlertOutlined style={{ color: '#F59E0B', marginRight: 8 }} />本周关注</span>}
+            subtitle="系统自动筛选"
             extra={data.week_focus?.length > 0 && <span className="subtle-text" style={{ fontSize: 12 }}>{data.week_focus.reduce((s, f) => s + f.count, 0)} 项</span>}
           >
             {(!data.week_focus || data.week_focus.length === 0) ? (
@@ -271,16 +197,10 @@ function DashboardPage() {
                   const iconMap = { due_soon: '⏰', risk: '🔴', stale: '💤', deviation: '📉' };
                   const bgMap = { due_soon: '#FFFBEB', risk: '#FEF2F2', stale: '#F9FAFB', deviation: '#F5F3FF' };
                   return (
-                    <div key={idx} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 12px', marginBottom: idx < data.week_focus.length - 1 ? 8 : 0,
-                      background: bgMap[f.type] || '#F9FAFB', borderRadius: 8
-                    }}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: idx < data.week_focus.length - 1 ? 8 : 0, background: bgMap[f.type] || '#F9FAFB', borderRadius: 8 }}>
                       <span style={{ fontSize: 18, flexShrink: 0 }}>{iconMap[f.type] || '📌'}</span>
                       <div style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{f.text}</div>
-                      <Tag color={f.type === 'risk' ? 'error' : f.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0 }}>
-                        {f.count}
-                      </Tag>
+                      <Tag color={f.type === 'risk' ? 'error' : f.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0 }}>{f.count}</Tag>
                     </div>
                   );
                 })}
@@ -290,90 +210,95 @@ function DashboardPage() {
         </Col>
       </Row>
 
-      {/* 图表区 — 状态分布 + 趋势对比 */}
+      {/* ===== 区块3：重点推进事项 + 长期未更新项目（双列） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={viewMode === 'year' ? 12 : 14}>
-          <PanelCard title="重点工作状态分布">
-            <ReactECharts option={statusChartOption} style={{ height: 280 }} />
+        <Col xs={24} lg={12}>
+          <PanelCard
+            title={<span><ThunderboltOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />重点推进事项</span>}
+            subtitle="来源于项目推进 · 系统自动筛选"
+            extra={<Button type="link" size="small" onClick={() => navigate('/projects')}>项目推进 →</Button>}
+          >
+            {(() => {
+              const focusProjects = (data.recent_projects || [])
+                .filter(p => p.status === '风险' || p.is_due_soon || p.progress_pct < 60)
+                .slice(0, 6);
+              if (focusProjects.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无重点推进事项</div>;
+              return focusProjects.map(p => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: p.status === '风险' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
+                  {p.status === '风险' && <Tag color="error" style={{ margin: 0, fontSize: 11 }}>风险</Tag>}
+                  {p.is_due_soon && !p.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>临期</Tag>}
+                  {p.progress_pct < 60 && p.status !== '风险' && !p.is_due_soon && <Tag color="default" style={{ margin: 0, fontSize: 11 }}>低进度</Tag>}
+                  <span style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{p.name}</span>
+                  <span className="subtle-text" style={{ fontSize: 11 }}>{p.owner_name}</span>
+                  <Progress type="circle" percent={p.progress_pct} size={32} strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 60 ? '#F59E0B' : '#DC2626'} />
+                </div>
+              ));
+            })()}
           </PanelCard>
         </Col>
-        <Col xs={24} lg={viewMode === 'year' ? 12 : 10}>
-          <PanelCard title={viewMode === 'year' ? '各季度 GMV 完成' : '核心指标完成概览'}>
-            <ReactECharts
-              option={viewMode === 'year' ? quarterChartOption : {
-                tooltip: {},
-                radar: {
-                  indicator: [
-                    { name: '部门GMV', max: 100 },
-                    { name: '部门利润', max: 100 },
-                    { name: '拓展GMV', max: 100 },
-                    { name: '运营GMV', max: 100 },
-                    { name: '拓展利润', max: 100 },
-                    { name: '运营利润', max: 100 },
-                  ],
-                  shape: 'circle',
-                  radius: '65%',
-                },
-                series: [{
-                  type: 'radar',
-                  data: [{
-                    value: [
-                      Math.min(data.kpi_cards?.total_gmv_rate || 0, 100),
-                      Math.min(data.kpi_cards?.total_profit_rate || 0, 100),
-                      Math.min(data.kpi_cards?.expand_gmv_rate || 0, 100),
-                      Math.min(data.kpi_cards?.ops_gmv_rate || 0, 100),
-                      Math.min(data.kpi_cards?.expand_profit_rate || 0, 100),
-                      Math.min(data.kpi_cards?.ops_profit_rate || 0, 100),
-                    ],
-                    name: '完成率 %',
-                    areaStyle: { color: 'rgba(59, 90, 251, 0.12)' },
-                    lineStyle: { color: '#3B5AFB', width: 2 },
-                    itemStyle: { color: '#3B5AFB' }
-                  }]
-                }]
-              }}
-              style={{ height: 280 }}
-            />
+        <Col xs={24} lg={12}>
+          <PanelCard
+            title={<span><ExclamationCircleOutlined style={{ color: '#EA580C', marginRight: 8 }} />长期未更新项目</span>}
+            subtitle="来源于项目推进 · 系统自动检测"
+            extra={<Button type="link" size="small" onClick={() => navigate('/today')}>今日更新 →</Button>}
+          >
+            {staleProjects.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目近期均有更新 ✌️</div>
+            ) : (
+              staleProjects.slice(0, 6).map(p => {
+                const sl = getStaleLevel(p.days_since_update);
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: sl.bg, borderRadius: 8 }}>
+                    <span style={{ fontSize: 14 }}>💤</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
+                      <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name}</div>
+                    </div>
+                    <Tag color={sl.level === 'critical' ? 'error' : sl.level === 'warning' ? 'orange' : 'warning'} style={{ fontSize: 11 }}>{sl.label}</Tag>
+                  </div>
+                );
+              })
+            )}
           </PanelCard>
         </Col>
       </Row>
 
-      {/* 行动列表区 — 风险项目 + 即将到期 */}
+      {/* ===== 区块4：风险/阻塞摘要 ===== */}
+      {riskCount > 0 && (
+        <div style={{ marginBottom: 24, padding: '12px 20px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
+          <span style={{ fontSize: 14, color: '#991B1B' }}>
+            当前有 <strong>{riskCount}</strong> 个风险项目需要关注
+          </span>
+          <Button type="link" size="small" onClick={() => navigate('/projects')} style={{ padding: 0, height: 'auto', fontWeight: 600 }}>项目推进 →</Button>
+        </div>
+      )}
+
+      {/* ===== 区块5：图表区（收窄，保留核心） ===== */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <PanelCard
-            title={<span><AlertOutlined style={{ color: '#DC2626', marginRight: 8 }} />高风险项目</span>}
-            extra={<Button type="link" size="small" onClick={() => navigate('/projects')}>查看全部</Button>}
-          >
-            {(data.recent_projects || []).filter(p => p.status === '风险').slice(0, 5).length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无风险项目 ✌️</div>
-            ) : (
-              <Table
-                dataSource={(data.recent_projects || []).filter(p => p.status === '风险').slice(0, 5)}
-                columns={recentColumns}
-                rowKey="id"
-                pagination={false}
-                size="small"
-              />
-            )}
+          <PanelCard title="重点工作状态分布" subtitle="系统自动统计">
+            <ReactECharts option={statusChartOption} style={{ height: 260 }} />
           </PanelCard>
         </Col>
         <Col xs={24} lg={12}>
-          <PanelCard
-            title={<span><ClockCircleOutlined style={{ color: '#F59E0B', marginRight: 8 }} />7天内到期</span>}
-            extra={<Button type="link" size="small" onClick={() => navigate('/projects')}>查看全部</Button>}
-          >
-            {(data.due_soon_projects || []).length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无即将到期项目</div>
-            ) : (
-              <Table
-                dataSource={(data.due_soon_projects || []).slice(0, 5)}
-                columns={dueSoonColumns}
-                rowKey="id"
-                pagination={false}
-                size="small"
-              />
-            )}
+          <PanelCard title="快捷操作" subtitle="日常管理常用入口">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { label: '今日更新', icon: '📋', desc: '查看变更与待办', path: '/today', color: '#3B5AFB' },
+                { label: '项目推进', icon: '🚀', desc: '维护项目数据（唯一入口）', path: '/projects', color: '#7C3AED' },
+                { label: '本周管理', icon: '📅', desc: '过程管理（自动汇总）', path: '/week', color: '#0891B2' },
+                { label: '周报与复盘', icon: '📊', desc: '结果输出（自动生成）', path: '/weekly-reports', color: '#16A34A' },
+              ].map(item => (
+                <Card key={item.path} className="surface-card hover-lift" bodyStyle={{ padding: 16, cursor: 'pointer' }} onClick={() => navigate(item.path)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 22 }}>{item.icon}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: item.color }}>{item.label}</span>
+                  </div>
+                  <div className="subtle-text" style={{ fontSize: 12 }}>{item.desc}</div>
+                </Card>
+              ))}
+            </div>
           </PanelCard>
         </Col>
       </Row>

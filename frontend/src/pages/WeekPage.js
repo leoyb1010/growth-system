@@ -160,7 +160,7 @@ function WeekPage() {
     <div className="app-page">
       <PageHeader
         title="本周管理"
-        subtitle={`${weekRange.label} · 周管理 + 日更新双节奏`}
+        subtitle={`${weekRange.label} · 过程管理 · 以下内容均为项目推进页数据的自动汇总，无需重复填写`}
         extra={[
           <Button key="refresh" onClick={fetchAllData}>刷新</Button>,
         ]}
@@ -238,7 +238,7 @@ function WeekPage() {
                   </PanelCard>
                 </Col>
                 <Col xs={24} lg={12}>
-                  <PanelCard title={<span><ClockCircleOutlined style={{ color: '#F59E0B', marginRight: 8 }} />7天内到期</span>}>
+                  <PanelCard title={<span><ClockCircleOutlined style={{ color: '#F59E0B', marginRight: 8 }} />临期事项</span>} subtitle="短周期 · 7天内到期">
                     {dueSoonProjects.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无临期项目</div>
                     ) : (
