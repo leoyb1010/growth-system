@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined, FormOutlined, MoreOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
@@ -20,7 +20,6 @@ function ProjectPage() {
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [viewMode, setViewMode] = useState('card');
-  const [activeTab, setActiveTab] = useState('current');
   const [sortMode, setSortMode] = useState('priority'); // priority | time
   const [form] = Form.useForm();
   const { isAdmin, isDeptManager, user } = useAuth();
@@ -55,15 +54,12 @@ function ProjectPage() {
   };
   const nextWeek = getNextWeekRange();
 
-  useEffect(() => { fetchData(); }, [filters, activeTab, sortMode]);
+  useEffect(() => { fetchData(); }, [filters, sortMode]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const params = { ...filters };
-      if (activeTab === 'nextweek') {
-        params.type = '下周重点';
-      }
       if (sortMode === 'priority') {
         params.sort = 'priority';
       }
@@ -78,11 +74,10 @@ function ProjectPage() {
 
   const handleSubmit = async (values) => {
     try {
-      const isNextWeek = activeTab === 'nextweek';
+      const isNextWeek = values.type === '下周重点';
       const payload = {
         ...values,
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
-        ...(isNextWeek && !editingRecord ? { type: '下周重点', status: values.status || '进行中', progress_pct: values.progress_pct || 0 } : {}),
       };
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);
@@ -178,16 +173,13 @@ function ProjectPage() {
     }
   };
 
-  const isNextWeek = activeTab === 'nextweek';
-
-  // ===== 卡片视图 — 更像项目面板 =====
+  // ===== 卡片视图 — 统一展示本周+下周 =====
   const renderCardView = () => (
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
         <Col span={24}>
           <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF' }}>
-            {isNextWeek ? <ThunderboltOutlined style={{ fontSize: 48, marginBottom: 16, display: 'block' }} /> : null}
-            {isNextWeek ? '暂无下周重点工作，点击右上角录入' : '暂无数据'}
+            暂无数据
           </div>
         </Col>
       )}
@@ -217,12 +209,15 @@ function ProjectPage() {
                 ] : [])
               ]}
             >
-              {/* 项目名 + 状态 */}
+              {/* 项目名 + 类型 + 状态 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                 <div style={{ flex: 1, marginRight: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                 </div>
-                <Tag color={sc.tag}>{item.status}</Tag>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {item.type === '下周重点' && <Tag color="purple" style={{ fontSize: 11 }}>⚡ 下周</Tag>}
+                  <Tag color={sc.tag}>{item.status}</Tag>
+                </div>
               </div>
 
               {/* 负责人 + 截止 — 2个核心信息 */}
@@ -240,9 +235,8 @@ function ProjectPage() {
                 )}
               </div>
 
-              {/* 进度条（本周）— 点击可就地编辑 */}
-              {!isNextWeek && (
-                editingProgressId === item.id ? (
+              {/* 进度条 — 点击可就地编辑 */}
+              {editingProgressId === item.id ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                     <InputNumber
                       min={0} max={100}
@@ -268,11 +262,10 @@ function ProjectPage() {
                       />
                     </div>
                   </Tooltip>
-                )
-              )}
+                )}
 
               {/* 本周进展摘要 — 点击可快速更新 */}
-              {!isNextWeek && item.weekly_progress && (
+              {item.weekly_progress && (
                 <Tooltip title={isDeptManager ? '点击快速更新' : ''}>
                   <div
                     onClick={() => isDeptManager && (setQuickUpdateItem(item), setQuickWeeklyProgress(item.weekly_progress || ''), setQuickUpdateVisible(true))}
@@ -282,9 +275,9 @@ function ProjectPage() {
                   </div>
                 </Tooltip>
               )}
-              {!isNextWeek && !item.weekly_progress && isDeptManager && (
+              {!item.weekly_progress && isDeptManager && (
                 <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => { setQuickUpdateItem(item); setQuickWeeklyProgress(''); setQuickUpdateVisible(true); }}>
-                  + 补充本周进展
+                  + 补充进展
                 </Button>
               )}
 
@@ -292,13 +285,6 @@ function ProjectPage() {
               {item.goal && (
                 <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   🎯 {item.goal}
-                </div>
-              )}
-
-              {/* 下周计划摘要 */}
-              {item.weekly_progress && isNextWeek && (
-                <div style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {item.weekly_progress}
                 </div>
               )}
 
@@ -334,10 +320,10 @@ function ProjectPage() {
   // ===== 表格视图 =====
   const columns = [
     { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 90 },
-    ...(isNextWeek ? [] : [{ title: '类型', dataIndex: 'type', key: 'type', width: 110 }]),
+    { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (t) => t === '下周重点' ? <Tag color="purple">⚡ 下周</Tag> : t },
     { title: '项目名称', dataIndex: 'name', key: 'name', width: 180 },
     { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
-    ...(isNextWeek ? [] : [{ title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> }]),
+    { title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> },
     { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s) => <Tag color={getStatusStyle(s).tag}>{s}</Tag> },
     { title: '截止', dataIndex: 'due_date', key: 'due', width: 100 },
     {
@@ -373,41 +359,14 @@ function ProjectPage() {
             {viewMode === 'card' ? '列表' : '卡片'}
           </Button>,
           isDeptManager && (
-            <Button key="add" type="primary" icon={isNextWeek ? <ThunderboltOutlined /> : <PlusOutlined />} onClick={() => {
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => {
               setEditingRecord(null);
               form.resetFields();
-              if (isNextWeek) {
-                form.setFieldsValue({ dept_id: 1, status: '进行中', progress_pct: 0, quarter: currentQuarter });
-              }
               setModalVisible(true);
             }}>
-              {isNextWeek ? '录入下周重点' : '新增项目'}
+              新增项目
             </Button>
           ),
-        ]}
-      />
-
-      {/* Tab 切换 */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key)}
-        style={{ marginBottom: 16 }}
-        items={[
-          {
-            key: 'current',
-            label: '📋 本周重点',
-          },
-          {
-            key: 'nextweek',
-            label: (
-              <span>
-                <ThunderboltOutlined /> 下周重点
-                <span className="subtle-text" style={{ fontSize: 11, marginLeft: 6 }}>
-                  {nextWeek.start} ~ {nextWeek.end}
-                </span>
-              </span>
-            ),
-          },
         ]}
       />
 
@@ -458,9 +417,7 @@ function ProjectPage() {
                       <Tag>{detailRecord.Department?.name}</Tag>
                       <span className="subtle-text">{detailRecord.owner_name}</span>
                     </div>
-                    {!isNextWeek && (
-                      <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
-                    )}
+                    <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
                     <Descriptions column={2} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', color: '#334155' }}>
                       <Descriptions.Item label="项目类型" span={1}>{detailRecord.type}</Descriptions.Item>
                       <Descriptions.Item label="预计完成" span={1}>
@@ -474,7 +431,7 @@ function ProjectPage() {
                       <Descriptions.Item label="工作目标" span={2}>
                         <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div>
                       </Descriptions.Item>
-                      <Descriptions.Item label={isNextWeek ? '计划/进展' : '本周进展'} span={2}>
+                      <Descriptions.Item label={detailRecord.type === '下周重点' ? '计划/进展' : '本周进展'} span={2}>
                         <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
                       </Descriptions.Item>
                       <Descriptions.Item label="风险与问题" span={2}>
@@ -529,7 +486,7 @@ function ProjectPage() {
 
       {/* 编辑弹窗 */}
       <Modal
-        title={editingRecord ? '编辑项目' : (isNextWeek ? '录入下周重点工作' : '新增项目')}
+        title={editingRecord ? '编辑项目' : '新增项目'}
         open={modalVisible}
         onOk={() => form.submit()}
         onCancel={() => { setModalVisible(false); setEditingRecord(null); }}
@@ -548,20 +505,25 @@ function ProjectPage() {
               </Form.Item>
             </Col>
           </Row>
-          {!isNextWeek && (
-            <Form.Item name="type" label="项目类型" rules={[{ required: true }]}>
-              <Input placeholder="如：新客拓展、渠道合作" />
-            </Form.Item>
-          )}
-          <Form.Item name="name" label={isNextWeek ? '工作名称' : '项目名称'} rules={[{ required: true }]}>
-            <Input placeholder={isNextWeek ? '下周重点推进的工作' : '项目名称'} />
+          <Form.Item name="type" label="项目类型" rules={[{ required: true }]}>
+            <Select placeholder="选择类型">
+              <Option value="新客拓展">新客拓展</Option>
+              <Option value="渠道合作">渠道合作</Option>
+              <Option value="产品迭代">产品迭代</Option>
+              <Option value="运营优化">运营优化</Option>
+              <Option value="下周重点">⚡ 下周重点</Option>
+              <Option value="其他">其他</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="name" label="项目名称" rules={[{ required: true }]}>
+            <Input placeholder="项目/工作名称" />
           </Form.Item>
           <Form.Item name="owner_name" label="负责人" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item name="goal" label="工作目标"><TextArea rows={3} placeholder="预期达成的目标" /></Form.Item>
-          <Form.Item name="weekly_progress" label={isNextWeek ? '当前进展/计划' : '本周进展'}>
-            <TextArea rows={3} placeholder={isNextWeek ? '当前进展或下周具体计划' : '本周进展'} />
+          <Form.Item name="weekly_progress" label="本周进展">
+            <TextArea rows={3} placeholder="本周进展或计划" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={8}>
@@ -583,11 +545,7 @@ function ProjectPage() {
             </Col>
             <Col span={8}>
               <Form.Item name="due_date" label="预计完成时间">
-                {isNextWeek ? (
-                  <Input disabled value={nextWeek.end} />
-                ) : (
                   <Input disabled value="" />
-                )}
               </Form.Item>
             </Col>
           </Row>
