@@ -69,13 +69,14 @@ function AppLayout() {
     }
   }, [searchVisible]);
 
-  // 侧边栏菜单 — V3 按管理动作组织
+  // 侧边栏菜单
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
     { key: '/week', icon: <CalendarOutlined />, label: '本周' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
     { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
-    { key: '/settlement', icon: <ContainerOutlined />, label: '沉淀' },
+    { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
+    { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     ...(isAdmin ? [
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
@@ -125,7 +126,7 @@ function AppLayout() {
           </div>
           <Menu
             mode="inline"
-            selectedKeys={[location.pathname]}
+            selectedKeys={[location.pathname === '/settlement' ? '/monthly-tasks' : location.pathname]}
             items={menuItems}
             onClick={({ key }) => navigate(key)}
             style={{ borderRight: 0 }}
@@ -145,7 +146,7 @@ function AppLayout() {
         >
           <Menu
             mode="inline"
-            selectedKeys={[location.pathname]}
+            selectedKeys={[location.pathname === '/settlement' ? '/monthly-tasks' : location.pathname]}
             items={menuItems}
             onClick={({ key }) => handleMenuClick({ key })}
             style={{ borderRight: 0 }}
