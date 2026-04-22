@@ -21,9 +21,9 @@
 
 - **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
 - **后端**：Node.js + Express 4 + Sequelize ORM
-- **数据库**：PostgreSQL 14+
+- **数据库**：PostgreSQL 14+ / SQLite（本地开发）
 - **认证**：JWT + bcrypt
-- **部署**：Docker + Docker Compose
+- **部署**：Docker + Docker Compose / 本地单端口部署
 
 ## 快速开始
 
@@ -47,7 +47,27 @@ docker-compose ps
 
 ### 方式二：本地开发
 
-#### 后端启动
+#### 一键启动（推荐 · 前后端同端口 3001）
+
+```bash
+# 1. 安装依赖
+cd backend && npm install && cd ../frontend && npm install
+
+# 2. 构建前端
+cd frontend && npm run build
+
+# 3. 一键启动（后端托管前端静态文件 + API，同端口 3001）
+./start.sh
+
+# 4. 访问 http://localhost:3001
+# 外网：配合 cloudflared tunnel --url http://localhost:3001
+```
+
+> **架构说明**：后端 Express 同时托管前端 build 产物和 API，SPA 路由回退到 index.html，无需额外代理或 serve 进程。
+
+#### 前后端分离开发模式
+
+##### 后端启动
 
 ```bash
 cd backend
@@ -64,7 +84,8 @@ export DB_PASSWORD=growth123
 export JWT_SECRET=growth-secret-key-2026
 export JWT_EXPIRES_IN=7d
 
-# 启动开发服务器
+# 使用 SQLite 模式（无需 PostgreSQL）
+export DB_DIALECT=sqlite
 npm run dev
 ```
 
@@ -103,15 +124,17 @@ psql -U growth -d growth_system -f backend/init.sql
 
 ```
 growth-system/
+├── start.sh                    # 一键启动脚本（DB_DIALECT=sqlite + 前后端同端口）[v3.2]
 ├── docker-compose.yml          # Docker 编排配置
 ├── backend/                    # 后端服务
 │   ├── Dockerfile
 │   ├── package.json
+│   ├── growth_system.sqlite   # SQLite 数据库（本地开发）[v3.2]
 │   ├── init.sql               # 数据库初始化脚本
 │   ├── config/
-│   │   └── database.js        # 数据库配置
+│   │   └── database.js        # 数据库配置（支持 PostgreSQL / SQLite 切换）
 │   └── src/
-│       ├── app.js             # 应用入口
+│       ├── app.js             # 应用入口（含前端静态托管 + SPA回退）[v3.2]
 │       ├── routes/            # 路由配置
 │       ├── models/            # Sequelize 数据模型
 │       ├── controllers/       # 业务控制器
@@ -130,10 +153,9 @@ growth-system/
 │       │   └── constants.js   # 统一状态色/进度色/样式常量 [v3.0]
 │       ├── components/        # 公共组件
 │       └── pages/             # 页面组件
-│           ├── DashboardPage.js      # 管理首页（今日提醒+本周关注+重点推进+长期未更新）[v3.1重构]
-│           ├── TodayPage.js          # 今日更新（独立一级模块）[v3.1新增]
+│           ├── DashboardPage.js      # 管理首页（今日提醒+本周关注+重点推进+长期未更新）[v3.2重构]
 │           ├── KpiPage.js            # 核心指标（含业务线业绩表）[v3.0增强]
-│           ├── ProjectPage.js        # 重点工作（含行内编辑+快速更新+优先排序）[v3.0增强]
+│           ├── ProjectPage.js        # 重点工作（今日更新+行内编辑+快速更新+优先排序）[v3.2增强]
 │           ├── WeekPage.js           # 周管理页（本周概览/今日更新/下周重点）[v3.0新增]
 │           ├── SettlementPage.js     # 沉淀页（月度+季度统一视图）[v3.0新增]
 │           ├── PerformancePage.js    # 业务线业绩
@@ -157,20 +179,26 @@ growth-system/
 | D - 月度工作 | monthly_tasks | 按月筛选、完成度追踪、下月跟进 |
 | E - 季度成果 | achievements | 成果沉淀、跨季度复用、优先级筛选 |
 
-### 2. 管理驾驶舱（Dashboard）[v3.0 增强]
+### 2. 管理驾驶舱（Dashboard）[v3.2 重构]
 
 - **今日变化 + 本周关注**：双栏管理信息流，驱动行动而非仅展示数据
 - **KPI 卡片**：当前季度两部门 GMV 完成率、净利润完成率、风险项目数
-- **图表区**：季度指标对比柱状图、工作状态分布饼图、预警状态分布柱状图
-- **列表区**：高风险项目 / 7天内到期项目 / 最近更新动态
+- **重点推进事项**：自动筛选风险/临期/低进度项目
+- **长期未更新项目**：7/10/14天分级提醒
+- **今日更新 Drawer**：从驾驶舱弹出，查看变更流 + 待更新项目 + 快捷录入入口（更新操作引导至项目推进页）
+- **图表区**：工作状态分布饼图、快捷操作面板
 
-### 3. 周+日双节奏管理 [v3.0 新增]
+### 3. 周+日双节奏管理 [v3.2 更新]
 
 - **周管理页**（/week）：三 Tab 架构
   - 📋 本周概览：本周关注点、风险项目、临期项目、全部项目进度
   - 📝 今日更新：当日变化流、3天未更新预警、今日到期提醒
   - ⚡ 下周重点：下周到期项目、需关注项目
-- **日更新机制**：重点工作支持行内进度编辑 + 快速本周进展更新
+- **今日更新机制** [v3.2 重构]：
+  - 每个项目卡片新增"今日更新"操作按钮，打开增强版更新 Drawer
+  - 增强版更新支持：📊进度 + 🏷️状态 + 📝本周进展 + ⚠️风险与问题（一键保存写回项目表）
+  - Dashboard 的今日更新 Drawer 聚焦"变更展示"，更新操作引导至项目推进页
+  - 数据闭环：今日更新 → 写入项目表 → AuditLog 自动记录 → Dashboard 变更流展示
 
 ### 4. 智能周报生成 [v3.0 增强]
 
@@ -222,8 +250,10 @@ growth-system/
 ### 重点工作
 - `GET /api/projects?quarter=Q1&status=进行中&sort=priority` - 项目列表（sort=priority 管理优先排序 [v3.0]）
 - `GET /api/projects/dashboard` - 项目统计
+- `GET /api/projects/stale?days=7` - 长期未更新项目 [v3.2]
 - `POST /api/projects` - 创建项目
 - `PUT /api/projects/:id` - 更新项目
+- `PUT /api/projects/:id/quick-update` - 今日更新（进展+进度+状态+风险）[v3.2]
 - `DELETE /api/projects/:id` - 删除项目
 
 ### 业务线业绩
@@ -246,7 +276,10 @@ growth-system/
 - `DELETE /api/achievements/:id` - 删除成果
 
 ### 仪表盘
-- `GET /api/dashboard` - 综合仪表盘数据
+- `GET /api/dashboard?mode=quarter|year` - 综合仪表盘数据
+- `GET /api/dashboard/today-changes` - 今日数据变更列表 [v3.2]
+- `GET /api/dashboard/week-focus` - 本周关注点（规则驱动）[v3.2]
+- `GET /api/dashboard/week-summary` - 本周摘要统计 [v3.2]
 
 ### 周报
 - `POST /api/weekly-reports/generate` - 生成周报
@@ -277,12 +310,13 @@ growth-system/
 | departments | 部门表（拓展组、运营组） |
 | users | 用户表（管理员/部门账号） |
 | kpis | A表：核心指标 |
-| projects | B表：重点工作追踪 |
+| projects | B表：重点工作追踪（支持今日更新 quick-update） |
 | performances | C表：业务线业绩追踪 |
 | monthly_tasks | D表：月度重点工作 |
 | achievements | E表：季度成果沉淀 |
 | weekly_reports | 周报表 |
-| audit_logs | 审计日志 |
+| audit_logs | 审计日志（今日变更流数据源） |
+| quarter_archives | 季度归档 |
 
 ## 部署到 Ubuntu 服务器
 
@@ -326,6 +360,33 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v3.2.0 — 2026-04-22 · 部署架构统一 + 今日更新闭环
+
+> 核心改动：前后端同端口部署消除代理问题，"今日更新"从只读展示升级为可操作闭环。
+
+**部署架构重构**
+- 后端 Express 直接托管前端 build 产物 + SPA 回退，前后端统一在 3001 端口
+- 删除独立的 `serve` 进程（原 3456 端口），消除跨端口 API 代理问题
+- 新增 `start.sh` 一键启动脚本（DB_DIALECT=sqlite，无需 PostgreSQL）
+- 支持 SQLite 本地开发模式（`DB_DIALECT=sqlite` 环境变量切换）
+- CORS 配置兼容本地开发端口
+
+**今日更新逻辑重构**
+- 项目卡片操作栏新增「今日更新」按钮（📝 图标），一键打开增强版更新 Drawer
+- 增强版更新 Drawer 支持 4 个字段同时编辑：
+  - 📊 进度（可视化进度条 + 数字输入）
+  - 🏷️ 状态（下拉选择：未启动/进行中/风险/完成）
+  - 📝 本周进展（文本编辑）
+  - ⚠️ 风险与问题（文本编辑）
+- Dashboard 今日更新 Drawer 精简：删除旧的简易快速更新 Drawer，聚焦变更展示
+- "待更新项目"区域的按钮改为"前往更新"，引导至项目推进页做完整更新
+- 数据闭环：今日更新 → 写入项目表 → AuditLog 自动记录 → Dashboard 变更流展示
+
+**Bug 修复**
+- 修复仪表盘数据加载失败：前端 build 产物通过 serve 托管时无法代理 `/api` 请求到后端，导致所有 API 返回 HTML 而非 JSON
+
+---
 
 ### v3.1.0 — 2026-04-22 · 结构收敛型优化
 
@@ -460,6 +521,7 @@ docker-compose up -d --build
 - [x] v2.0.0 保守型 UI 升级（视觉基线+驾驶舱化+登录页提档）
 - [x] v3.0.0 管理导向工作台升级（周+日双节奏管理 / 管理驾驶舱 / 行内编辑 / 周报结论 / 统一状态色 / 沉淀页）
 - [x] v3.1.0 结构收敛型优化（导航重构 / 数据录入显性入口 / 今日更新独立页 / 首页改版 / 信息归属收敛 / 长周期提醒 / 自动/手动标识）
+- [x] v3.2.0 部署架构统一 + 今日更新闭环（前后端同端口 / SQLite 支持 / 今日更新增强 Drawer / Dashboard 精简 / 仪表盘代理 Bug 修复）
 
 ## License
 

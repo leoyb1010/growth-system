@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented, Drawer, Input, Badge, Spin } from 'antd';
-import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, FormOutlined } from '@ant-design/icons';
+import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { api, useAuth } from '../hooks/useAuth';
@@ -22,9 +22,6 @@ function DashboardPage() {
   const [todayChanges, setTodayChanges] = useState([]);
   const [todayStale, setTodayStale] = useState([]);
   const [todayProjects, setTodayProjects] = useState([]);
-  const [quickEditVisible, setQuickEditVisible] = useState(false);
-  const [quickEditItem, setQuickEditItem] = useState(null);
-  const [quickProgress, setQuickProgress] = useState('');
 
   useEffect(() => {
     fetchDashboard();
@@ -76,24 +73,6 @@ function DashboardPage() {
       }
     } catch (err) {
       message.error('生成周报失败');
-    }
-  };
-
-  // 快速更新
-  const handleQuickUpdate = async () => {
-    if (!quickEditItem || !quickProgress.trim()) return;
-    try {
-      await api.put(`/projects/${quickEditItem.id}/quick-update`, { weekly_progress: quickProgress });
-      message.success('更新成功');
-      setQuickEditVisible(false);
-      setQuickEditItem(null);
-      setQuickProgress('');
-      // 刷新数据
-      openTodayDrawer();
-      fetchDashboard();
-      fetchStaleProjects();
-    } catch (err) {
-      message.error('更新失败');
     }
   };
 
@@ -436,11 +415,9 @@ function DashboardPage() {
                   <Tag color={sl.level === 'critical' ? 'error' : sl.level === 'warning' ? 'orange' : 'warning'} style={{ fontSize: 11 }}>
                     {sl.label}
                   </Tag>
-                  {isAdmin && (
-                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setQuickEditItem(p); setQuickProgress(p.weekly_progress || ''); setQuickEditVisible(true); }}>
-                      更新
-                    </Button>
-                  )}
+                  <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setTodayDrawerVisible(false); navigate('/projects'); }}>
+                    前往更新
+                  </Button>
                 </div>
               );
             })
@@ -464,34 +441,6 @@ function DashboardPage() {
         </div>
       </Drawer>
 
-      {/* 快速更新抽屉 */}
-      <Drawer
-        title={quickEditItem ? `快速更新：${quickEditItem.name}` : '快速更新'}
-        open={quickEditVisible}
-        onClose={() => { setQuickEditVisible(false); setQuickEditItem(null); setQuickProgress(''); }}
-        width={480}
-        extra={<Button type="primary" onClick={handleQuickUpdate}>保存</Button>}
-      >
-        {quickEditItem && (
-          <div>
-            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-              <Tag color={getStatusStyle(quickEditItem.status).tag}>{quickEditItem.status}</Tag>
-              <Tag>{quickEditItem.Department?.name}</Tag>
-              <span className="subtle-text">{quickEditItem.owner_name}</span>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <Progress percent={quickEditItem.progress_pct} strokeColor={getProgressColor(quickEditItem.progress_pct)} />
-            </div>
-            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>本周进展 <span className="subtle-text" style={{ fontWeight: 400, fontSize: 11 }}>（在项目推进页统一维护）</span></div>
-            <Input.TextArea
-              rows={4}
-              value={quickProgress}
-              onChange={(e) => setQuickProgress(e.target.value)}
-              placeholder="输入本周进展..."
-            />
-          </div>
-        )}
-      </Drawer>
     </div>
   );
 }

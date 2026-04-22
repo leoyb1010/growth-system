@@ -23,9 +23,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS
+// CORS（同源模式无需跨域，仅开发环境需要）
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000'],
+  origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000', 'http://localhost:3456'],
   credentials: true
 }));
 
@@ -43,6 +43,22 @@ app.use('/api', routes);
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ code: 0, data: { status: 'ok', time: new Date().toISOString() }, message: '服务正常' });
+});
+
+// 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
+const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+app.use(express.static(frontendBuildPath));
+// SPA 回退：所有非 API、非静态文件的 GET 请求返回 index.html
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/weekly-reports/')) {
+    return next();
+  }
+  const indexPath = path.join(frontendBuildPath, 'index.html');
+  if (require('fs').existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    next();
+  }
 });
 
 // 错误处理

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined, FormOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
@@ -28,6 +28,10 @@ function ProjectPage() {
   const [quickUpdateVisible, setQuickUpdateVisible] = useState(false);
   const [quickUpdateItem, setQuickUpdateItem] = useState(null);
   const [quickWeeklyProgress, setQuickWeeklyProgress] = useState('');
+  // 增强版今日更新
+  const [todayUpdateVisible, setTodayUpdateVisible] = useState(false);
+  const [todayUpdateItem, setTodayUpdateItem] = useState(null);
+  const [todayUpdateForm, setTodayUpdateForm] = useState({ weekly_progress: '', progress_pct: 0, status: '', risk_desc: '' });
 
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
@@ -180,6 +184,32 @@ function ProjectPage() {
     }
   };
 
+  // 打开"今日更新"增强面板
+  const openTodayUpdate = (item) => {
+    setTodayUpdateItem(item);
+    setTodayUpdateForm({
+      weekly_progress: item.weekly_progress || '',
+      progress_pct: item.progress_pct || 0,
+      status: item.status || '进行中',
+      risk_desc: item.risk_desc || '',
+    });
+    setTodayUpdateVisible(true);
+  };
+
+  // 提交"今日更新"
+  const handleTodayUpdate = async () => {
+    if (!todayUpdateItem) return;
+    try {
+      await api.put(`/projects/${todayUpdateItem.id}/quick-update`, todayUpdateForm);
+      message.success('更新成功');
+      setTodayUpdateVisible(false);
+      setTodayUpdateItem(null);
+      fetchData();
+    } catch (err) {
+      message.error('更新失败');
+    }
+  };
+
   const isNextWeek = activeTab === 'nextweek';
 
   // ===== 卡片视图 — 更像项目面板 =====
@@ -204,6 +234,7 @@ function ProjectPage() {
               actions={[
                 <EyeOutlined key="view" onClick={() => showDetail(item)} />,
                 ...(isAdmin ? [
+                  <Tooltip key="today" title="今日更新"><FormOutlined onClick={() => openTodayUpdate(item)} /></Tooltip>,
                   <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
                   <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
                 ] : [])
@@ -597,7 +628,96 @@ function ProjectPage() {
         </Form>
       </Modal>
 
-      {/* 快速更新本周进展抽屉 */}
+      {/* ===== 今日更新 Drawer（增强版，支持进展+进度+状态+风险） ===== */}
+      <Drawer
+        title={todayUpdateItem ? `今日更新：${todayUpdateItem.name}` : '今日更新'}
+        open={todayUpdateVisible}
+        onClose={() => { setTodayUpdateVisible(false); setTodayUpdateItem(null); }}
+        width={520}
+        extra={<Button type="primary" onClick={handleTodayUpdate}>保存更新</Button>}
+      >
+        {todayUpdateItem && (
+          <div>
+            {/* 项目基本信息 */}
+            <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Tag color={getStatusStyle(todayUpdateItem.status).tag}>{todayUpdateItem.status}</Tag>
+              <Tag>{todayUpdateItem.Department?.name}</Tag>
+              <span className="subtle-text">👤 {todayUpdateItem.owner_name}</span>
+              {todayUpdateItem.due_date && (
+                <span className="subtle-text" style={{ fontSize: 12 }}>截止 {todayUpdateItem.due_date}</span>
+              )}
+            </div>
+
+            {/* 进度 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+                📊 进度 <span className="subtle-text" style={{ fontWeight: 400, fontSize: 12 }}>当前 {todayUpdateForm.progress_pct}%</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Progress
+                  percent={todayUpdateForm.progress_pct}
+                  strokeColor={getProgressColor(todayUpdateForm.progress_pct)}
+                  style={{ flex: 1 }}
+                />
+                <InputNumber
+                  min={0} max={100}
+                  value={todayUpdateForm.progress_pct}
+                  onChange={(v) => setTodayUpdateForm({ ...todayUpdateForm, progress_pct: v })}
+                  style={{ width: 72 }}
+                />
+                <span style={{ fontSize: 12, color: '#6B7280' }}>%</span>
+              </div>
+            </div>
+
+            {/* 状态 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>🏷️ 状态</div>
+              <Select
+                value={todayUpdateForm.status}
+                onChange={(v) => setTodayUpdateForm({ ...todayUpdateForm, status: v })}
+                style={{ width: '100%' }}
+              >
+                <Option value="未启动">未启动</Option>
+                <Option value="进行中">进行中</Option>
+                <Option value="风险">🔴 风险</Option>
+                <Option value="完成">✅ 完成</Option>
+              </Select>
+            </div>
+
+            {/* 本周进展 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>📝 本周进展</div>
+              <Input.TextArea
+                rows={4}
+                value={todayUpdateForm.weekly_progress}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, weekly_progress: e.target.value })}
+                placeholder="描述本周的进展、成果和关键节点..."
+              />
+            </div>
+
+            {/* 风险与问题 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>⚠️ 风险与问题</div>
+              <Input.TextArea
+                rows={3}
+                value={todayUpdateForm.risk_desc}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, risk_desc: e.target.value })}
+                placeholder="如有风险或阻塞，在此描述..."
+              />
+            </div>
+
+            {/* 工作目标（只读参考） */}
+            {todayUpdateItem.goal && (
+              <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, fontSize: 12 }}>
+                <span style={{ fontWeight: 600, color: '#334155' }}>🎯 工作目标：</span>
+                <span style={{ color: '#6B7280' }}>{todayUpdateItem.goal}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </Drawer>
+
+      {/* ===== 简易快速更新 Drawer（卡片内点击进展文本时触发） ===== */}
       <Drawer
         title={quickUpdateItem ? `快速更新：${quickUpdateItem.name}` : '快速更新'}
         open={quickUpdateVisible}
