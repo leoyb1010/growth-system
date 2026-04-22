@@ -51,6 +51,7 @@ router.get('/projects/stale', authenticate, requireDeptAccess, projectController
 router.post('/projects', authenticate, requireDeptAccess, projectController.createProject);
 router.put('/projects/:id', authenticate, requireDeptAccess, projectController.updateProject);
 router.put('/projects/:id/quick-update', authenticate, requireDeptAccess, projectController.quickUpdateProject);
+router.get('/projects/:id/update-logs', authenticate, requireDeptAccess, projectController.getProjectUpdateLogs);
 router.delete('/projects/:id', authenticate, requireAdmin, projectController.deleteProject);
 
 // ==================== C表：业务线业绩 ====================

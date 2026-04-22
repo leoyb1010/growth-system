@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined, FormOutlined, MoreOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
@@ -36,6 +36,11 @@ function ProjectPage() {
   const [todayUpdateVisible, setTodayUpdateVisible] = useState(false);
   const [todayUpdateItem, setTodayUpdateItem] = useState(null);
   const [todayUpdateForm, setTodayUpdateForm] = useState({ weekly_progress: '', progress_pct: 0, status: '', risk_desc: '' });
+  // 更新日历
+  const [updateLogs, setUpdateLogs] = useState([]);
+  const [logModalVisible, setLogModalVisible] = useState(false);
+  const [selectedDateLogs, setSelectedDateLogs] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
@@ -104,9 +109,14 @@ function ProjectPage() {
     catch (err) { message.error('删除失败'); }
   };
 
-  const showDetail = (record) => {
+  const showDetail = async (record) => {
     setDetailRecord(record);
     setDrawerVisible(true);
+    // 拉取更新日志
+    try {
+      const res = await api.get(`/projects/${record.id}/update-logs`);
+      if (res.code === 0) setUpdateLogs(res.data);
+    } catch (err) { /* ignore */ }
   };
 
   // 进度条点击就地更新
@@ -435,53 +445,85 @@ function ProjectPage() {
         ) : null}
       >
         {detailRecord && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-              <Badge color={getStatusStyle(detailRecord.status).dot} />
-              <Tag color={getStatusStyle(detailRecord.status).tag} style={{ fontSize: 14, padding: '2px 12px' }}>{detailRecord.status}</Tag>
-              <Tag>{detailRecord.Department?.name}</Tag>
-              <span className="subtle-text">{detailRecord.owner_name}</span>
-            </div>
-
-            {!isNextWeek && (
-              <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
-            )}
-
-            <Descriptions column={2} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', color: '#334155' }}>
-              <Descriptions.Item label="项目类型" span={1}>{detailRecord.type}</Descriptions.Item>
-              <Descriptions.Item label="预计完成" span={1}>
-                {detailRecord.due_date || '-'}
-                {detailRecord.days_until_due !== undefined && (
-                  <Tag color={detailRecord.days_until_due < 0 ? 'error' : detailRecord.days_until_due <= 3 ? 'warning' : 'default'} style={{ marginLeft: 8, fontSize: 11 }}>
-                    {detailRecord.days_until_due < 0 ? `逾期${Math.abs(detailRecord.days_until_due)}天` : detailRecord.days_until_due === 0 ? '今天到期' : `剩${detailRecord.days_until_due}天`}
-                  </Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="工作目标" span={2}>
-                <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div>
-              </Descriptions.Item>
-              <Descriptions.Item label={isNextWeek ? '计划/进展' : '本周进展'} span={2}>
-                <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
-              </Descriptions.Item>
-              <Descriptions.Item label="风险与问题" span={2}>
-                <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#DC2626' : '#9CA3AF' }}>
-                  {detailRecord.risk_desc || '无'}
-                </div>
-              </Descriptions.Item>
-              {/* 闭环信息行 */}
-              <Descriptions.Item label="上次更新" span={1}>
-                <span style={{ fontSize: 12, color: '#6B7280' }}>{detailRecord.updated_at ? moment(detailRecord.updated_at).fromNow() : '-'}</span>
-              </Descriptions.Item>
-              <Descriptions.Item label="状态标记" span={1}>
-                <span>
-                  {detailRecord.is_risk && <Tag color="error" style={{ marginRight: 4 }}>🔴 风险</Tag>}
-                  {detailRecord.is_due_soon && <Tag color="warning" style={{ marginRight: 4 }}>⏰ 临期</Tag>}
-                  {detailRecord.severe_warning && <Tag color="error">⚠ 严重预警</Tag>}
-                  {!detailRecord.is_risk && !detailRecord.is_due_soon && !detailRecord.severe_warning && <Tag>正常</Tag>}
-                </span>
-              </Descriptions.Item>
-            </Descriptions>
-          </div>
+          <Tabs
+            items={[
+              {
+                key: 'info',
+                label: '项目信息',
+                children: (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                      <Badge color={getStatusStyle(detailRecord.status).dot} />
+                      <Tag color={getStatusStyle(detailRecord.status).tag} style={{ fontSize: 14, padding: '2px 12px' }}>{detailRecord.status}</Tag>
+                      <Tag>{detailRecord.Department?.name}</Tag>
+                      <span className="subtle-text">{detailRecord.owner_name}</span>
+                    </div>
+                    {!isNextWeek && (
+                      <Progress percent={detailRecord.progress_pct} strokeColor={getProgressColor(detailRecord.progress_pct)} style={{ marginBottom: 24 }} />
+                    )}
+                    <Descriptions column={2} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', color: '#334155' }}>
+                      <Descriptions.Item label="项目类型" span={1}>{detailRecord.type}</Descriptions.Item>
+                      <Descriptions.Item label="预计完成" span={1}>
+                        {detailRecord.due_date || '-'}
+                        {detailRecord.days_until_due !== undefined && (
+                          <Tag color={detailRecord.days_until_due < 0 ? 'error' : detailRecord.days_until_due <= 3 ? 'warning' : 'default'} style={{ marginLeft: 8, fontSize: 11 }}>
+                            {detailRecord.days_until_due < 0 ? `逾期${Math.abs(detailRecord.days_until_due)}天` : detailRecord.days_until_due === 0 ? '今天到期' : `剩${detailRecord.days_until_due}天`}
+                          </Tag>
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="工作目标" span={2}>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div>
+                      </Descriptions.Item>
+                      <Descriptions.Item label={isNextWeek ? '计划/进展' : '本周进展'} span={2}>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="风险与问题" span={2}>
+                        <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#DC2626' : '#9CA3AF' }}>
+                          {detailRecord.risk_desc || '无'}
+                        </div>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="上次更新" span={1}>
+                        <span style={{ fontSize: 12, color: '#6B7280' }}>{detailRecord.updated_at ? moment(detailRecord.updated_at).fromNow() : '-'}</span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="状态标记" span={1}>
+                        <span>
+                          {detailRecord.is_risk && <Tag color="error" style={{ marginRight: 4 }}>🔴 风险</Tag>}
+                          {detailRecord.is_due_soon && <Tag color="warning" style={{ marginRight: 4 }}>⏰ 临期</Tag>}
+                          {detailRecord.severe_warning && <Tag color="error">⚠ 严重预警</Tag>}
+                          {!detailRecord.is_risk && !detailRecord.is_due_soon && !detailRecord.severe_warning && <Tag>正常</Tag>}
+                        </span>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </div>
+                )
+              },
+              {
+                key: 'calendar',
+                label: `更新日历${updateLogs.length > 0 ? ` (${updateLogs.length})` : ''}`,
+                children: (
+                  <div>
+                    <Calendar
+                      fullscreen={false}
+                      dateCellRender={(date) => {
+                        const dateStr = date.format('YYYY-MM-DD');
+                        const hasLog = updateLogs.some(l => l.update_date === dateStr);
+                        return hasLog ? <Badge dot color="#3B5AFB" style={{ position: 'absolute', top: 4, right: 4 }} /> : null;
+                      }}
+                      onSelect={(date) => {
+                        const dateStr = date.format('YYYY-MM-DD');
+                        const logs = updateLogs.filter(l => l.update_date === dateStr);
+                        if (logs.length > 0) {
+                          setSelectedDate(dateStr);
+                          setSelectedDateLogs(logs);
+                          setLogModalVisible(true);
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              }
+            ]}
+          />
         )}
       </Drawer>
 
@@ -672,6 +714,41 @@ function ProjectPage() {
           </div>
         )}
       </Drawer>
+
+      {/* 日期更新记录弹卡 */}
+      <Modal
+        title={`${selectedDate} 更新记录`}
+        open={logModalVisible}
+        onCancel={() => setLogModalVisible(false)}
+        footer={null}
+        width={480}
+      >
+        {selectedDateLogs.length === 0 && <div style={{ textAlign: 'center', color: '#9CA3AF', padding: 24 }}>当日无更新记录</div>}
+        {selectedDateLogs.map((log, idx) => (
+          <div key={log.id} style={{ marginBottom: 16, padding: 16, background: '#F8FAFC', borderRadius: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#334155', marginBottom: 8 }}>
+              第 {idx + 1} 条更新 <span className="subtle-text" style={{ fontWeight: 400 }}>{moment(log.created_at).format('HH:mm')}</span>
+            </div>
+            {log.progress_content && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>📝 进展</div>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{log.progress_content}</div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
+              {log.status && <Tag color={getStatusStyle(log.status).tag}>{log.status}</Tag>}
+              {log.progress_pct !== null && <Tag>进度 {log.progress_pct}%</Tag>}
+              {log.risk_desc && <Tag color="error">风险</Tag>}
+            </div>
+            {log.risk_desc && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#DC2626', whiteSpace: 'pre-wrap' }}>{log.risk_desc}</div>
+            )}
+            {log.next_action && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#3B5AFB' }}>➡️ 下一步：{log.next_action}</div>
+            )}
+          </div>
+        ))}
+      </Modal>
     </div>
   );
 }

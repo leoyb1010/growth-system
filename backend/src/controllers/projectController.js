@@ -302,4 +302,30 @@ async function quickUpdateProject(req, res) {
   }
 }
 
-module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats, getStaleProjects, quickUpdateProject };
+/**
+ * 获取项目更新日志（按日期追溯）
+ * GET /api/projects/:id/update-logs
+ */
+async function getProjectUpdateLogs(req, res) {
+  try {
+    const { id } = req.params;
+    const project = await Project.findByPk(id);
+    if (!project) return error(res, '项目不存在');
+
+    if (req.deptFilter && req.deptFilter !== project.dept_id) {
+      return error(res, '无权查看其他部门数据', 403, 403);
+    }
+
+    const logs = await ProjectUpdateLog.findAll({
+      where: { project_id: id },
+      order: [['update_date', 'DESC'], ['created_at', 'DESC']]
+    });
+
+    success(res, logs);
+  } catch (err) {
+    console.error('获取项目更新日志失败:', err);
+    error(res, '获取项目更新日志失败', 1, 500);
+  }
+}
+
+module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats, getStaleProjects, quickUpdateProject, getProjectUpdateLogs };
