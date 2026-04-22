@@ -30,10 +30,9 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 侧边栏菜单 — 结构收敛型：管理节奏优先，数据管理在后
+  // 侧边栏菜单 — 结构收敛型：今日更新从驾驶舱弹出，不走独立菜单
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
-    { key: '/today', icon: <ClockCircleOutlined />, label: '今日更新' },
     { key: '/week', icon: <CalendarOutlined />, label: '本周管理' },
     { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
@@ -45,11 +44,11 @@ function AppLayout() {
     ] : [])
   ];
 
-  // 数据录入快捷下拉项
+  // 数据录入快捷下拉项 — 合并月度重点、季度成果
   const dataEntryItems = [
     { key: '/projects?entry=new', label: '录入项目', icon: <ProjectOutlined /> },
     { key: '/kpis?entry=new', label: '录入指标', icon: <BarChartOutlined /> },
-    { key: '/monthly-tasks?entry=new', label: '录入月度任务', icon: <FormOutlined /> },
+    { key: '/monthly-tasks?entry=new', label: '录入月度重点', icon: <FormOutlined /> },
     { key: '/achievements?entry=new', label: '录入季度成果', icon: <StarOutlined /> },
   ];
 

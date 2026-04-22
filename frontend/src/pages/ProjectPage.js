@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
@@ -71,12 +71,58 @@ function ProjectPage() {
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
         ...(isNextWeek && !editingRecord ? { type: '下周重点', status: values.status || '进行中', progress_pct: values.progress_pct || 0 } : {}),
       };
+      // 清理辅助字段
+      delete payload.is_monthly_focus;
+      delete payload.is_quarter_achievement;
+      delete payload.achievement_type;
+      delete payload.achievement_result;
+
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);
         message.success('更新成功');
       } else {
         await api.post('/projects', payload);
-        message.success('创建成功');
+        message.success('项目创建成功');
+
+        // 如果勾选了"标记为月度重点工作"，同时创建月度任务
+        if (values.is_monthly_focus) {
+          try {
+            const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            await api.post('/monthly-tasks', {
+              dept_id: values.dept_id,
+              month: currentMonth,
+              quarter: values.quarter,
+              owner_name: values.owner_name,
+              category: values.type || '项目关联',
+              task: values.name,
+              goal: values.goal || '',
+              status: '进行中',
+              completion_rate: values.progress_pct || 0,
+            });
+            message.success('已同步创建月度重点工作');
+          } catch (err) {
+            message.warning('月度重点工作创建失败，请手动补充');
+          }
+        }
+
+        // 如果勾选了"标记为季度成果"，同时创建季度成果
+        if (values.is_quarter_achievement) {
+          try {
+            await api.post('/achievements', {
+              dept_id: values.dept_id,
+              quarter: values.quarter,
+              owner_name: values.owner_name,
+              project_name: values.name,
+              achievement_type: values.achievement_type || '项目关联成果',
+              priority: '中',
+              description: values.goal || '',
+              quantified_result: values.achievement_result || '',
+            });
+            message.success('已同步创建季度成果');
+          } catch (err) {
+            message.warning('季度成果创建失败，请手动补充');
+          }
+        }
       }
       setModalVisible(false);
       setEditingRecord(null);
@@ -515,6 +561,39 @@ function ProjectPage() {
             </Col>
           </Row>
           <Form.Item name="risk_desc" label="风险与问题"><TextArea rows={3} /></Form.Item>
+          {/* 月度/季度关联 — 仅新增时显示 */}
+          {!editingRecord && !isNextWeek && (
+            <div style={{ background: '#F0F4FF', borderRadius: 10, padding: 16, marginTop: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 12 }}>📋 数据关联（可选）</div>
+              <Form.Item name="is_monthly_focus" valuePropName="checked" initialValue={false} style={{ marginBottom: 8 }}>
+                <Checkbox>同步创建为<strong>月度重点工作</strong></Checkbox>
+              </Form.Item>
+              <Form.Item name="is_quarter_achievement" valuePropName="checked" initialValue={false} style={{ marginBottom: 8 }}>
+                <Checkbox>同步创建为<strong>季度成果</strong></Checkbox>
+              </Form.Item>
+              <Form.Item noStyle shouldUpdate={(prev, cur) => prev.is_quarter_achievement !== cur.is_quarter_achievement}>
+                {({ getFieldValue }) => getFieldValue('is_quarter_achievement') ? (
+                  <div style={{ paddingLeft: 24 }}>
+                    <Row gutter={16}>
+                      <Col span={12}>
+                        <Form.Item name="achievement_type" label="成果类型" style={{ marginBottom: 8 }}>
+                          <Input placeholder="如：流程优化、工具开发" size="small" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item name="achievement_result" label="量化结果" style={{ marginBottom: 8 }}>
+                          <Input placeholder="如：签约周期缩短40%" size="small" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </div>
+                ) : null}
+              </Form.Item>
+              <div className="subtle-text" style={{ fontSize: 11, marginTop: 4 }}>
+                💡 勾选后系统会自动在对应模块创建关联记录，无需重复录入
+              </div>
+            </div>
+          )}
         </Form>
       </Modal>
 

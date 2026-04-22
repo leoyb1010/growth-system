@@ -3,6 +3,8 @@ import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, messag
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
+import PageHeader from '../components/ui/PageHeader';
+import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, getStatusStyle, getProgressColor } from '../utils/constants';
 
 const { Option } = Select;
@@ -60,35 +62,34 @@ function MonthlyTaskPage() {
   const showDetail = (record) => { setDetailRecord(record); setDrawerVisible(true); };
 
   const getStatusColor = (status) => getStatusStyle(status).tag;
-
   const getCompletionColor = (rate) => getProgressColor(rate);
 
   // 卡片视图
   const renderCardView = () => (
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
-        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#bfbfbf' }}>暂无数据</div></Col>
+        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>暂无数据</div></Col>
       )}
       {data.map(item => (
         <Col xs={24} sm={12} lg={8} key={item.id}>
           <Card
-            hoverable
-            style={{ borderRadius: 12, borderLeft: `4px solid ${getStatusStyle(item.status).border}` }}
+            className="surface-card hover-lift"
+            style={{ borderLeft: `4px solid ${getStatusStyle(item.status).border}` }}
             bodyStyle={{ padding: 20 }}
             actions={[
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,
               ...(isAdmin ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <DeleteOutlined key="del" style={{ color: '#ff4d4f' }} onClick={() => handleDelete(item.id)} />
+                <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
               ] : [])
             ]}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div style={{ flex: 1, marginRight: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#262626', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.task}
                 </div>
-                <div style={{ fontSize: 12, color: '#8c8c8c' }}>{item.category}</div>
+                <div className="subtle-text" style={{ fontSize: 12 }}>{item.category}</div>
               </div>
               <Tag color={getStatusColor(item.status)}>{item.status}</Tag>
             </div>
@@ -101,7 +102,7 @@ function MonthlyTaskPage() {
             <Progress percent={item.completion_rate} strokeColor={getCompletionColor(item.completion_rate)} size="small" style={{ marginBottom: 8 }} />
 
             {item.output && (
-              <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 📦 {item.output}
               </div>
             )}
@@ -111,68 +112,71 @@ function MonthlyTaskPage() {
     </Row>
   );
 
-  // 表格视图
-  const columns = [
-    { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 90 },
-    { title: '月份', dataIndex: 'month', key: 'month', width: 90 },
-    { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
-    { title: '类别', dataIndex: 'category', key: 'category', width: 100 },
-    { title: '工作事项', dataIndex: 'task', key: 'task', width: 200, ellipsis: true },
-    { title: '完成度', dataIndex: 'completion_rate', key: 'rate', width: 80, render: v => `${v}%` },
-    { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: s => <Tag color={getStatusColor(s)}>{s}</Tag> },
-    {
-      title: '操作', key: 'action', width: 180,
-      render: (_, r) => (
-        <span>
-          <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(r)}>详情</Button>
-          {isAdmin && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(r)}>编辑</Button>}
-          {isAdmin && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(r.id)}>删除</Button>}
-        </span>
-      )
-    }
-  ];
-
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>月度重点工作</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+    <div className="app-page">
+      <PageHeader
+        title="月度重点工作"
+        subtitle={`${filters.month} · 来源于项目推进的月度重点事项`}
+        extra={[
           <Input
+            key="month"
             placeholder="月份筛选"
             value={filters.month}
             onChange={(e) => setFilters({ ...filters, month: e.target.value })}
             style={{ width: 130 }}
-          />
-          <Button icon={viewMode === 'card' ? <UnorderedListOutlined /> : <AppstoreOutlined />} onClick={() => setViewMode(viewMode === 'card' ? 'table' : 'card')}>
+          />,
+          <Button
+            key="view"
+            icon={viewMode === 'card' ? <UnorderedListOutlined /> : <AppstoreOutlined />}
+            onClick={() => setViewMode(viewMode === 'card' ? 'table' : 'card')}
+          >
             {viewMode === 'card' ? '列表' : '卡片'}
-          </Button>
-          {isAdmin && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
+          </Button>,
+          isAdmin && (
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
               新增工作
             </Button>
-          )}
-        </div>
-      </div>
+          ),
+        ]}
+      />
 
       {viewMode === 'card' ? renderCardView() : (
-        <Card style={{ borderRadius: 12 }}>
+        <PanelCard>
           <div className="ant-table-wrapper">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr>{columns.map(c => <th key={c.key} style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>{c.title}</th>)}</tr></thead>
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>部门</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>月份</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>负责人</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>类别</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>工作事项</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>完成度</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>状态</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>操作</th>
+                </tr>
+              </thead>
               <tbody>
                 {data.map(item => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    {columns.map(c => (
-                      <td key={c.key} style={{ padding: '10px 8px', fontSize: 13 }}>
-                        {c.render ? c.render(c.dataIndex instanceof Array ? item[c.dataIndex[0]]?.[c.dataIndex[1]] : item[c.dataIndex], item) : (c.dataIndex instanceof Array ? item[c.dataIndex[0]]?.[c.dataIndex[1]] : item[c.dataIndex])}
-                      </td>
-                    ))}
+                  <tr key={item.id} style={{ borderBottom: '1px solid #EEF2F7' }}>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.Department?.name}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.month}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.owner_name}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.category}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.task}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.completion_rate}%</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}><Tag color={getStatusColor(item.status)}>{item.status}</Tag></td>
+                    <td style={{ padding: '10px 8px', fontSize: 13 }}>
+                      <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>详情</Button>
+                      {isAdmin && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
+                      {isAdmin && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>删除</Button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </Card>
+        </PanelCard>
       )}
 
       {/* 详情抽屉 */}
@@ -190,13 +194,13 @@ function MonthlyTaskPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <Tag color={getStatusColor(detailRecord.status)} style={{ fontSize: 14, padding: '2px 12px' }}>{detailRecord.status}</Tag>
               <Tag>{detailRecord.Department?.name}</Tag>
-              <span style={{ color: '#8c8c8c' }}>{detailRecord.owner_name}</span>
-              <span style={{ color: '#bfbfbf', fontSize: 12 }}>{detailRecord.month}</span>
+              <span className="subtle-text">{detailRecord.owner_name}</span>
+              <span className="subtle-text" style={{ fontSize: 12 }}>{detailRecord.month}</span>
             </div>
 
             <Progress percent={detailRecord.completion_rate} strokeColor={getCompletionColor(detailRecord.completion_rate)} style={{ marginBottom: 24 }} />
 
-            <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#fafafa', width: 120 }}>
+            <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', width: 120 }}>
               <Descriptions.Item label="工作类别">{detailRecord.category}</Descriptions.Item>
               <Descriptions.Item label="工作目标"><div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.goal || '-'}</div></Descriptions.Item>
               <Descriptions.Item label="实际完成"><div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.actual_result || '-'}</div></Descriptions.Item>

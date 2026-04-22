@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented } from 'antd';
+import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented, Drawer, Input, Badge, Spin } from 'antd';
 import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, FormOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
+import { getStatusStyle, getProgressColor } from '../utils/constants';
 
 function DashboardPage() {
   const [data, setData] = useState(null);
@@ -15,6 +16,15 @@ function DashboardPage() {
   const [staleProjects, setStaleProjects] = useState([]);
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+
+  // 今日更新 Drawer
+  const [todayDrawerVisible, setTodayDrawerVisible] = useState(false);
+  const [todayChanges, setTodayChanges] = useState([]);
+  const [todayStale, setTodayStale] = useState([]);
+  const [todayProjects, setTodayProjects] = useState([]);
+  const [quickEditVisible, setQuickEditVisible] = useState(false);
+  const [quickEditItem, setQuickEditItem] = useState(null);
+  const [quickProgress, setQuickProgress] = useState('');
 
   useEffect(() => {
     fetchDashboard();
@@ -40,6 +50,23 @@ function DashboardPage() {
     } catch (err) { /* 静默 */ }
   };
 
+  // 打开今日更新 Drawer 并加载数据
+  const openTodayDrawer = async () => {
+    setTodayDrawerVisible(true);
+    try {
+      const [changesRes, staleRes, projectsRes] = await Promise.all([
+        api.get('/dashboard/today-changes'),
+        api.get('/projects/stale', { params: { days: 3 } }),
+        api.get('/projects', { params: { sort: 'priority' } }),
+      ]);
+      if (changesRes.code === 0) setTodayChanges(changesRes.data);
+      if (staleRes.code === 0) setTodayStale(staleRes.data);
+      if (projectsRes.code === 0) setTodayProjects(projectsRes.data);
+    } catch (err) {
+      message.error('加载今日数据失败');
+    }
+  };
+
   const handleGenerateReport = async () => {
     try {
       const res = await api.post('/weekly-reports/generate', {});
@@ -52,7 +79,38 @@ function DashboardPage() {
     }
   };
 
-  if (!data) return <div style={{ textAlign: 'center', padding: 80, fontSize: 16, color: '#8c8c8c' }}>加载中...</div>;
+  // 快速更新
+  const handleQuickUpdate = async () => {
+    if (!quickEditItem || !quickProgress.trim()) return;
+    try {
+      await api.put(`/projects/${quickEditItem.id}/quick-update`, { weekly_progress: quickProgress });
+      message.success('更新成功');
+      setQuickEditVisible(false);
+      setQuickEditItem(null);
+      setQuickProgress('');
+      // 刷新数据
+      openTodayDrawer();
+      fetchDashboard();
+      fetchStaleProjects();
+    } catch (err) {
+      message.error('更新失败');
+    }
+  };
+
+  if (loading && !data) return <div style={{ textAlign: 'center', padding: 80, fontSize: 16, color: '#8c8c8c' }}><Spin size="large" /></div>;
+
+  // 兜底：data 为 null 时显示空状态而非卡死
+  if (!data) return (
+    <div className="app-page">
+      <PageHeader title="总览" subtitle="数据加载异常" extra={[
+        <Button key="retry" type="primary" onClick={() => { setData(null); fetchDashboard(); }}>重新加载</Button>
+      ]} />
+      <div style={{ textAlign: 'center', padding: 80, color: '#9CA3AF' }}>
+        <AlertOutlined style={{ fontSize: 40, marginBottom: 16, display: 'block' }} />
+        <div>仪表盘数据加载失败，请稍后重试</div>
+      </div>
+    </div>
+  );
 
   const modeLabel = viewMode === 'year' ? '全年累计' : `${data.current_quarter} 季度`;
   const riskCount = data.kpi_cards?.risk_project_count || 0;
@@ -107,6 +165,25 @@ function DashboardPage() {
     }]
   };
 
+  // 今日变化渲染（Drawer 内复用）
+  const renderChangeItem = (c, idx, total) => {
+    const tableLabel = { projects: '项目', kpis: '指标', performances: '业绩', monthly_tasks: '月度', achievements: '成果' }[c.table_name] || c.table_name;
+    const actionConfig = { create: { label: '新增', color: '#16A34A', tag: 'success' }, update: { label: '更新', color: '#3B5AFB', tag: 'processing' }, delete: { label: '删除', color: '#DC2626', tag: 'error' } }[c.action] || { label: c.action, color: '#9CA3AF', tag: 'default' };
+    return (
+      <div key={c.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: idx < total - 1 ? '1px solid #F1F5F9' : 'none' }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionConfig.color, marginTop: 7, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: '#111827', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Tag color={actionConfig.tag} style={{ margin: 0, fontSize: 11, lineHeight: '18px', padding: '0 4px' }}>{actionConfig.label}</Tag>
+            <span>{tableLabel}</span>
+            {c.operator_name && <span className="subtle-text" style={{ marginLeft: 4 }}>by {c.operator_name}</span>}
+          </div>
+          <div className="subtle-text" style={{ fontSize: 11, marginTop: 2 }}>{moment(c.created_at).format('HH:mm')}</div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="app-page">
       <PageHeader
@@ -117,7 +194,7 @@ function DashboardPage() {
             key="mode" value={viewMode} onChange={(v) => setViewMode(v)}
             options={[{ label: `${data.current_quarter} 季度`, value: 'quarter' }, { label: '全年累计', value: 'year' }]}
           />,
-          <Button key="today" icon={<ClockCircleOutlined />} onClick={() => navigate('/today')}>今日更新</Button>,
+          <Button key="today" type="primary" ghost icon={<ClockCircleOutlined />} onClick={openTodayDrawer}>今日更新</Button>,
           <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>生成周报</Button>,
         ]}
       />
@@ -150,7 +227,7 @@ function DashboardPage() {
           <PanelCard
             title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日提醒</span>}
             subtitle="系统自动聚合"
-            extra={<Button type="link" size="small" onClick={() => navigate('/today')}>查看全部</Button>}
+            extra={<Button type="link" size="small" onClick={openTodayDrawer}>查看全部 →</Button>}
           >
             {(!data.today_changes || data.today_changes.length === 0) ? (
               <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
@@ -159,23 +236,7 @@ function DashboardPage() {
               </div>
             ) : (
               <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-                {data.today_changes.slice(0, 10).map((c, idx) => {
-                  const tableLabel = { projects: '项目', kpis: '指标', performances: '业绩', monthly_tasks: '月度', achievements: '成果' }[c.table_name] || c.table_name;
-                  const actionConfig = { create: { label: '新增', color: '#16A34A', tag: 'success' }, update: { label: '更新', color: '#3B5AFB', tag: 'processing' }, delete: { label: '删除', color: '#DC2626', tag: 'error' } }[c.action] || { label: c.action, color: '#9CA3AF', tag: 'default' };
-                  return (
-                    <div key={c.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: idx < Math.min(data.today_changes.length, 10) - 1 ? '1px solid #F1F5F9' : 'none' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: actionConfig.color, marginTop: 7, flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: '#111827', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Tag color={actionConfig.tag} style={{ margin: 0, fontSize: 11, lineHeight: '18px', padding: '0 4px' }}>{actionConfig.label}</Tag>
-                          <span>{tableLabel}</span>
-                          {c.operator_name && <span className="subtle-text" style={{ marginLeft: 4 }}>by {c.operator_name}</span>}
-                        </div>
-                        <div className="subtle-text" style={{ fontSize: 11, marginTop: 2 }}>{moment(c.created_at).format('HH:mm')}</div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {data.today_changes.slice(0, 10).map((c, idx) => renderChangeItem(c, idx, Math.min(data.today_changes.length, 10)))}
               </div>
             )}
           </PanelCard>
@@ -240,7 +301,7 @@ function DashboardPage() {
           <PanelCard
             title={<span><ExclamationCircleOutlined style={{ color: '#EA580C', marginRight: 8 }} />长期未更新项目</span>}
             subtitle="来源于项目推进 · 系统自动检测"
-            extra={<Button type="link" size="small" onClick={() => navigate('/today')}>今日更新 →</Button>}
+            extra={<Button type="link" size="small" onClick={openTodayDrawer}>今日更新 →</Button>}
           >
             {staleProjects.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目近期均有更新 ✌️</div>
@@ -274,7 +335,7 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* ===== 区块5：图表区（收窄，保留核心） ===== */}
+      {/* ===== 区块5：图表区 ===== */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <PanelCard title="重点工作状态分布" subtitle="系统自动统计">
@@ -285,12 +346,12 @@ function DashboardPage() {
           <PanelCard title="快捷操作" subtitle="日常管理常用入口">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
-                { label: '今日更新', icon: '📋', desc: '查看变更与待办', path: '/today', color: '#3B5AFB' },
+                { label: '今日更新', icon: '📋', desc: '查看变更与待办', action: openTodayDrawer, color: '#3B5AFB' },
                 { label: '项目推进', icon: '🚀', desc: '维护项目数据（唯一入口）', path: '/projects', color: '#7C3AED' },
                 { label: '本周管理', icon: '📅', desc: '过程管理（自动汇总）', path: '/week', color: '#0891B2' },
                 { label: '周报与复盘', icon: '📊', desc: '结果输出（自动生成）', path: '/weekly-reports', color: '#16A34A' },
               ].map(item => (
-                <Card key={item.path} className="surface-card hover-lift" bodyStyle={{ padding: 16, cursor: 'pointer' }} onClick={() => navigate(item.path)}>
+                <Card key={item.label} className="surface-card hover-lift" bodyStyle={{ padding: 16, cursor: 'pointer' }} onClick={() => item.action ? item.action() : navigate(item.path)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 22 }}>{item.icon}</span>
                     <span style={{ fontWeight: 600, fontSize: 14, color: item.color }}>{item.label}</span>
@@ -302,6 +363,135 @@ function DashboardPage() {
           </PanelCard>
         </Col>
       </Row>
+
+      {/* ===== 今日更新 Drawer（从驾驶舱弹出） ===== */}
+      <Drawer
+        title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日更新 · {moment().format('M月D日 dddd')}</span>}
+        open={todayDrawerVisible}
+        onClose={() => setTodayDrawerVisible(false)}
+        width={720}
+        extra={<Button onClick={() => setTodayDrawerVisible(false)}>关闭</Button>}
+      >
+        {/* 今日摘要卡片 */}
+        <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+          <Col span={8}>
+            <Card className="surface-card" bodyStyle={{ padding: 14 }}>
+              <div className="metric-label">今日变更</div>
+              <div className="metric-value" style={{ fontSize: 24, color: '#3B5AFB' }}>{todayChanges.length}</div>
+              <div className="subtle-text" style={{ fontSize: 11 }}>条数据变更</div>
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card className="surface-card" bodyStyle={{ padding: 14 }}>
+              <div className="metric-label">待更新</div>
+              <div className="metric-value" style={{ fontSize: 24, color: todayStale.length > 0 ? '#F59E0B' : '#16A34A' }}>{todayStale.length}</div>
+              <div className="subtle-text" style={{ fontSize: 11 }}>超3天未更新</div>
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card className="surface-card" bodyStyle={{ padding: 14 }}>
+              <div className="metric-label">风险项目</div>
+              <div className="metric-value" style={{ fontSize: 24, color: todayProjects.filter(p => p.is_risk).length > 0 ? '#DC2626' : '#16A34A' }}>{todayProjects.filter(p => p.is_risk).length}</div>
+              <div className="subtle-text" style={{ fontSize: 11 }}>{todayProjects.filter(p => p.is_risk).length > 0 ? '需关注' : '无风险'}</div>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* 今日变更流 */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            📝 今日变更
+            {todayChanges.length > 0 && <Badge count={todayChanges.length} style={{ backgroundColor: '#3B5AFB' }} />}
+          </div>
+          {todayChanges.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>
+              <ClockCircleOutlined style={{ fontSize: 24, marginBottom: 6, display: 'block', opacity: 0.4 }} />
+              <div style={{ fontSize: 12 }}>今日暂无数据变更</div>
+            </div>
+          ) : (
+            <div style={{ maxHeight: 240, overflowY: 'auto', background: '#F9FAFB', borderRadius: 10, padding: '8px 12px' }}>
+              {todayChanges.slice(0, 30).map((c, idx) => renderChangeItem(c, idx, Math.min(todayChanges.length, 30)))}
+            </div>
+          )}
+        </div>
+
+        {/* 待更新项目 */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ⚠️ 待更新项目
+            {todayStale.length > 0 && <Badge count={todayStale.length} style={{ backgroundColor: '#F59E0B' }} />}
+          </div>
+          {todayStale.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>所有项目均近期更新 ✌️</div>
+          ) : (
+            todayStale.map(p => {
+              const sl = getStaleLevel(p.days_since_update);
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: sl.bg, borderRadius: 8 }}>
+                  <span style={{ fontSize: 14 }}>💤</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
+                    <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name}</div>
+                  </div>
+                  <Tag color={sl.level === 'critical' ? 'error' : sl.level === 'warning' ? 'orange' : 'warning'} style={{ fontSize: 11 }}>
+                    {sl.label}
+                  </Tag>
+                  {isAdmin && (
+                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setQuickEditItem(p); setQuickProgress(p.weekly_progress || ''); setQuickEditVisible(true); }}>
+                      更新
+                    </Button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* 快捷录入入口 */}
+        <div style={{ background: '#F0F4FF', borderRadius: 10, padding: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 8 }}>📌 快捷录入</div>
+          <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 2 }}>
+            <div>📝 <strong>项目推进</strong>：维护项目进度、状态、风险（唯一填写入口） — 
+              <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/projects'); }}>前往 →</Button>
+            </div>
+            <div>📋 <strong>本周管理</strong>：查看本周重点与风险汇总（自动生成） — 
+              <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/week'); }}>前往 →</Button>
+            </div>
+            <div>📊 <strong>周报与复盘</strong>：输出本周总结（自动生成，可补充管理评语） — 
+              <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/weekly-reports'); }}>前往 →</Button>
+            </div>
+          </div>
+        </div>
+      </Drawer>
+
+      {/* 快速更新抽屉 */}
+      <Drawer
+        title={quickEditItem ? `快速更新：${quickEditItem.name}` : '快速更新'}
+        open={quickEditVisible}
+        onClose={() => { setQuickEditVisible(false); setQuickEditItem(null); setQuickProgress(''); }}
+        width={480}
+        extra={<Button type="primary" onClick={handleQuickUpdate}>保存</Button>}
+      >
+        {quickEditItem && (
+          <div>
+            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+              <Tag color={getStatusStyle(quickEditItem.status).tag}>{quickEditItem.status}</Tag>
+              <Tag>{quickEditItem.Department?.name}</Tag>
+              <span className="subtle-text">{quickEditItem.owner_name}</span>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <Progress percent={quickEditItem.progress_pct} strokeColor={getProgressColor(quickEditItem.progress_pct)} />
+            </div>
+            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>本周进展 <span className="subtle-text" style={{ fontWeight: 400, fontSize: 11 }}>（在项目推进页统一维护）</span></div>
+            <Input.TextArea
+              rows={4}
+              value={quickProgress}
+              onChange={(e) => setQuickProgress(e.target.value)}
+              placeholder="输入本周进展..."
+            />
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

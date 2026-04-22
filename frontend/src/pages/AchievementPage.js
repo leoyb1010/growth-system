@@ -3,6 +3,8 @@ import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbo
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, TrophyOutlined, AppstoreOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
+import PageHeader from '../components/ui/PageHeader';
+import PanelCard from '../components/ui/PanelCard';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -97,35 +99,35 @@ function AchievementPage() {
     fetchArchives();
   };
 
-  const getPriorityColor = (p) => p === '高' ? '#ff4d4f' : p === '中' ? '#faad14' : '#d9d9d9';
+  const getPriorityColor = (p) => p === '高' ? '#DC2626' : p === '中' ? '#F59E0B' : '#9CA3AF';
   const getPriorityTag = (p) => p === '高' ? 'error' : p === '中' ? 'warning' : 'default';
 
   // 卡片视图
   const renderCardView = () => (
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
-        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#bfbfbf' }}>暂无数据</div></Col>
+        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>暂无数据</div></Col>
       )}
       {data.map(item => (
         <Col xs={24} sm={12} lg={8} key={item.id}>
           <Card
-            hoverable
-            style={{ borderRadius: 12, borderLeft: `4px solid ${getPriorityColor(item.priority)}` }}
+            className="surface-card hover-lift"
+            style={{ borderLeft: `4px solid ${getPriorityColor(item.priority)}` }}
             bodyStyle={{ padding: 20 }}
             actions={[
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,
               ...(isAdmin ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <DeleteOutlined key="del" style={{ color: '#ff4d4f' }} onClick={() => handleDelete(item.id)} />
+                <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
               ] : [])
             ]}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div style={{ flex: 1, marginRight: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#262626', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.project_name}
                 </div>
-                <div style={{ fontSize: 12, color: '#8c8c8c' }}>{item.achievement_type}</div>
+                <div className="subtle-text" style={{ fontSize: 12 }}>{item.achievement_type}</div>
               </div>
               <Tag color={getPriorityTag(item.priority)}>{item.priority}</Tag>
             </div>
@@ -137,13 +139,13 @@ function AchievementPage() {
             </div>
 
             {item.quantified_result && (
-              <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 📊 {item.quantified_result}
               </div>
             )}
 
             {item.completed_at && (
-              <div style={{ fontSize: 11, color: '#bfbfbf', marginTop: 6 }}>
+              <div className="subtle-text" style={{ fontSize: 11, marginTop: 6 }}>
                 完成：{item.completed_at}
               </div>
             )}
@@ -154,48 +156,49 @@ function AchievementPage() {
   );
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>季度成果沉淀</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Select placeholder="季度" allowClear value={filters.quarter || undefined} onChange={(v) => setFilters({ ...filters, quarter: v || '' })} style={{ width: 100 }}>
+    <div className="app-page">
+      <PageHeader
+        title="季度成果沉淀"
+        subtitle="来源于项目推进的季度成果记录"
+        extra={[
+          <Select key="q" placeholder="季度" allowClear value={filters.quarter || undefined} onChange={(v) => setFilters({ ...filters, quarter: v || '' })} style={{ width: 100 }}>
             <Option value="Q1">Q1</Option><Option value="Q2">Q2</Option><Option value="Q3">Q3</Option><Option value="Q4">Q4</Option>
-          </Select>
-          <Select placeholder="优先级" allowClear value={filters.priority || undefined} onChange={(v) => setFilters({ ...filters, priority: v || '' })} style={{ width: 100 }}>
+          </Select>,
+          <Select key="p" placeholder="优先级" allowClear value={filters.priority || undefined} onChange={(v) => setFilters({ ...filters, priority: v || '' })} style={{ width: 100 }}>
             <Option value="高">高</Option><Option value="中">中</Option><Option value="低">低</Option>
-          </Select>
-          <Button icon={viewMode === 'card' ? <UnorderedListOutlined /> : <AppstoreOutlined />} onClick={() => setViewMode(viewMode === 'card' ? 'table' : 'card')}>
+          </Select>,
+          <Button key="view" icon={viewMode === 'card' ? <UnorderedListOutlined /> : <AppstoreOutlined />} onClick={() => setViewMode(viewMode === 'card' ? 'table' : 'card')}>
             {viewMode === 'card' ? '列表' : '卡片'}
-          </Button>
-          {isAdmin && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
+          </Button>,
+          isAdmin && (
+            <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
               新增成果
             </Button>
-          )}
-          {isAdmin && (
-            <Button icon={<SafetyCertificateOutlined />} onClick={openArchiveModal}>
+          ),
+          isAdmin && (
+            <Button key="archive" icon={<SafetyCertificateOutlined />} onClick={openArchiveModal}>
               季度归档
             </Button>
-          )}
-        </div>
-      </div>
+          ),
+        ]}
+      />
 
       {viewMode === 'card' ? renderCardView() : (
-        <Card style={{ borderRadius: 12 }}>
+        <PanelCard>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>部门</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>项目</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>负责人</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>优先级</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>量化结果</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', fontWeight: 600, fontSize: 13 }}>操作</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>部门</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>项目</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>负责人</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>优先级</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>量化结果</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #EEF2F7', fontWeight: 600, fontSize: 13, color: '#334155' }}>操作</th>
               </tr>
             </thead>
             <tbody>
               {data.map(item => (
-                <tr key={item.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <tr key={item.id} style={{ borderBottom: '1px solid #EEF2F7' }}>
                   <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.Department?.name}</td>
                   <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.project_name}</td>
                   <td style={{ padding: '10px 8px', fontSize: 13 }}>{item.owner_name}</td>
@@ -210,7 +213,7 @@ function AchievementPage() {
               ))}
             </tbody>
           </table>
-        </Card>
+        </PanelCard>
       )}
 
       {/* 详情抽屉 */}
@@ -228,16 +231,16 @@ function AchievementPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <Tag color={getPriorityTag(detailRecord.priority)} style={{ fontSize: 14, padding: '2px 12px' }}>{detailRecord.priority}优先级</Tag>
               <Tag>{detailRecord.Department?.name}</Tag>
-              <span style={{ color: '#8c8c8c' }}>{detailRecord.owner_name}</span>
+              <span className="subtle-text">{detailRecord.owner_name}</span>
               {detailRecord.include_next_quarter && <Tag color="success">纳入下季</Tag>}
             </div>
 
-            <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#fafafa', width: 120 }}>
+            <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#F8FAFC', width: 120 }}>
               <Descriptions.Item label="成果类型">{detailRecord.achievement_type}</Descriptions.Item>
               <Descriptions.Item label="季度">{detailRecord.quarter}</Descriptions.Item>
               <Descriptions.Item label="完成时间">{detailRecord.completed_at || '-'}</Descriptions.Item>
               <Descriptions.Item label="成果描述"><div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.description || '-'}</div></Descriptions.Item>
-              <Descriptions.Item label="量化结果"><div style={{ whiteSpace: 'pre-wrap', color: '#1677ff', fontWeight: 500 }}>{detailRecord.quantified_result || '-'}</div></Descriptions.Item>
+              <Descriptions.Item label="量化结果"><div style={{ whiteSpace: 'pre-wrap', color: '#3B5AFB', fontWeight: 500 }}>{detailRecord.quantified_result || '-'}</div></Descriptions.Item>
               <Descriptions.Item label="业务价值"><div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.business_value || '-'}</div></Descriptions.Item>
               <Descriptions.Item label="可复用内容"><div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.reusable_content || '-'}</div></Descriptions.Item>
               <Descriptions.Item label="沉淀负责人">{detailRecord.archive_owner || '-'}</Descriptions.Item>
@@ -306,7 +309,7 @@ function AchievementPage() {
         ]}
         width={700}
       >
-        <div style={{ marginBottom: 16, color: '#8c8c8c', fontSize: 13 }}>
+        <div style={{ marginBottom: 16, color: '#6B7280', fontSize: 13 }}>
           归档会将当前季度的成果数据快照保存，方便后续回顾和对比。
         </div>
         <Table
