@@ -361,6 +361,41 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v4.2.0 — 2026-04-22 · 角色化仪表盘 + 项目看板 + 季度回退 + 审计覆盖
+
+> 核心改动：仪表盘按角色分视图；项目页新增看板模式与闭环字段；空季度自动回退；审计日志全量覆盖。
+
+**角色化仪表盘（Role-based Dashboard）**
+- 三角色三视图：super_admin → 管理驾驶舱、department_manager → 部门仪表盘、department_member → 我的工作台
+- 成员视图（我的工作台）：4 个个人 KPI 卡片（我的项目/风险/临期/已完成）、我的项目列表+快捷更新、我的待办面板、快捷入口网格、精简版今日更新 Drawer
+- 管理端视图：周报生成按钮增加 `can(role, 'weekly_report.generate')` 权限守卫
+
+**季度回退逻辑（Quarter Fallback）**
+- 当 mode=quarter 时，后端检测当前季度是否有数据（Project + Kpi 计数）
+- 若当前季度为空，自动从 Q4→Q1 回溯，找到最近有数据的季度
+- 所有后续查询使用 effectiveQuarter，前端展示黄色提示条告知用户回退到哪个季度
+- 响应新增 `effective_quarter` 和 `quarter_fallback` 字段
+
+**项目看板视图 + 闭环字段**
+- 项目页视图模式从 2 种升级为 3 种：卡片 / 表格 / **看板**
+- 看板视图：6 列（未启动 / 进行中 / 合作中 / 阻塞中 / 风险 / 完成），彩色列头，卡片展示优先级/下一步/需决策/阻塞原因
+- 闭环字段新增：`priority`（高/中/低）、`next_action`（下一步动作）、`decision_needed`（是否需决策）、`block_reason`（阻塞原因）
+- 卡片视图同步展示：优先级标签🔥、需决策标签⚡、下一步蓝色块、阻塞原因红色块
+- 项目详情 Drawer / 编辑 Modal / 今日更新 Drawer 全量适配闭环字段
+- 后端 quick-update allowedFields 补齐 `block_reason`
+
+**审计日志覆盖**
+- 用户 CRUD + 修改密码全部接入 `logAudit`
+- createUser / updateUser / deleteUser：操作前后值对比记录
+- changePassword：记录 `{ change_password: true }`
+- 至此，所有核心业务模块的增删改操作均已审计覆盖
+
+**上线准备**
+- 新增 `docs/V4-launch-checklist.md`：P0(8项)/P1(6项)/P2(5项)/安全(6项) 验收清单
+- 含 SQLite 迁移 SQL 模板，上线前逐项核对
+
+---
+
 ### v4.1.0 — 2026-04-22 · 周报部门权限隔离 + 年度指标独立录入 + 入口更名
 
 > 核心改动：周报数据按部门权限严格隔离；年度指标录入从共用 Modal 升级为独立弹窗；右上角入口更名。
@@ -597,6 +632,7 @@ docker-compose up -d --build
 - [x] v3.2.0 部署架构统一 + 今日更新闭环（前后端同端口 / SQLite 支持 / 今日更新增强 Drawer / Dashboard 精简 / 仪表盘代理 Bug 修复）
 - [x] v3.3.0 移动端基础适配（响应式 Layout / 表格横向滚动 / 卡片操作收敛）
 - [x] v4.1.0 周报部门权限隔离 + 年度指标独立录入 + 入口更名
+- [x] v4.2.0 角色化仪表盘 + 项目看板 + 季度回退 + 审计覆盖 + 上线清单
 
 ## License
 
