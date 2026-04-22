@@ -17,10 +17,20 @@ const User = sequelize.define('User', {
   name: { type: DataTypes.STRING(50), allowNull: false },
   role: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'dept_staff' },
   dept_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: Department, key: 'id' } },
-  password_hash: { type: DataTypes.STRING(255), allowNull: false }
+  password_hash: { type: DataTypes.STRING(255), allowNull: false },
+  // V4 新增字段
+  email: { type: DataTypes.STRING(100), allowNull: true },
+  mobile: { type: DataTypes.STRING(20), allowNull: true },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' }, // active / disabled / pending
+  must_change_password: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  last_login_at: { type: DataTypes.DATE, allowNull: true },
+  last_login_ip: { type: DataTypes.STRING(50), allowNull: true },
+  data_scope_type: { type: DataTypes.STRING(20), allowNull: true }, // all / department / self / custom
+  data_scope_value: { type: DataTypes.TEXT, allowNull: true }, // JSON for custom
 }, {
   tableName: 'users',
-  timestamps: false
+  timestamps: false,
+  paranoid: false // 使用 deleted_at 手动管理
 });
 
 // A表：核心指标
@@ -46,7 +56,8 @@ const Project = sequelize.define('Project', {
   dept_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: Department, key: 'id' } },
   type: { type: DataTypes.STRING(50), allowNull: false }, // 项目类型
   name: { type: DataTypes.STRING(200), allowNull: false }, // 项目名称
-  owner_name: { type: DataTypes.STRING(50), allowNull: false }, // 负责人
+  owner_name: { type: DataTypes.STRING(50), allowNull: false }, // 负责人（展示用，过渡期保留）
+  owner_user_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // V4: 稳定用户主键
   goal: { type: DataTypes.TEXT, allowNull: true }, // 工作目标
   weekly_progress: { type: DataTypes.TEXT, allowNull: true }, // 本周进展
   progress_pct: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, // 进度%
@@ -57,6 +68,16 @@ const Project = sequelize.define('Project', {
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
   creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // 创建人
   updater_id: { type: DataTypes.INTEGER, allowNull: true }, // 最后更新人
+  // V4 闭环字段
+  priority: { type: DataTypes.ENUM('高', '中', '低'), allowNull: false, defaultValue: '中' },
+  next_action: { type: DataTypes.TEXT, allowNull: true }, // 下一步动作
+  action_owner_user_id: { type: DataTypes.INTEGER, allowNull: true }, // 动作负责人
+  action_due_date: { type: DataTypes.DATEONLY, allowNull: true }, // 动作截止日
+  decision_needed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }, // 是否需决策
+  decision_owner_user_id: { type: DataTypes.INTEGER, allowNull: true }, // 决策负责人
+  closed_at: { type: DataTypes.DATE, allowNull: true }, // 关闭时间
+  closed_by: { type: DataTypes.INTEGER, allowNull: true }, // 关闭人
+  block_reason: { type: DataTypes.TEXT, allowNull: true }, // 阻塞原因
 }, {
   tableName: 'projects',
   timestamps: true,

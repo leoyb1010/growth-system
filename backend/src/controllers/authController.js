@@ -24,10 +24,18 @@ async function login(req, res) {
       return error(res, '用户名或密码错误', 1, 401);
     }
 
+    // V4: 检查账号状态
+    if (user.status === 'disabled') {
+      return error(res, '账号已被禁用，请联系管理员', 1, 403);
+    }
+
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
       return error(res, '用户名或密码错误', 1, 401);
     }
+
+    // V4: 更新最后登录时间
+    await user.update({ last_login_at: new Date() });
 
     // 计算角色层级
     const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
@@ -83,34 +91,31 @@ async function getCurrentUser(req, res) {
 }
 
 /**
- * 修改密码（管理员可修改任意用户，部门账号只能修改自己）
+ * 修改密码（仅限当前登录用户修改自己密码）
  * POST /api/auth/change-password
+ * 必须提供 old_password + new_password
  */
 async function changePassword(req, res) {
   try {
-    const { user_id, old_password, new_password } = req.body;
+    const { old_password, new_password } = req.body;
     const currentUser = req.user;
 
     if (!new_password || new_password.length < 6) {
       return error(res, '新密码长度不能少于6位');
     }
 
-    const targetUserId = (currentUser.role === 'admin' && user_id) ? user_id : currentUser.id;
-    const user = await User.findByPk(targetUserId);
+    if (!old_password) {
+      return error(res, '请提供旧密码');
+    }
 
+    const user = await User.findByPk(currentUser.id);
     if (!user) {
       return error(res, '用户不存在');
     }
 
-    // 非管理员修改自己密码需要验证旧密码
-    if (currentUser.role !== 'admin' || targetUserId === currentUser.id) {
-      if (!old_password) {
-        return error(res, '请提供旧密码');
-      }
-      const isValid = await bcrypt.compare(old_password, user.password_hash);
-      if (!isValid) {
-        return error(res, '旧密码错误');
-      }
+    const isValid = await bcrypt.compare(old_password, user.password_hash);
+    if (!isValid) {
+      return error(res, '旧密码错误');
     }
 
     const newHash = await bcrypt.hash(new_password, 10);

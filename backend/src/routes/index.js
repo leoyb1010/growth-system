@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 
-const { authenticate, requireAdmin, requireDeptAccess } = require('../middleware/auth');
+const { authenticate, injectAccessContext, requirePermission, applyDataScope, requireAdmin, requireDeptAccess } = require('../middleware/auth');
 
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
@@ -27,82 +27,88 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
+// 公共中间件链：所有需认证的接口统一注入访问上下文
+const auth = [authenticate, injectAccessContext];
+
 // ==================== 认证路由 ====================
 router.post('/auth/login', authController.login);
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
 
-// ==================== 用户管理（管理员） ====================
-router.get('/users', authenticate, requireAdmin, userController.getUsers);
-router.post('/users', authenticate, requireAdmin, userController.createUser);
-router.put('/users/:id', authenticate, requireAdmin, userController.updateUser);
-router.delete('/users/:id', authenticate, requireAdmin, userController.deleteUser);
+// ==================== 用户管理（super_admin） ====================
+router.get('/users', ...auth, requirePermission('user.read'), userController.getUsers);
+router.post('/users', ...auth, requirePermission('user.create'), userController.createUser);
+router.put('/users/:id', ...auth, requirePermission('user.update'), userController.updateUser);
+router.delete('/users/:id', ...auth, requirePermission('user.update'), userController.deleteUser);
+router.post('/users/:id/reset-password', ...auth, requirePermission('user.reset_password'), userController.resetPassword);
+router.post('/users/:id/enable', ...auth, requirePermission('user.disable'), userController.enableUser);
+router.post('/users/:id/disable', ...auth, requirePermission('user.disable'), userController.disableUser);
 
 // ==================== A表：核心指标 ====================
-router.get('/kpis', authenticate, requireDeptAccess, kpiController.getKpis);
-router.get('/kpis/dashboard', authenticate, kpiController.getDashboardKpis);
-router.post('/kpis', authenticate, requireDeptAccess, kpiController.createKpi);
-router.put('/kpis/:id', authenticate, requireDeptAccess, kpiController.updateKpi);
-router.delete('/kpis/:id', authenticate, requireAdmin, kpiController.deleteKpi);
+router.get('/kpis', ...auth, requirePermission('kpi.read'), applyDataScope('kpi'), kpiController.getKpis);
+router.get('/kpis/dashboard', ...auth, requirePermission('kpi.read'), applyDataScope('kpi'), kpiController.getDashboardKpis);
+router.post('/kpis', ...auth, requirePermission('kpi.create'), applyDataScope('kpi'), kpiController.createKpi);
+router.put('/kpis/:id', ...auth, requirePermission('kpi.update'), applyDataScope('kpi'), kpiController.updateKpi);
+router.delete('/kpis/:id', ...auth, requirePermission('kpi.delete'), kpiController.deleteKpi);
 
 // ==================== B表：重点工作 ====================
-router.get('/projects', authenticate, requireDeptAccess, projectController.getProjects);
-router.get('/projects/dashboard', authenticate, projectController.getProjectStats);
-router.get('/projects/stale', authenticate, requireDeptAccess, projectController.getStaleProjects);
-router.post('/projects', authenticate, requireDeptAccess, projectController.createProject);
-router.put('/projects/:id', authenticate, requireDeptAccess, projectController.updateProject);
-router.put('/projects/:id/quick-update', authenticate, requireDeptAccess, projectController.quickUpdateProject);
-router.get('/projects/:id/update-logs', authenticate, requireDeptAccess, projectController.getProjectUpdateLogs);
-router.delete('/projects/:id', authenticate, requireDeptAccess, projectController.deleteProject);
+router.get('/projects', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjects);
+router.get('/projects/dashboard', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjectStats);
+router.get('/projects/stale', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getStaleProjects);
+router.post('/projects', ...auth, requirePermission('project.create'), applyDataScope('project'), projectController.createProject);
+router.put('/projects/:id', ...auth, requirePermission('project.update'), applyDataScope('project'), projectController.updateProject);
+router.put('/projects/:id/quick-update', ...auth, requirePermission('project.quick_update'), applyDataScope('project'), projectController.quickUpdateProject);
+router.get('/projects/:id/update-logs', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjectUpdateLogs);
+router.delete('/projects/:id', ...auth, requirePermission('project.delete'), projectController.deleteProject);
 
 // ==================== C表：业务线业绩 ====================
-router.get('/performances', authenticate, requireDeptAccess, performanceController.getPerformances);
-router.get('/performances/dashboard', authenticate, performanceController.getPerformanceStats);
-router.post('/performances', authenticate, requireDeptAccess, performanceController.createPerformance);
-router.put('/performances/:id', authenticate, requireDeptAccess, performanceController.updatePerformance);
-router.delete('/performances/:id', authenticate, requireAdmin, performanceController.deletePerformance);
+router.get('/performances', ...auth, requirePermission('performance.read'), applyDataScope('performance'), performanceController.getPerformances);
+router.get('/performances/dashboard', ...auth, requirePermission('performance.read'), applyDataScope('performance'), performanceController.getPerformanceStats);
+router.post('/performances', ...auth, requirePermission('performance.create'), applyDataScope('performance'), performanceController.createPerformance);
+router.put('/performances/:id', ...auth, requirePermission('performance.update'), applyDataScope('performance'), performanceController.updatePerformance);
+router.delete('/performances/:id', ...auth, requirePermission('performance.delete'), performanceController.deletePerformance);
 
 // ==================== D表：月度工作 ====================
-router.get('/monthly-tasks', authenticate, requireDeptAccess, monthlyTaskController.getMonthlyTasks);
-router.post('/monthly-tasks', authenticate, requireDeptAccess, monthlyTaskController.createMonthlyTask);
-router.put('/monthly-tasks/:id', authenticate, requireDeptAccess, monthlyTaskController.updateMonthlyTask);
-router.delete('/monthly-tasks/:id', authenticate, requireAdmin, monthlyTaskController.deleteMonthlyTask);
+router.get('/monthly-tasks', ...auth, requirePermission('monthly_task.read'), applyDataScope('monthly_task'), monthlyTaskController.getMonthlyTasks);
+router.post('/monthly-tasks', ...auth, requirePermission('monthly_task.create'), applyDataScope('monthly_task'), monthlyTaskController.createMonthlyTask);
+router.put('/monthly-tasks/:id', ...auth, requirePermission('monthly_task.update'), applyDataScope('monthly_task'), monthlyTaskController.updateMonthlyTask);
+router.delete('/monthly-tasks/:id', ...auth, requirePermission('monthly_task.delete'), monthlyTaskController.deleteMonthlyTask);
 
 // ==================== E表：季度成果 ====================
-router.get('/achievements', authenticate, requireDeptAccess, achievementController.getAchievements);
-router.post('/achievements', authenticate, requireDeptAccess, achievementController.createAchievement);
-router.put('/achievements/:id', authenticate, requireDeptAccess, achievementController.updateAchievement);
-router.delete('/achievements/:id', authenticate, requireAdmin, achievementController.deleteAchievement);
+router.get('/achievements', ...auth, requirePermission('achievement.read'), applyDataScope('achievement'), achievementController.getAchievements);
+router.post('/achievements', ...auth, requirePermission('achievement.create'), applyDataScope('achievement'), achievementController.createAchievement);
+router.put('/achievements/:id', ...auth, requirePermission('achievement.update'), applyDataScope('achievement'), achievementController.updateAchievement);
+router.delete('/achievements/:id', ...auth, requirePermission('achievement.delete'), achievementController.deleteAchievement);
 
 // ==================== 仪表盘 ====================
-router.get('/dashboard', authenticate, dashboardController.getDashboard);
-router.get('/dashboard/today-changes', authenticate, dashboardController.getTodayChanges);
-router.get('/dashboard/week-focus', authenticate, dashboardController.getWeekFocus);
-router.get('/dashboard/week-summary', authenticate, dashboardController.getWeekSummary);
+router.get('/dashboard', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getDashboard);
+router.get('/dashboard/today-changes', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getTodayChanges);
+router.get('/dashboard/week-focus', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getWeekFocus);
+router.get('/dashboard/week-summary', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getWeekSummary);
 
 // ==================== 周报 ====================
-router.post('/weekly-reports/generate', authenticate, requireDeptAccess, weeklyReportController.generateReport);
-router.get('/weekly-reports', authenticate, requireDeptAccess, weeklyReportController.getReports);
-router.get('/weekly-reports/latest', authenticate, requireDeptAccess, weeklyReportController.getLatestReport);
-router.get('/weekly-reports/:id', authenticate, requireDeptAccess, weeklyReportController.getReportById);
-router.put('/weekly-reports/:id/html', authenticate, requireDeptAccess, weeklyReportController.saveReportHtml);
-router.put('/weekly-reports/:id/files', authenticate, requireDeptAccess, weeklyReportController.saveReportFiles);
+router.post('/weekly-reports/generate', ...auth, requirePermission('weekly_report.generate'), applyDataScope('weekly_report'), weeklyReportController.generateReport);
+router.get('/weekly-reports', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getReports);
+router.get('/weekly-reports/latest', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getLatestReport);
+router.get('/weekly-reports/:id', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getReportById);
+router.put('/weekly-reports/:id/html', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportHtml);
+router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================
-router.post('/import/excel', authenticate, requireAdmin, upload.single('file'), importController.importExcel);
-router.get('/export/:module', authenticate, exportController.exportModule);
+router.post('/import/excel', ...auth, requirePermission('import.excel'), upload.single('file'), importController.importExcel);
+router.get('/export/:module', ...auth, requirePermission('export.data'), applyDataScope('export'), exportController.exportModule);
 
 // ==================== 季度归档 ====================
-router.get('/archives', authenticate, requireAdmin, archiveController.getArchives);
-router.post('/archives', authenticate, requireAdmin, archiveController.createArchive);
-router.delete('/archives/:id', authenticate, requireAdmin, archiveController.deleteArchive);
-router.get('/archives/check', authenticate, archiveController.checkArchiveStatus);
+router.get('/archives', ...auth, requirePermission('archive.read'), archiveController.getArchives);
+router.post('/archives', ...auth, requirePermission('archive.create'), archiveController.createArchive);
+router.delete('/archives/:id', ...auth, requirePermission('archive.delete'), archiveController.deleteArchive);
+router.get('/archives/check', ...auth, archiveController.checkArchiveStatus);
 
 // ==================== 审计日志 ====================
-router.get('/audit-logs', authenticate, requireAdmin, auditLogController.getAuditLogs);
-router.get('/audit-logs/:table_name/:record_id', authenticate, auditLogController.getRecordHistory);
+router.get('/audit-logs', ...auth, requirePermission('audit.read'), auditLogController.getAuditLogs);
+router.get('/audit-logs/:table_name/:record_id', ...auth, auditLogController.getRecordHistory);
 
 // ==================== 全局搜索 ====================
-router.get('/search', authenticate, requireDeptAccess, searchController.globalSearch);
+router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
 
 module.exports = router;

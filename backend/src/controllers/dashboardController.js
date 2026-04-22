@@ -14,6 +14,10 @@ async function getDashboard(req, res) {
     const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
     const currentYear = now.getFullYear();
 
+    // 数据范围过滤
+    const scopeDeptId = req.deptFilter || null;
+    const deptFilter = scopeDeptId ? { dept_id: scopeDeptId } : {};
+
     // 模式：quarter=当季, year=全年累计
     const mode = req.query.mode === 'year' ? 'year' : 'quarter';
 
@@ -21,7 +25,7 @@ async function getDashboard(req, res) {
     let kpis;
     if (mode === 'year') {
       kpis = await Kpi.findAll({
-        where: { year: currentYear },
+        where: { year: currentYear, ...deptFilter },
         include: [{ model: Department, attributes: ['id', 'name'] }],
         attributes: [
           'dept_id',
@@ -39,7 +43,7 @@ async function getDashboard(req, res) {
       }));
     } else {
       kpis = await Kpi.findAll({
-        where: { quarter: currentQuarter, year: currentYear },
+        where: { quarter: currentQuarter, year: currentYear, ...deptFilter },
         include: [{ model: Department, attributes: ['id', 'name'] }]
       });
       kpis = kpis.map(k => ({
@@ -72,7 +76,7 @@ async function getDashboard(req, res) {
 
     // ========== 2. 风险项目数 ==========
     const riskProjects = await Project.count({
-      where: { status: '风险', quarter: currentQuarter }
+      where: { status: '风险', quarter: currentQuarter, ...deptFilter }
     });
 
     // ========== 3. 本周待收口事项数 ==========
@@ -81,19 +85,20 @@ async function getDashboard(req, res) {
       where: {
         due_date: { [Op.lte]: weekEnd },
         status: { [Op.ne]: '完成' },
-        quarter: currentQuarter
+        quarter: currentQuarter,
+        ...deptFilter
       }
     });
 
     // ========== 4. 重点工作状态分布 ==========
     const projectStatusStats = await Project.findAll({
-      where: { quarter: currentQuarter },
+      where: { quarter: currentQuarter, ...deptFilter },
       attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       group: ['status']
     });
 
     // ========== 5. 业务线业绩预警分布 ==========
-    const performances = await Performance.findAll();
+    const performances = await Performance.findAll({ where: deptFilter });
     const warningStats = { normal: 0, warning: 0, severe: 0 };
     performances.forEach(p => {
       const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
@@ -108,7 +113,7 @@ async function getDashboard(req, res) {
 
     // ========== 6. 最近更新项目 Top 10 ==========
     const recentProjects = await Project.findAll({
-      where: { quarter: currentQuarter },
+      where: { quarter: currentQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }],
       order: [['updated_at', 'DESC']],
       limit: 10
@@ -120,7 +125,8 @@ async function getDashboard(req, res) {
     const dueSoonProjects = await Project.findAll({
       where: {
         due_date: { [Op.between]: [today, nextWeek] },
-        status: { [Op.ne]: '完成' }
+        status: { [Op.ne]: '完成' },
+        ...deptFilter
       },
       include: [{ model: Department, attributes: ['name'] }],
       order: [['due_date', 'ASC']],
@@ -131,7 +137,7 @@ async function getDashboard(req, res) {
     const quarterComparison = [];
     if (mode === 'year') {
       const allKpis = await Kpi.findAll({
-        where: { year: currentYear },
+        where: { year: currentYear, ...deptFilter },
         attributes: ['quarter', 'dept_id', 'indicator_name', 'target', 'actual']
       });
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
@@ -243,14 +249,40 @@ async function getTodayChanges(req, res) {
   try {
     const todayStart = moment().startOf('day').toDate();
     const todayEnd = moment().endOf('day').toDate();
-    const changes = await AuditLog.findAll({
-      where: {
-        created_at: { [Op.between]: [todayStart, todayEnd] },
-        table_name: { [Op.in]: ['projects', 'kpis', 'performances', 'monthly_tasks', 'achievements'] }
-      },
+    const deptFilter = req.deptFilter || null;
+
+    let changesWhere = {
+      created_at: { [Op.between]: [todayStart, todayEnd] },
+      table_name: { [Op.in]: ['projects', 'kpis', 'performances', 'monthly_tasks', 'achievements'] }
+    };
+
+    let changes = await AuditLog.findAll({
+      where: changesWhere,
       order: [['created_at', 'DESC']],
-      limit: 30
+      limit: 50
     });
+
+    // 如果有部门过滤，需要根据变更记录关联的资源过滤部门
+    // AuditLog 本身不含 dept_id，通过 record_id 和 table_name 关联查询
+    if (deptFilter) {
+      const filteredChanges = [];
+      for (const c of changes) {
+        let belongsToDept = false;
+        try {
+          if (['projects', 'kpis', 'performances', 'monthly_tasks', 'achievements'].includes(c.table_name)) {
+            const models = { projects: Project, kpis: Kpi, performances: Performance, monthly_tasks: require('../models').MonthlyTask, achievements: require('../models').Achievement };
+            const Model = models[c.table_name];
+            if (Model) {
+              const record = await Model.findByPk(c.record_id, { attributes: ['dept_id'] });
+              if (record && record.dept_id === deptFilter) belongsToDept = true;
+            }
+          }
+        } catch (e) { /* 静默 */ }
+        if (belongsToDept) filteredChanges.push(c);
+      }
+      changes = filteredChanges;
+    }
+
     success(res, changes.map(c => ({
       id: c.id,
       table_name: c.table_name,
@@ -277,6 +309,7 @@ async function getWeekFocus(req, res) {
     const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
     const weekEnd = moment().endOf('isoWeek').format('YYYY-MM-DD');
     const staleDate = moment().subtract(3, 'days').toDate();
+    const deptFilter = req.deptFilter ? { dept_id: req.deptFilter } : {};
 
     const focus = [];
 
@@ -285,7 +318,8 @@ async function getWeekFocus(req, res) {
       where: {
         due_date: { [Op.lte]: weekEnd },
         status: { [Op.ne]: '完成' },
-        quarter: currentQuarter
+        quarter: currentQuarter,
+        ...deptFilter
       },
       include: [{ model: Department, attributes: ['name'] }],
       order: [['due_date', 'ASC']]
@@ -301,7 +335,7 @@ async function getWeekFocus(req, res) {
 
     // 风险项目
     const riskProjects = await Project.findAll({
-      where: { status: '风险', quarter: currentQuarter },
+      where: { status: '风险', quarter: currentQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }]
     });
     if (riskProjects.length > 0) {
@@ -315,7 +349,7 @@ async function getWeekFocus(req, res) {
 
     // 长期未更新
     const staleProjects = await Project.findAll({
-      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: currentQuarter },
+      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: currentQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }],
       order: [['updated_at', 'ASC']]
     });
@@ -330,7 +364,7 @@ async function getWeekFocus(req, res) {
 
     // 偏差较大指标
     const kpis = await Kpi.findAll({
-      where: { quarter: currentQuarter },
+      where: { quarter: currentQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }]
     });
     const deviations = [];
@@ -368,12 +402,14 @@ async function getWeekSummary(req, res) {
     const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
     const weekStart = moment().startOf('isoWeek').toDate();
     const weekEnd = moment().endOf('isoWeek').toDate();
+    const deptFilter = req.deptFilter ? { dept_id: req.deptFilter } : {};
 
     // 本周新增/更新项目数
     const updatedThisWeek = await Project.count({
       where: {
         updated_at: { [Op.between]: [weekStart, weekEnd] },
-        quarter: currentQuarter
+        quarter: currentQuarter,
+        ...deptFilter
       }
     });
 
@@ -382,7 +418,8 @@ async function getWeekSummary(req, res) {
       where: {
         status: '完成',
         updated_at: { [Op.between]: [weekStart, weekEnd] },
-        quarter: currentQuarter
+        quarter: currentQuarter,
+        ...deptFilter
       }
     });
 
@@ -391,7 +428,8 @@ async function getWeekSummary(req, res) {
       where: {
         status: '风险',
         updated_at: { [Op.between]: [weekStart, weekEnd] },
-        quarter: currentQuarter
+        quarter: currentQuarter,
+        ...deptFilter
       }
     });
 

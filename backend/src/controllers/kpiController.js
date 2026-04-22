@@ -150,8 +150,11 @@ async function getDashboardKpis(req, res) {
     const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
     const currentYear = now.getFullYear();
 
+    // V4: 数据范围过滤
+    const deptFilter = req.deptFilter ? { dept_id: req.deptFilter } : {};
+
     const kpis = await Kpi.findAll({
-      where: { quarter: currentQuarter, year: currentYear },
+      where: { quarter: currentQuarter, year: currentYear, ...deptFilter },
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 

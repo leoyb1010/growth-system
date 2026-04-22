@@ -55,7 +55,7 @@ async function globalSearch(req, res) {
         [Op.or]: [
           { task: likeQuery },
           { owner_name: likeQuery },
-          { result: likeQuery },
+          { actual_result: likeQuery },
           { next_month_plan: likeQuery }
         ]
       },
@@ -73,7 +73,7 @@ async function globalSearch(req, res) {
           { owner_name: likeQuery },
           { achievement_type: likeQuery },
           { quantified_result: likeQuery },
-          { innovation_point: likeQuery }
+          { business_value: likeQuery }
         ]
       },
       include: [{ model: Department, attributes: ['name'] }],
@@ -109,7 +109,7 @@ async function globalSearch(req, res) {
         title: t.task,
         subtitle: t.Department?.name || '',
         meta: `${t.owner_name} · ${t.status || '进行中'}`,
-        url: `/settlement`,
+        url: `/monthly-tasks`,
         updated_at: t.updated_at
       })),
       ...achievements.map(a => ({
@@ -119,7 +119,7 @@ async function globalSearch(req, res) {
         title: a.project_name,
         subtitle: a.Department?.name || '',
         meta: `${a.owner_name} · ${a.achievement_type}`,
-        url: `/settlement`,
+        url: `/achievements`,
         updated_at: a.updated_at
       }))
     ];

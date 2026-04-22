@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { User, Department } = require('../models');
 const { success, error } = require('../utils/response');
+const { logAudit } = require('../services/auditLogService');
 
 /**
  * 获取用户列表（管理员）
@@ -111,4 +112,84 @@ async function deleteUser(req, res) {
   }
 }
 
-module.exports = { getUsers, createUser, updateUser, deleteUser };
+module.exports = { getUsers, createUser, updateUser, deleteUser, resetPassword, enableUser, disableUser };
+
+/**
+ * 管理员重置他人密码
+ * POST /api/users/:id/reset-password
+ * 仅管理员可用，不要求旧密码，设置 must_change_password = true
+ */
+async function resetPassword(req, res) {
+  try {
+    const { id } = req.params;
+    const { new_password } = req.body;
+
+    if (!new_password || new_password.length < 6) {
+      return error(res, '新密码长度不能少于6位');
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return error(res, '用户不存在');
+    }
+
+    const newHash = await bcrypt.hash(new_password, 10);
+    const oldValues = user.toJSON();
+    await user.update({ password_hash: newHash });
+
+    await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { reset_password: true });
+
+    success(res, null, '密码重置成功');
+  } catch (err) {
+    console.error('重置密码失败:', err);
+    error(res, '重置密码失败', 1, 500);
+  }
+}
+
+/**
+ * 启用用户
+ * POST /api/users/:id/enable
+ */
+async function enableUser(req, res) {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return error(res, '用户不存在');
+
+    const oldValues = user.toJSON();
+    await user.update({ status: 'active' });
+
+    await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { status: 'active' });
+
+    success(res, null, '用户已启用');
+  } catch (err) {
+    console.error('启用用户失败:', err);
+    error(res, '启用用户失败', 1, 500);
+  }
+}
+
+/**
+ * 禁用用户
+ * POST /api/users/:id/disable
+ */
+async function disableUser(req, res) {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return error(res, '用户不存在');
+
+    if (user.username === 'admin') {
+      return error(res, '不能禁用超级管理员账号');
+    }
+
+    const oldValues = user.toJSON();
+    await user.update({ status: 'disabled' });
+
+    await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { status: 'disabled' });
+
+    success(res, null, '用户已禁用');
+  } catch (err) {
+    console.error('禁用用户失败:', err);
+    error(res, '禁用用户失败', 1, 500);
+  }
+}

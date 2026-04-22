@@ -20,9 +20,13 @@ import {
   ClockCircleOutlined,
   InboxOutlined,
   SearchOutlined,
+  SettingOutlined,
+  ImportOutlined,
+  FileProtectOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
+import { can, canSeeMenu } from '../permissions/ability';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -37,9 +41,10 @@ function AppLayout() {
   const searchInputRef = useRef(null);
   const screens = useBreakpoint();
   const isMobile = !screens.md;          // < 768px 视为移动端
-  const { user, logout, isAdmin, isDeptManager } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const role = user?.role || 'dept_staff';
 
   // 全局搜索
   const handleSearch = async (value) => {
@@ -69,8 +74,8 @@ function AppLayout() {
     }
   }, [searchVisible]);
 
-  // 侧边栏菜单
-  const menuItems = [
+  // ========== 主导航菜单（业务主线）==========
+  const businessMenuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
     { key: '/week', icon: <CalendarOutlined />, label: '本周' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
@@ -78,12 +83,21 @@ function AppLayout() {
     { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
-    ...(isDeptManager ? [
-      { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
-    ] : [])
-  ];
+  ].filter(item => canSeeMenu(role, item.key));
 
-  // 数据录入快捷下拉项 — 合并月度重点、季度成果
+  // ========== 系统管理菜单（仅 super_admin）==========
+  const systemMenuItems = can(role, 'user.read') ? [
+    { type: 'divider' },
+    { key: 'system-group', label: '系统管理', type: 'group', children: [
+      { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+      { key: '/audit-logs', icon: <HistoryOutlined />, label: '审计日志' },
+      { key: '/archives', icon: <InboxOutlined />, label: '归档管理' },
+    ]}
+  ] : [];
+
+  const menuItems = [...businessMenuItems, ...systemMenuItems];
+
+  // 数据录入快捷下拉项 — department_manager 及以上可见
   const dataEntryItems = [
     { key: '/projects?entry=new', label: '录入项目', icon: <ProjectOutlined /> },
     { key: '/kpis?entry=new', label: '录入指标', icon: <BarChartOutlined /> },
@@ -91,14 +105,10 @@ function AppLayout() {
     { key: '/achievements?entry=new', label: '录入季度成果', icon: <StarOutlined /> },
   ];
 
-  // 头像下拉菜单 — 只保留低频管理操作
+  // 头像下拉菜单
   const userMenuItems = [
     { key: 'profile', label: user?.name || '用户', icon: <UserOutlined />, disabled: true },
     { type: 'divider' },
-    ...(isDeptManager ? [
-      { key: '/audit-logs', label: '审计日志', icon: <HistoryOutlined /> },
-      { key: '/archives', label: '归档管理', icon: <InboxOutlined /> },
-    ] : []),
     { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, danger: true }
   ];
 
@@ -193,8 +203,8 @@ function AppLayout() {
               />
             </Tooltip>
 
-            {/* 数据录入入口 — dept_manager 及以上可见 */}
-            {isDeptManager && (
+            {/* 录入指引 — department_manager 及以上可见 */}
+            {can(role, 'project.create') && (
               <Dropdown menu={{ items: dataEntryItems, onClick: handleMenuClick }} placement="bottomRight">
                 <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600, fontSize: isMobile ? 12 : 14, padding: isMobile ? '0 8px' : undefined }}>
                   录入指引
@@ -205,7 +215,7 @@ function AppLayout() {
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8 }}>
                 <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
                 {!isMobile && <span>{user?.name}</span>}
-                <Badge status={user?.role === 'admin' ? 'error' : 'processing'} />
+                <Badge status={can(role, 'user.read') ? 'error' : 'processing'} />
               </div>
             </Dropdown>
           </div>

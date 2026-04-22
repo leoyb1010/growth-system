@@ -23,9 +23,11 @@ function applyProjectRoleFilter(where, req) {
     return where;
   }
   // dept_staff: 只能看自己负责或创建的项目
+  // V4: 优先用 owner_user_id，过渡期兼容 owner_name
   where[Op.or] = [
-    { owner_name: name },
-    { creator_id: id }
+    { owner_user_id: id },
+    { creator_id: id },
+    { owner_name: name }  // 过渡期兼容
   ];
   return where;
 }
@@ -40,7 +42,8 @@ function canModifyProject(project, req) {
   const { roleLevel, id, name, dept_id } = req.user;
   if (roleLevel === 0) return true;
   if (roleLevel === 1) return project.dept_id === dept_id;
-  return project.owner_name === name || project.creator_id === id;
+  // V4: 优先用 owner_user_id，过渡期兼容 owner_name
+  return project.owner_user_id === id || project.creator_id === id || project.owner_name === name;
 }
 
 /**
@@ -134,7 +137,7 @@ async function createProject(req, res) {
     }
 
     // 字段白名单
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
     const payload = {};
     allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
 
@@ -175,7 +178,7 @@ async function updateProject(req, res) {
     if (isBlocked) return;
 
     // 字段白名单，禁止任意字段直传
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'owner_user_id', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter', 'priority', 'next_action', 'action_owner_user_id', 'action_due_date', 'decision_needed', 'decision_owner_user_id', 'block_reason'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
