@@ -24,8 +24,16 @@ function KpiPage() {
   const [filters, setFilters] = useState({ quarter: currentQuarter, year: now.getFullYear() });
   const [performances, setPerformances] = useState([]);
   const [mainTab, setMainTab] = useState('kpi');
+  const [annualKpis, setAnnualKpis] = useState([]);
+  const [annualModalVisible, setAnnualModalVisible] = useState(false);
+  const [annualForm] = Form.useForm();
 
   useEffect(() => { fetchData(); fetchPerformances(); }, [filters]);
+
+  // 年度指标数据在切换Tab时加载
+  useEffect(() => {
+    if (mainTab === 'annual') fetchAnnualKpis();
+  }, [mainTab]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -44,6 +52,41 @@ function KpiPage() {
       const res = await api.get('/performances');
       if (res.code === 0) setPerformances(res.data);
     } catch (err) { /* 静默处理 */ }
+  };
+
+  const fetchAnnualKpis = async () => {
+    try {
+      const res = await api.get('/kpis', { params: { year: filters.year } });
+      if (res.code === 0) setAnnualKpis(res.data);
+    } catch (err) { /* 静默处理 */ }
+  };
+
+  // 年度指标录入：一次性创建 Q1-Q4 四条记录
+  const handleAnnualSubmit = async (values) => {
+    try {
+      const { dept_id, indicator_name, unit, q1_target, q2_target, q3_target, q4_target, q1_actual, q2_actual, q3_actual, q4_actual } = values;
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const targets = [q1_target || 0, q2_target || 0, q3_target || 0, q4_target || 0];
+      const actuals = [q1_actual || 0, q2_actual || 0, q3_actual || 0, q4_actual || 0];
+
+      for (let i = 0; i < 4; i++) {
+        await api.post('/kpis', {
+          dept_id,
+          quarter: quarters[i],
+          year: filters.year,
+          indicator_name,
+          target: targets[i],
+          actual: actuals[i],
+          unit: unit || '万元',
+        });
+      }
+      message.success('年度指标创建成功（Q1-Q4）');
+      setAnnualModalVisible(false);
+      annualForm.resetFields();
+      fetchAnnualKpis();
+    } catch (err) {
+      message.error('年度指标创建失败');
+    }
   };
 
   const handleSubmit = async (values) => {
@@ -195,10 +238,82 @@ function KpiPage() {
         style={{ marginBottom: 16 }}
         items={[
           { key: 'kpi', label: '核心指标' },
+          { key: 'annual', label: '年度指标' },
           { key: 'performance', label: '业务线业绩' },
         ]}
       />
-      {mainTab === 'performance' ? <PerformancePage /> : (
+      {mainTab === 'performance' ? <PerformancePage /> : mainTab === 'annual' ? (
+      <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ margin: 0 }}>年度指标汇总</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <InputNumber value={filters.year} onChange={(v) => setFilters({ ...filters, year: v })} style={{ width: 100 }} />
+          {isDeptManager && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => { annualForm.resetFields(); setAnnualModalVisible(true); }}>
+              新增年度指标
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* 按部门和指标名分组，全年累计 */}
+      {(() => {
+        // 按部门+指标名聚合
+        const grouped = {};
+        annualKpis.forEach(item => {
+          const key = `${item.Department?.name || '未知'}_${item.indicator_name}`;
+          if (!grouped[key]) grouped[key] = { dept: item.Department?.name || '未知', indicator: item.indicator_name, unit: item.unit, quarters: {}, totalTarget: 0, totalActual: 0 };
+          grouped[key].quarters[item.quarter] = { target: parseFloat(item.target), actual: parseFloat(item.actual), completion_rate: item.completion_rate };
+          grouped[key].totalTarget += parseFloat(item.target);
+          grouped[key].totalActual += parseFloat(item.actual);
+        });
+
+        const items = Object.values(grouped);
+        if (items.length === 0) return <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF' }}>暂无年度指标数据</div>;
+
+        return (
+          <Row gutter={[16, 16]}>
+            {items.map((item, idx) => {
+              const totalRate = item.totalTarget > 0 ? parseFloat(((item.totalActual / item.totalTarget) * 100).toFixed(2)) : 0;
+              const statusColor = totalRate >= 90 ? '#16A34A' : totalRate >= 60 ? '#F59E0B' : '#DC2626';
+              const statusLabel = totalRate >= 90 ? '达标' : totalRate >= 60 ? '追赶' : '落后';
+              return (
+                <Col xs={24} sm={12} lg={8} key={idx}>
+                  <Card className="surface-card" style={{ borderRadius: 12, height: '100%' }} bodyStyle={{ padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{item.indicator}</div>
+                        <div style={{ fontSize: 12, color: '#6B7280' }}>{item.dept}</div>
+                      </div>
+                      <Tag color={totalRate >= 90 ? 'success' : totalRate >= 60 ? 'warning' : 'error'}>{statusLabel} {totalRate}%</Tag>
+                    </div>
+                    <Progress percent={Math.min(totalRate, 100)} strokeColor={statusColor} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 12 }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
+                      <span>全年目标 {Number(item.totalTarget).toLocaleString()} {item.unit}</span>
+                      <span>全年完成 {Number(item.totalActual).toLocaleString()} {item.unit}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                      {['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+                        const qd = item.quarters[q];
+                        return (
+                          <div key={q} style={{ textAlign: 'center', background: '#F8FAFC', borderRadius: 6, padding: '6px 4px' }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#334155' }}>{q}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: qd ? (qd.completion_rate >= 90 ? '#16A34A' : qd.completion_rate >= 60 ? '#F59E0B' : '#DC2626') : '#D1D5DB' }}>
+                              {qd ? `${qd.completion_rate}%` : '-'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+        );
+      })()}
+      </>
+      ) : (
       <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ margin: 0 }}>核心指标管理</h2>
@@ -438,6 +553,49 @@ function KpiPage() {
           <Form.Item name="unit" label="单位" initialValue="万元">
             <Input placeholder="如：万元、个、%" />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 年度指标录入弹窗 */}
+      <Modal
+        title="新增年度指标"
+        open={annualModalVisible}
+        onOk={() => annualForm.submit()}
+        onCancel={() => { setAnnualModalVisible(false); annualForm.resetFields(); }}
+        width={640}
+      >
+        <Form form={annualForm} onFinish={handleAnnualSubmit} layout="vertical">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
+                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="indicator_name" label="指标名" rules={[{ required: true }]}>
+                <Input placeholder="如：GMV、净利润" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="unit" label="单位" initialValue="万元">
+            <Input placeholder="如：万元、个、%" />
+          </Form.Item>
+          <div style={{ marginBottom: 12, fontSize: 13, color: '#6B7280', fontWeight: 600 }}>各季度目标与完成值</div>
+          {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+            <Row gutter={16} key={q} style={{ marginBottom: 4 }}>
+              <Col span={4} style={{ lineHeight: '32px', fontWeight: 600, textAlign: 'center' }}>{q}</Col>
+              <Col span={10}>
+                <Form.Item name={`${q.toLowerCase()}_target`} label="目标" style={{ marginBottom: 8 }}>
+                  <InputNumber style={{ width: '100%' }} placeholder="目标值" />
+                </Form.Item>
+              </Col>
+              <Col span={10}>
+                <Form.Item name={`${q.toLowerCase()}_actual`} label="完成" style={{ marginBottom: 8 }}>
+                  <InputNumber style={{ width: '100%' }} placeholder="完成值" />
+                </Form.Item>
+              </Col>
+            </Row>
+          ))}
         </Form>
       </Modal>
       </>)}

@@ -134,7 +134,7 @@ async function createProject(req, res) {
     }
 
     // 字段白名单
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
     const payload = {};
     allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
 
@@ -175,7 +175,7 @@ async function updateProject(req, res) {
     if (isBlocked) return;
 
     // 字段白名单，禁止任意字段直传
-    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
+    const allowedFields = ['dept_id', 'type', 'name', 'owner_name', 'goal', 'weekly_progress', 'next_week_focus', 'progress_pct', 'status', 'risk_desc', 'due_date', 'quarter'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
@@ -329,7 +329,7 @@ async function quickUpdateProject(req, res) {
     const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
-    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'risk_desc', 'next_action'];
+    const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'next_week_focus', 'risk_desc', 'next_action'];
     const updateData = {};
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];

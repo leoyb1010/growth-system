@@ -8,7 +8,7 @@ const { sendWeeklyReportToFeishu } = require('./feishuService');
  * @param {Date} weekStart - 本周开始日期
  * @param {Date} weekEnd - 本周结束日期
  */
-async function generateWeeklyReportData(weekStart, weekEnd) {
+async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   const weekStartStr = moment(weekStart).format('YYYY-MM-DD');
   const weekEndStr = moment(weekEnd).format('YYYY-MM-DD');
   const lastWeekStart = moment(weekStart).subtract(7, 'days').format('YYYY-MM-DD');
@@ -18,8 +18,10 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   const quarterLabel = `Q${currentQuarter}`;
 
   // 1. 本周数据摘要（对比上周）
+  const kpiWhere = { quarter: quarterLabel };
+  if (deptFilter) kpiWhere.dept_id = deptFilter;
   const currentKpis = await Kpi.findAll({
-    where: { quarter: quarterLabel }
+    where: kpiWhere
   });
 
   const kpiSummary = currentKpis.map(kpi => {
@@ -35,10 +37,12 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   });
 
   // 2. 重点工作进展（本周有更新的项目）
+  const projectWhere = {
+    updated_at: { [Op.between]: [weekStart, weekEnd] }
+  };
+  if (deptFilter) projectWhere.dept_id = deptFilter;
   const updatedProjects = await Project.findAll({
-    where: {
-      updated_at: { [Op.between]: [weekStart, weekEnd] }
-    },
+    where: projectWhere,
     include: [{ model: Department, attributes: ['name'] }],
     order: [['updated_at', 'DESC']]
   });
@@ -55,8 +59,10 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   }));
 
   // 3. 风险与预警
+  const riskWhere = { status: '风险' };
+  if (deptFilter) riskWhere.dept_id = deptFilter;
   const riskProjects = await Project.findAll({
-    where: { status: '风险' },
+    where: riskWhere,
     include: [{ model: Department, attributes: ['name'] }]
   });
 
@@ -70,7 +76,10 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   }));
 
   // 严重预警指标
+  const perfWhere = {};
+  if (deptFilter) perfWhere.dept_id = deptFilter;
   const performances = await Performance.findAll({
+    where: perfWhere,
     include: [{ model: Department, attributes: ['name'] }]
   });
 
@@ -96,11 +105,13 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   const nextWeekStart = moment(weekEnd).add(1, 'days').format('YYYY-MM-DD');
   const nextWeekEnd = moment(weekEnd).add(7, 'days').format('YYYY-MM-DD');
 
+  const upcomingWhere = {
+    due_date: { [Op.between]: [nextWeekStart, nextWeekEnd] },
+    status: { [Op.ne]: '完成' }
+  };
+  if (deptFilter) upcomingWhere.dept_id = deptFilter;
   const upcomingProjects = await Project.findAll({
-    where: {
-      due_date: { [Op.between]: [nextWeekStart, nextWeekEnd] },
-      status: { [Op.ne]: '完成' }
-    },
+    where: upcomingWhere,
     include: [{ model: Department, attributes: ['name'] }]
   });
 
@@ -115,11 +126,13 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
 
   // D表下月跟进非空事项
   const currentMonth = moment(weekStart).format('YYYY-MM');
+  const taskWhere = {
+    month: currentMonth,
+    next_month_plan: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
+  };
+  if (deptFilter) taskWhere.dept_id = deptFilter;
   const followUpTasks = await MonthlyTask.findAll({
-    where: {
-      month: currentMonth,
-      next_month_plan: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
-    },
+    where: taskWhere,
     include: [{ model: Department, attributes: ['name'] }]
   });
 
@@ -132,10 +145,12 @@ async function generateWeeklyReportData(weekStart, weekEnd) {
   }));
 
   // 5. 新增成果
+  const achievementWhere = {
+    created_at: { [Op.between]: [weekStart, weekEnd] }
+  };
+  if (deptFilter) achievementWhere.dept_id = deptFilter;
   const newAchievements = await Achievement.findAll({
-    where: {
-      created_at: { [Op.between]: [weekStart, weekEnd] }
-    },
+    where: achievementWhere,
     include: [{ model: Department, attributes: ['name'] }],
     order: [['created_at', 'DESC']]
   });

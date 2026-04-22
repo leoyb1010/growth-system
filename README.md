@@ -361,6 +361,27 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v4.1.0 — 2026-04-22 · 周报部门权限隔离 + 年度指标独立录入 + 入口更名
+
+> 核心改动：周报数据按部门权限严格隔离；年度指标录入从共用 Modal 升级为独立弹窗；右上角入口更名。
+
+**周报部门权限隔离**
+- 周报 API 路由全量加 `requireDeptAccess` 中间件（之前缺失，导致跨部门数据可见）
+- `generateWeeklyReportData` 增加 `deptFilter` 参数，KPI/项目/风险/成果等查询按 `dept_id` 过滤
+- `getLatestReport`/`getReportById` 对返回的 `content_json` 做部门级内容过滤
+- 新增 `filterReportContentForDept` 辅助函数：按部门名过滤 kpi_summary/project_progress/risk_and_warnings/next_week_focus/new_achievements
+- 周报导出使用后端已过滤数据，天然部门隔离
+
+**年度指标独立录入**
+- 年度指标 Tab 新增独立「年度指标录入」Modal（之前共用核心指标 Modal，quarter 必填导致点击无反应）
+- 表单直接填写 Q1-Q4 目标与完成值，提交时自动创建4条 KPI 记录
+- 按钮 renamed 为「新增年度指标」
+
+**入口更名**
+- 右上角「数据录入」按钮改名为「录入指引」
+
+---
+
 ### v4.0.0-P1 — 2026-04-22 · 项目收口 + 状态升级 + 每日更新日志
 
 > 核心改动：项目录入只做项目，月度/季度字段彻底拆出；项目状态 4→6；新增项目每日内容更新日志表。
@@ -575,6 +596,7 @@ docker-compose up -d --build
 - [x] v3.1.0 结构收敛型优化（导航重构 / 数据录入显性入口 / 今日更新独立页 / 首页改版 / 信息归属收敛 / 长周期提醒 / 自动/手动标识）
 - [x] v3.2.0 部署架构统一 + 今日更新闭环（前后端同端口 / SQLite 支持 / 今日更新增强 Drawer / Dashboard 精简 / 仪表盘代理 Bug 修复）
 - [x] v3.3.0 移动端基础适配（响应式 Layout / 表格横向滚动 / 卡片操作收敛）
+- [x] v4.1.0 周报部门权限隔离 + 年度指标独立录入 + 入口更名
 
 ## License
 

@@ -181,6 +181,7 @@ function NextWeekFocusPage() {
             <Descriptions.Item label="状态"><Tag color={getStatusColor(detailRecord.status)}>{detailRecord.status}</Tag></Descriptions.Item>
             <Descriptions.Item label="工作目标">{detailRecord.goal || '-'}</Descriptions.Item>
             <Descriptions.Item label="本周进展">{detailRecord.weekly_progress || '-'}</Descriptions.Item>
+            <Descriptions.Item label="下周重点工作">{detailRecord.next_week_focus || '-'}</Descriptions.Item>
             <Descriptions.Item label="风险与问题">{detailRecord.risk_desc || '-'}</Descriptions.Item>
             <Descriptions.Item label="截止日期">{detailRecord.due_date || nextWeek.end}</Descriptions.Item>
             <Descriptions.Item label="季度">{detailRecord.quarter}</Descriptions.Item>
@@ -217,6 +218,9 @@ function NextWeekFocusPage() {
           </Form.Item>
           <Form.Item name="weekly_progress" label="当前进展/计划">
             <TextArea rows={3} placeholder="当前进展或下周具体计划" />
+          </Form.Item>
+          <Form.Item name="next_week_focus" label="下周重点工作">
+            <TextArea rows={3} placeholder="下周计划推进的重点工作" />
           </Form.Item>
           <Form.Item name="risk_desc" label="风险与问题">
             <TextArea rows={3} placeholder="可能的风险或障碍" />

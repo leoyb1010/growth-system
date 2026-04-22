@@ -197,7 +197,7 @@ function AppLayout() {
             {isDeptManager && (
               <Dropdown menu={{ items: dataEntryItems, onClick: handleMenuClick }} placement="bottomRight">
                 <Button type="primary" icon={<FormOutlined />} style={{ fontWeight: 600, fontSize: isMobile ? 12 : 14, padding: isMobile ? '0 8px' : undefined }}>
-                  {isMobile ? '录入' : '数据录入'}
+                  录入指引
                 </Button>
               </Dropdown>
             )}

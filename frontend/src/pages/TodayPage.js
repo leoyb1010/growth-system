@@ -108,20 +108,6 @@ function TodayPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} sm={6}>
           <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
-            <div className="metric-label">今日变更</div>
-            <div className="metric-value" style={{ color: '#3B5AFB' }}>{todayChanges.length}</div>
-            <div className="subtle-text" style={{ fontSize: 11 }}>条数据变更</div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
-            <div className="metric-label">待更新</div>
-            <div className="metric-value" style={{ color: staleProjects.length > 0 ? '#F59E0B' : '#16A34A' }}>{staleProjects.length}</div>
-            <div className="subtle-text" style={{ fontSize: 11 }}>超3天未更新</div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
             <div className="metric-label">今日到期</div>
             <div className="metric-value" style={{ color: todayDueProjects.length > 0 ? '#DC2626' : '#16A34A' }}>{todayDueProjects.length}</div>
             <div className="subtle-text" style={{ fontSize: 11 }}>{todayDueProjects.length > 0 ? '需关注' : '无到期'}</div>
@@ -134,6 +120,20 @@ function TodayPage() {
             <div className="subtle-text" style={{ fontSize: 11 }}>{projects.filter(p => p.is_risk).length > 0 ? '需关注' : '无风险'}</div>
           </Card>
         </Col>
+        <Col xs={12} sm={6}>
+          <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
+            <div className="metric-label">待更新</div>
+            <div className="metric-value" style={{ color: staleProjects.length > 0 ? '#F59E0B' : '#16A34A' }}>{staleProjects.length}</div>
+            <div className="subtle-text" style={{ fontSize: 11 }}>超3天未更新</div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
+            <div className="metric-label">数据变更</div>
+            <div className="metric-value" style={{ color: '#3B5AFB' }}>{todayChanges.length}</div>
+            <div className="subtle-text" style={{ fontSize: 11 }}>条操作记录</div>
+          </Card>
+        </Col>
       </Row>
 
       <Row gutter={[16, 16]}>
@@ -141,9 +141,9 @@ function TodayPage() {
         <Col xs={24} lg={14}>
           {/* 今日变更 */}
           <PanelCard
-            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日变更</span>}
-            subtitle="系统自动聚合"
-            extra={todayChanges.length > 0 && <Badge count={todayChanges.length} style={{ backgroundColor: '#3B5AFB' }} />}
+            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />操作记录</span>}
+            subtitle="系统操作日志 · 非工作提醒"
+            extra={todayChanges.length > 0 && <Badge count={todayChanges.length} style={{ backgroundColor: '#9CA3AF' }} />}
             style={{ marginBottom: 16 }}
           >
             {renderTodayChanges()}

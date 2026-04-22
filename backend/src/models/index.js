@@ -52,6 +52,7 @@ const Project = sequelize.define('Project', {
   progress_pct: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, // 进度%
   status: { type: DataTypes.ENUM('未启动', '进行中', '合作中', '阻塞中', '风险', '完成'), allowNull: false, defaultValue: '未启动' },
   risk_desc: { type: DataTypes.TEXT, allowNull: true }, // 风险与问题
+  next_week_focus: { type: DataTypes.TEXT, allowNull: true }, // 下周重点工作
   due_date: { type: DataTypes.DATEONLY, allowNull: true }, // 预计完成时间
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
   creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // 创建人

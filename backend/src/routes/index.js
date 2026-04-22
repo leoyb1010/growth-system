@@ -81,12 +81,12 @@ router.get('/dashboard/week-focus', authenticate, dashboardController.getWeekFoc
 router.get('/dashboard/week-summary', authenticate, dashboardController.getWeekSummary);
 
 // ==================== 周报 ====================
-router.post('/weekly-reports/generate', authenticate, weeklyReportController.generateReport);
-router.get('/weekly-reports', authenticate, weeklyReportController.getReports);
-router.get('/weekly-reports/latest', authenticate, weeklyReportController.getLatestReport);
-router.get('/weekly-reports/:id', authenticate, weeklyReportController.getReportById);
-router.put('/weekly-reports/:id/html', authenticate, weeklyReportController.saveReportHtml);
-router.put('/weekly-reports/:id/files', authenticate, weeklyReportController.saveReportFiles);
+router.post('/weekly-reports/generate', authenticate, requireDeptAccess, weeklyReportController.generateReport);
+router.get('/weekly-reports', authenticate, requireDeptAccess, weeklyReportController.getReports);
+router.get('/weekly-reports/latest', authenticate, requireDeptAccess, weeklyReportController.getLatestReport);
+router.get('/weekly-reports/:id', authenticate, requireDeptAccess, weeklyReportController.getReportById);
+router.put('/weekly-reports/:id/html', authenticate, requireDeptAccess, weeklyReportController.saveReportHtml);
+router.put('/weekly-reports/:id/files', authenticate, requireDeptAccess, weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================
 router.post('/import/excel', authenticate, requireAdmin, upload.single('file'), importController.importExcel);

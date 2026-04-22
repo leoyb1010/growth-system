@@ -155,6 +155,7 @@ function ProjectPage() {
       progress_pct: item.progress_pct || 0,
       status: item.status || '进行中',
       risk_desc: item.risk_desc || '',
+      next_week_focus: item.next_week_focus || '',
     });
     setTodayUpdateVisible(true);
   };
@@ -279,6 +280,13 @@ function ProjectPage() {
                 <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => { setQuickUpdateItem(item); setQuickWeeklyProgress(''); setQuickUpdateVisible(true); }}>
                   + 补充进展
                 </Button>
+              )}
+
+              {/* 下周重点工作摘要 */}
+              {item.next_week_focus && (
+                <div style={{ background: '#F0F4FF', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#3B5AFB', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  📋 {item.next_week_focus}
+                </div>
               )}
 
               {/* 目标 — 一行概括 */}
@@ -434,6 +442,9 @@ function ProjectPage() {
                       <Descriptions.Item label={detailRecord.type === '下周重点' ? '计划/进展' : '本周进展'} span={2}>
                         <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.weekly_progress || '-'}</div>
                       </Descriptions.Item>
+                      <Descriptions.Item label="下周重点工作" span={2}>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{detailRecord.next_week_focus || '-'}</div>
+                      </Descriptions.Item>
                       <Descriptions.Item label="风险与问题" span={2}>
                         <div style={{ whiteSpace: 'pre-wrap', color: detailRecord.risk_desc ? '#DC2626' : '#9CA3AF' }}>
                           {detailRecord.risk_desc || '无'}
@@ -524,6 +535,9 @@ function ProjectPage() {
           <Form.Item name="goal" label="工作目标"><TextArea rows={3} placeholder="预期达成的目标" /></Form.Item>
           <Form.Item name="weekly_progress" label="本周进展">
             <TextArea rows={3} placeholder="本周进展或计划" />
+          </Form.Item>
+          <Form.Item name="next_week_focus" label="下周重点工作">
+            <TextArea rows={3} placeholder="下周计划推进的重点工作" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={8}>
@@ -630,6 +644,17 @@ function ProjectPage() {
                 value={todayUpdateForm.risk_desc}
                 onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, risk_desc: e.target.value })}
                 placeholder="如有风险或阻塞，在此描述..."
+              />
+            </div>
+
+            {/* 下周重点工作 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>📋 下周重点工作</div>
+              <Input.TextArea
+                rows={3}
+                value={todayUpdateForm.next_week_focus || ''}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_week_focus: e.target.value })}
+                placeholder="下周计划推进的重点工作..."
               />
             </div>
 
