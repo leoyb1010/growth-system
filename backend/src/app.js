@@ -15,6 +15,9 @@ const PORT = process.env.PORT || 3001;
 // 安全中间件
 app.use(helmet());
 
+// 信任 Cloudflare Tunnel 代理，使限流器能正确识别真实 IP
+app.set('trust proxy', 1);
+
 // 限流
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
