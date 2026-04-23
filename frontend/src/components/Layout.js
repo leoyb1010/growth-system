@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, Input, Modal, List, Tag, Spin, Empty } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, Input, Modal, List, Tag, Spin, Empty, Form, message } from 'antd';
 import {
   DashboardOutlined,
   BarChartOutlined,
@@ -38,6 +38,7 @@ function AppLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [changePwdForm] = Form.useForm();
   const searchInputRef = useRef(null);
   const screens = useBreakpoint();
   const isMobile = !screens.md;          // < 768px 视为移动端
@@ -105,10 +106,38 @@ function AppLayout() {
     { key: '/achievements?entry=new', label: '录入季度成果', icon: <StarOutlined /> },
   ];
 
+  // 修改密码弹窗
+  const [changePwdVisible, setChangePwdVisible] = useState(false);
+  const [changePwdLoading, setChangePwdLoading] = useState(false);
+
+  const handleChangePassword = async (values) => {
+    setChangePwdLoading(true);
+    try {
+      const res = await api.post('/auth/change-password', {
+        old_password: values.old_password,
+        new_password: values.new_password,
+      });
+      if (res.code === 0) {
+        message.success('密码修改成功，请重新登录');
+        setChangePwdVisible(false);
+        changePwdForm.resetFields();
+        logout();
+        navigate('/login');
+      } else {
+        message.error(res.message || '修改失败');
+      }
+    } catch (err) {
+      message.error(err.message || '修改失败');
+    } finally {
+      setChangePwdLoading(false);
+    }
+  };
+
   // 头像下拉菜单
   const userMenuItems = [
     { key: 'profile', label: user?.name || '用户', icon: <UserOutlined />, disabled: true },
     { type: 'divider' },
+    { key: 'change-password', label: '修改密码', icon: <SettingOutlined /> },
     { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, danger: true }
   ];
 
@@ -116,6 +145,9 @@ function AppLayout() {
     if (key === 'logout') {
       logout();
       navigate('/login');
+    } else if (key === 'change-password') {
+      changePwdForm.resetFields();
+      setChangePwdVisible(true);
     } else if (key.startsWith('/')) {
       const [path, search] = key.split('?');
       navigate(path + (search ? `?${search}` : ''));
@@ -290,6 +322,40 @@ function AppLayout() {
             )}
           />
         )}
+      </Modal>
+
+      {/* ===== 修改密码弹窗 ===== */}
+      <Modal
+        title="修改密码"
+        open={changePwdVisible}
+        onCancel={() => setChangePwdVisible(false)}
+        onOk={() => changePwdForm.submit()}
+        confirmLoading={changePwdLoading}
+        okText="确认修改"
+      >
+        <Form form={changePwdForm} onFinish={handleChangePassword} layout="vertical">
+          <Form.Item name="old_password" label="当前密码" rules={[{ required: true, message: '请输入当前密码' }]}>
+            <Input.Password placeholder="输入当前密码" />
+          </Form.Item>
+          <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 6, message: '新密码不少于6位' }]}>
+            <Input.Password placeholder="输入新密码（不少于6位）" />
+          </Form.Item>
+          <Form.Item
+            name="confirm_password"
+            label="确认新密码"
+            rules={[
+              { required: true, message: '请确认新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('new_password') === value) return Promise.resolve();
+                  return Promise.reject(new Error('两次输入的密码不一致'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="再次输入新密码" />
+          </Form.Item>
+        </Form>
       </Modal>
     </Layout>
   );

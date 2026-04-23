@@ -32,6 +32,7 @@ const auth = [authenticate, injectAccessContext];
 
 // ==================== 认证路由 ====================
 router.post('/auth/login', authController.login);
+router.post('/auth/register', authController.register);                         // 用户注册（公开）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
 

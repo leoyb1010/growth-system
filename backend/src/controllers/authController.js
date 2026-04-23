@@ -131,4 +131,64 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { login, getCurrentUser, changePassword };
+/**
+ * 用户注册（公开，默认普通成员角色）
+ * POST /api/auth/register
+ */
+async function register(req, res) {
+  try {
+    const { username, name, password } = req.body;
+
+    if (!username || !name || !password) {
+      return error(res, '用户名、姓名和密码不能为空');
+    }
+    if (password.length < 6) {
+      return error(res, '密码长度不能少于6位');
+    }
+
+    const existing = await User.findOne({ where: { username } });
+    if (existing) {
+      return error(res, '用户名已存在');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username,
+      name,
+      role: 'dept_staff',   // 注册账号默认普通成员
+      password_hash: passwordHash,
+      status: 'active',
+      must_change_password: false,
+    });
+
+    // 注册成功后自动登录
+    const roleLevel = 2;
+    const token = generateToken({
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      dept_id: user.dept_id,
+      roleLevel
+    });
+
+    await logAudit('users', user.id, 'create', { id: user.id, name: user.name, system: true }, null, { username: user.username, role: user.role, register: true });
+
+    success(res, {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        roleLevel,
+        dept_id: user.dept_id,
+      }
+    }, '注册成功');
+  } catch (err) {
+    console.error('注册失败:', err);
+    error(res, '注册失败，请稍后重试', 1, 500);
+  }
+}
+
+module.exports = { login, getCurrentUser, changePassword, register };

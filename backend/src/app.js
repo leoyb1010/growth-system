@@ -109,8 +109,10 @@ async function startServer() {
     // 同步模型（开发环境自动建表，生产环境建议用迁移）
     const dialect = process.env.DB_DIALECT || 'postgres';
     if (process.env.NODE_ENV !== 'production') {
-      // SQLite 不支持 alter: true（外键约束会导致重建失败），用 force: false 只创建不存在的表
-      const syncOptions = dialect === 'sqlite' ? { force: false } : { alter: true };
+      // SQLite: force:false 只创建不存在的表 | PostgreSQL: 生产环境 force:false，开发环境 alter:true
+      const syncOptions = (dialect === 'sqlite' || process.env.NODE_ENV === 'production')
+        ? { force: false }
+        : { alter: true };
       await sequelize.sync(syncOptions);
       console.log('数据库模型同步完成');
     }
