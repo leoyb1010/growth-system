@@ -50,11 +50,19 @@ function WeeklyReportPage() {
       const res = await api.post('/weekly-reports/generate', {});
       if (res.code === 0) {
         message.success('周报生成成功');
+        setCurrentReport(res.data);
+        fetchReports();
+      } else {
+        message.error(res.message || '生成周报失败');
+      }
+      if (res.code === 0) {
+        message.success('周报生成成功');
         setCurrentReport({ id: res.data.id, content: res.data });
         fetchReports();
       }
     } catch (err) {
-      message.error('生成周报失败');
+      console.error('生成周报失败:', err);
+      message.error(typeof err === 'string' ? err : '生成周报失败，请稍后重试');
     } finally {
       setGenerating(false);
     }

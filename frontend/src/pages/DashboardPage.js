@@ -76,9 +76,12 @@ function DashboardPage() {
       if (res.code === 0) {
         message.success('周报生成成功，可在周报与复盘页面查看');
         navigate('/weekly-reports');
+      } else {
+        message.error(res.message || '生成周报失败');
       }
     } catch (err) {
-      message.error('生成周报失败');
+      console.error('生成周报失败:', err);
+      message.error(typeof err === 'string' ? err : '生成周报失败，请稍后重试');
     }
   };
 
