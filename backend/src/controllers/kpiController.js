@@ -3,6 +3,7 @@ const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const { logAudit } = require('../services/auditLogService');
 const { checkArchived } = require('../services/archiveCheckService');
+const { getQuarterTimeProgress, getYearTimeProgress, getProgressLabel, getProgressColorKey } = require('../utils/timeProgress');
 
 function getOperator(req) {
   return { id: req.user.id, name: req.user.name || req.user.username };
@@ -27,12 +28,21 @@ async function getKpis(req, res) {
       order: [['dept_id', 'ASC'], ['indicator_name', 'ASC']]
     });
 
-    // 后端硬计算完成率
+    // 后端硬计算完成率 + 时间进度对比
+    const now = new Date();
+    const currentYear = now.getFullYear();
     const result = kpis.map(kpi => {
       const data = kpi.toJSON();
       data.completion_rate = data.target > 0 
         ? parseFloat(((data.actual / data.target) * 100).toFixed(2))
         : 0;
+      // 根据季度或年份计算时间进度
+      const tp = data.quarter
+        ? getQuarterTimeProgress(data.quarter, data.year || currentYear, now)
+        : getYearTimeProgress(data.year || currentYear, now);
+      data.time_progress = tp;
+      data.progress_label = getProgressLabel(data.completion_rate, tp);
+      data.progress_status = getProgressColorKey(data.completion_rate, tp);
       return data;
     });
 
@@ -168,6 +178,10 @@ async function getDashboardKpis(req, res) {
       data.completion_rate = data.target > 0
         ? parseFloat(((data.actual / data.target) * 100).toFixed(2))
         : 0;
+      const tp = getQuarterTimeProgress(currentQuarter, currentYear);
+      data.time_progress = tp;
+      data.progress_label = getProgressLabel(data.completion_rate, tp);
+      data.progress_status = getProgressColorKey(data.completion_rate, tp);
       return data;
     });
 

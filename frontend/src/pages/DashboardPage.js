@@ -107,24 +107,25 @@ function DashboardPage() {
   };
 
   // KPI 指标行
+  const timeProgress = data.time_progress || 0;
   const kpiCards = [
     {
       title: '部门 GMV', value: `${data.kpi_cards?.total_gmv_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString()} 万`,
-      status: (data.kpi_cards?.total_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_gmv_rate || 0) >= 60 ? 'warning' : 'error',
+      hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      status: data.kpi_cards?.total_gmv_status || 'error',
       icon: <TeamOutlined style={{ fontSize: 20, color: '#3B5AFB' }} />,
     },
     {
       title: '部门利润', value: `${data.kpi_cards?.total_profit_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString()} 万`,
-      status: (data.kpi_cards?.total_profit_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_profit_rate || 0) >= 60 ? 'warning' : 'error',
+      hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      status: data.kpi_cards?.total_profit_status || 'error',
       icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
     // 动态渲染各部门 GMV 卡片
     ...(data.kpi_cards?.dept_cards || []).map((dept, idx) => ({
       title: `${dept.dept_name} GMV`, value: `${dept.gmv_rate}%`, suffix: '完成率',
-      hint: `目标 ${dept.gmv_target.toLocaleString()} 万 · 实际 ${dept.gmv_actual.toLocaleString()} 万`,
-      status: dept.gmv_rate >= 90 ? 'success' : dept.gmv_rate >= 60 ? 'warning' : 'error',
+      hint: `目标 ${dept.gmv_target.toLocaleString()} 万 · 实际 ${dept.gmv_actual.toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      status: dept.gmv_status || 'error',
       icon: idx % 2 === 0 ? <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} /> : <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
     })),
   ];
@@ -422,9 +423,9 @@ function DashboardPage() {
               // 待更新
               const staleCount = staleProjects.length;
               if (staleCount > 0) reminders.push({ type: 'stale', text: `${staleCount}个项目超过7天未更新`, count: staleCount });
-              // KPI偏差（动态按部门检测）
+              // KPI偏差（基于时间进度检测）
               const deviationItems = (data.kpi_cards?.dept_cards || [])
-                .filter(d => d.gmv_rate < 60)
+                .filter(d => d.gmv_status === 'error')
                 .map(d => `${d.dept_name}GMV`);
               if (deviationItems.length > 0) reminders.push({ type: 'deviation', text: `${deviationItems.join('、')}完成率偏差较大`, count: deviationItems.length });
 
@@ -492,14 +493,14 @@ function DashboardPage() {
           >
             {(() => {
               const focusProjects = (data.recent_projects || [])
-                .filter(p => p.status === '风险' || p.is_due_soon || p.progress_pct < 60)
+                .filter(p => p.status === '风险' || p.is_due_soon || p.progress_status === 'behind')
                 .slice(0, 6);
               if (focusProjects.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无重点推进事项</div>;
               return focusProjects.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: p.status === '风险' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
                   {p.status === '风险' && <Tag color="error" style={{ margin: 0, fontSize: 11 }}>风险</Tag>}
                   {p.is_due_soon && !p.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>临期</Tag>}
-                  {p.progress_pct < 60 && p.status !== '风险' && !p.is_due_soon && <Tag color="default" style={{ margin: 0, fontSize: 11 }}>低进度</Tag>}
+                  {p.progress_status === 'behind' && p.status !== '风险' && !p.is_due_soon && <Tag color="default" style={{ margin: 0, fontSize: 11 }}>落后</Tag>}
                   <span style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{p.name}</span>
                   <span className="subtle-text" style={{ fontSize: 11 }}>{p.owner_name}</span>
                   <Progress type="circle" percent={p.progress_pct} size={32} strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 60 ? '#F59E0B' : '#DC2626'} />

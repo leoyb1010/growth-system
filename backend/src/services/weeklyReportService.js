@@ -2,6 +2,7 @@ const { Kpi, Project, Performance, MonthlyTask, Achievement, WeeklyReport, Depar
 const moment = require('moment');
 const { Op } = require('sequelize');
 const { sendWeeklyReportToFeishu } = require('./feishuService');
+const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 
 /**
  * 生成周报数据
@@ -201,21 +202,31 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects) {
   const conclusions = [];
   
-  // 1. 整体完成率判断
+  // 1. 整体完成率判断（基于时间进度）
   const totalTarget = kpiSummary.reduce((s, k) => s + parseFloat(k.target || 0), 0);
   const totalActual = kpiSummary.reduce((s, k) => s + parseFloat(k.actual || 0), 0);
   const totalRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;
   
-  if (totalRate >= 90) {
-    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，达到目标进度。`);
-  } else if (totalRate >= 60) {
-    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，低于时间进度，需加速追赶。`);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+  const timeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
+  const overallStatus = getProgressStatus(totalRate, timeProgress);
+
+  if (overallStatus === 'ahead') {
+    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，超过时间进度（${timeProgress.toFixed(0)}%），进度良好。`);
+  } else if (overallStatus === 'on_track') {
+    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，与时间进度（${timeProgress.toFixed(0)}%）基本持平，需持续保持。`);
   } else {
-    conclusions.push(`整体完成率仅${totalRate.toFixed(0)}%，严重低于时间进度，需重点关注。`);
+    conclusions.push(`整体完成率${totalRate.toFixed(0)}%，低于时间进度（${timeProgress.toFixed(0)}%），需重点关注和加速追赶。`);
   }
 
-  // 2. 偏差最大指标
-  const lowKpis = kpiSummary.filter(k => k.completion_rate < 60);
+  // 2. 落后于时间进度的指标
+  const lowKpis = kpiSummary.filter(k => {
+    const status = getProgressStatus(k.completion_rate, timeProgress);
+    return status === 'behind';
+  });
   if (lowKpis.length > 0) {
     const worst = lowKpis.sort((a, b) => a.completion_rate - b.completion_rate)[0];
     conclusions.push(`${worst.dept_name}${worst.indicator}完成率最低（${worst.completion_rate}%），偏差最大。`);

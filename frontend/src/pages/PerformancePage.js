@@ -93,7 +93,7 @@ function PerformancePage() {
       key: 'rate',
       width: 120,
       render: (_, record) => (
-        <span style={{ fontWeight: 600, color: record.completion_rate >= 90 ? '#52c41a' : record.completion_rate >= 60 ? '#faad14' : '#ff4d4f' }}>
+        <span style={{ fontWeight: 600, color: record.time_progress !== undefined ? (record.completion_rate >= record.time_progress + 5 ? '#52c41a' : record.completion_rate >= record.time_progress - 5 ? '#faad14' : '#ff4d4f') : (record.completion_rate >= 90 ? '#52c41a' : record.completion_rate >= 60 ? '#faad14' : '#ff4d4f') }}>
           {record.completion_rate}%
         </span>
       )

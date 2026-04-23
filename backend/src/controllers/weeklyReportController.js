@@ -2,6 +2,7 @@ const { WeeklyReport } = require('../models');
 const { generateWeeklyReportData } = require('../services/weeklyReportService');
 const { sendWeeklyReportToFeishu } = require('../services/feishuService');
 const { success, error } = require('../utils/response');
+const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 const moment = require('moment');
 const fs = require('fs');
 const path = require('path');
@@ -285,9 +286,20 @@ function regenerateConclusion(data) {
   const totalActual = kpis.reduce((s, k) => s + parseFloat(k.actual || 0), 0);
   const totalRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;
 
-  if (totalRate >= 90) parts.push(`整体完成率${totalRate.toFixed(0)}%，达到目标进度。`);
-  else if (totalRate >= 60) parts.push(`整体完成率${totalRate.toFixed(0)}%，低于时间进度，需加速追赶。`);
-  else parts.push(`整体完成率仅${totalRate.toFixed(0)}%，严重低于时间进度，需重点关注。`);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+  const timeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
+  const status = getProgressStatus(totalRate, timeProgress);
+
+  if (status === 'ahead') {
+    parts.push(`整体完成率${totalRate.toFixed(0)}%，超过时间进度（${timeProgress.toFixed(0)}%），进度良好。`);
+  } else if (status === 'on_track') {
+    parts.push(`整体完成率${totalRate.toFixed(0)}%，与时间进度（${timeProgress.toFixed(0)}%）基本持平，需持续保持。`);
+  } else {
+    parts.push(`整体完成率${totalRate.toFixed(0)}%，低于时间进度（${timeProgress.toFixed(0)}%），需重点关注和加速追赶。`);
+  }
 
   const riskCount = (data.risk_and_warnings?.risk_projects || []).length;
   if (riskCount > 0) parts.push(`当前有${riskCount}个风险项目需关注。`);

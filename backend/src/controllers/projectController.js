@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const moment = require('moment');
 const { logAudit } = require('../services/auditLogService');
 const { checkArchived } = require('../services/archiveCheckService');
+const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 
 function getOperator(req) {
   return { id: req.user.id, name: req.user.name || req.user.username };
@@ -80,10 +81,18 @@ async function getProjects(req, res) {
     });
 
     // 添加预警标记
+    // 计算当前季度时间进度
+    const nowForTP = new Date();
+    const monthForTP = nowForTP.getMonth() + 1;
+    const currentQuarterForTP = monthForTP <= 3 ? 'Q1' : monthForTP <= 6 ? 'Q2' : monthForTP <= 9 ? 'Q3' : 'Q4';
+    const quarterTimeProgress = getQuarterTimeProgress(currentQuarterForTP, nowForTP.getFullYear());
+
     const result = projects.map(p => {
       const data = p.toJSON();
-      // 严重预警：进度 < 60% 且非完成状态
-      data.severe_warning = data.progress_pct < 60 && data.status !== '完成';
+      // 严重预警：完成率落后于时间进度 且非完成状态
+      const progressStatus = getProgressStatus(data.progress_pct, quarterTimeProgress);
+      data.severe_warning = progressStatus === 'behind' && data.status !== '完成';
+      data.progress_status = data.status === '完成' ? 'ahead' : progressStatus;
       // 风险标记
       data.is_risk = data.status === '风险';
       // 即将到期（7天内）
@@ -92,6 +101,7 @@ async function getProjects(req, res) {
         data.is_due_soon = daysUntil >= 0 && daysUntil <= 7;
         data.days_until_due = daysUntil;
       }
+      data.time_progress = quarterTimeProgress;
       return data;
     });
 

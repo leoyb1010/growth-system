@@ -1,21 +1,10 @@
 const { Performance, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const { logAudit } = require('../services/auditLogService');
+const { getYearTimeProgress, getWarningStatus } = require('../utils/timeProgress');
 
 function getOperator(req) {
   return { id: req.user.id, name: req.user.name || req.user.username };
-}
-
-/**
- * 计算预警状态
- * 正常(>=90%) / 预警(60%-90%) / 严重(<60%)
- */
-function calculateWarningStatus(totalActual, totalTarget) {
-  if (totalTarget <= 0) return '正常';
-  const rate = (totalActual / totalTarget) * 100;
-  if (rate >= 90) return '正常';
-  if (rate >= 60) return '预警';
-  return '严重';
 }
 
 /**
@@ -37,6 +26,8 @@ async function getPerformances(req, res) {
     });
 
     // 后端硬计算累计和预警状态
+    const currentYear = new Date().getFullYear();
+    const yearTimeProgress = getYearTimeProgress(currentYear);
     const result = performances.map(p => {
       const data = p.toJSON();
       data.total_target = parseFloat(data.q1_target) + parseFloat(data.q2_target) + parseFloat(data.q3_target) + parseFloat(data.q4_target);
@@ -45,7 +36,10 @@ async function getPerformances(req, res) {
       data.completion_rate = data.total_target > 0
         ? parseFloat(((data.total_actual / data.total_target) * 100).toFixed(2))
         : 0;
-      data.warning_status = calculateWarningStatus(data.total_actual, data.total_target);
+      data.time_progress = yearTimeProgress;
+      data.warning_status = data.total_target > 0
+        ? getWarningStatus(data.completion_rate, yearTimeProgress)
+        : '正常';
       return data;
     });
 
@@ -157,18 +151,22 @@ async function getPerformanceStats(req, res) {
 
     const performances = await Performance.findAll({ where });
 
+    const currentYear = new Date().getFullYear();
+    const yearTimeProgress = getYearTimeProgress(currentYear);
     const stats = {
       total: performances.length,
       normal: 0,
       warning: 0,
       severe: 0,
+      time_progress: yearTimeProgress,
       details: []
     };
 
     performances.forEach(p => {
       const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
       const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
-      const status = calculateWarningStatus(totalActual, totalTarget);
+      const completionRate = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(2)) : 0;
+      const status = totalTarget > 0 ? getWarningStatus(completionRate, yearTimeProgress) : '正常';
 
       if (status === '正常') stats.normal++;
       else if (status === '预警') stats.warning++;
@@ -178,7 +176,8 @@ async function getPerformanceStats(req, res) {
         id: p.id,
         business_type: p.business_type,
         indicator: p.indicator,
-        completion_rate: totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(2)) : 0,
+        completion_rate: completionRate,
+        time_progress: yearTimeProgress,
         warning_status: status
       });
     });

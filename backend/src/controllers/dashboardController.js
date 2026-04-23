@@ -2,6 +2,7 @@ const { Kpi, Project, Performance, Department, AuditLog, sequelize } = require('
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
+const { getQuarterTimeProgress, getYearTimeProgress, getProgressStatus, getWarningStatus, getProgressColorKey } = require('../utils/timeProgress');
 
 /**
  * 获取仪表盘综合数据
@@ -93,19 +94,28 @@ async function getDashboard(req, res) {
 
     const calcRate = (actual, target) => target > 0 ? parseFloat(((actual / target) * 100).toFixed(2)) : 0;
 
+    // 计算当前时间进度
+    const quarterTimeProgress = getQuarterTimeProgress(effectiveQuarter, currentYear);
+    const yearTimeProgress = getYearTimeProgress(currentYear);
+    const activeTimeProgress = mode === 'year' ? yearTimeProgress : quarterTimeProgress;
+
     // 按部门生成 KPI 数据
     const deptKpiCards = departments.map(d => {
       const gmv = deptKpiMap[d.id]?.gmv;
       const profit = deptKpiMap[d.id]?.profit;
+      const gmvRate = calcRate(gmv?.actual || 0, gmv?.target || 0);
+      const profitRate = calcRate(profit?.actual || 0, profit?.target || 0);
       return {
         dept_id: d.id,
         dept_name: d.name,
-        gmv_rate: calcRate(gmv?.actual || 0, gmv?.target || 0),
+        gmv_rate: gmvRate,
         gmv_target: gmv?.target || 0,
         gmv_actual: gmv?.actual || 0,
-        profit_rate: calcRate(profit?.actual || 0, profit?.target || 0),
+        gmv_status: getProgressColorKey(gmvRate, activeTimeProgress),
+        profit_rate: profitRate,
         profit_target: profit?.target || 0,
         profit_actual: profit?.actual || 0,
+        profit_status: getProgressColorKey(profitRate, activeTimeProgress),
       };
     });
 
@@ -116,6 +126,10 @@ async function getDashboard(req, res) {
     const totalProfitTarget = deptKpiCards.reduce((s, d) => s + d.profit_target, 0);
     const totalProfitActual = deptKpiCards.reduce((s, d) => s + d.profit_actual, 0);
     const totalProfitRate = calcRate(totalProfitActual, totalProfitTarget);
+
+    // 总体状态用时间进度判断
+    const totalGmvStatus = getProgressColorKey(totalGmvRate, activeTimeProgress);
+    const totalProfitStatus = getProgressColorKey(totalProfitRate, activeTimeProgress);
 
     // ========== 2. 风险项目数 ==========
     const riskProjects = await Project.count({
@@ -143,13 +157,15 @@ async function getDashboard(req, res) {
     // ========== 5. 业务线业绩预警分布 ==========
     const performances = await Performance.findAll({ where: deptFilter });
     const warningStats = { normal: 0, warning: 0, severe: 0 };
+    const perfTimeProgress = mode === 'year' ? yearTimeProgress : quarterTimeProgress;
     performances.forEach(p => {
       const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
       const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
       if (totalTarget > 0) {
         const rate = (totalActual / totalTarget) * 100;
-        if (rate >= 90) warningStats.normal++;
-        else if (rate >= 60) warningStats.warning++;
+        const status = getWarningStatus(rate, perfTimeProgress);
+        if (status === '正常') warningStats.normal++;
+        else if (status === '预警') warningStats.warning++;
         else warningStats.severe++;
       }
     });
@@ -219,9 +235,10 @@ async function getDashboard(req, res) {
     if (dueThisWeek.length > 0) {
       weekFocus.push({ type: 'due_soon', text: `${dueThisWeek.length}个项目本周到期`, count: dueThisWeek.length });
     }
-    // 偏差较大指标（动态按部门检测）
+    // 偏差较大指标（动态按部门检测，基于时间进度）
     deptKpiCards.forEach(d => {
-      if (d.gmv_rate < 60) weekFocus.push({ type: 'deviation', text: `${d.dept_name}GMV完成率偏差较大`, count: 1 });
+      const status = getProgressStatus(d.gmv_rate, activeTimeProgress);
+      if (status === 'behind') weekFocus.push({ type: 'deviation', text: `${d.dept_name}GMV完成率落后于时间进度`, count: 1 });
     });
     // 长期未更新（>3天）
     const staleDate = moment().subtract(3, 'days').toDate();
@@ -238,13 +255,16 @@ async function getDashboard(req, res) {
       quarter_fallback: quarterFallback,
       current_year: currentYear,
       view_mode: mode,
+      time_progress: activeTimeProgress,
       kpi_cards: {
         total_gmv_rate: totalGmvRate,
         total_gmv_target: totalGmvTarget,
         total_gmv_actual: totalGmvActual,
+        total_gmv_status: totalGmvStatus,
         total_profit_rate: totalProfitRate,
         total_profit_target: totalProfitTarget,
         total_profit_actual: totalProfitActual,
+        total_profit_status: totalProfitStatus,
         dept_cards: deptKpiCards,
         risk_project_count: riskProjects,
         due_this_week_count: dueThisWeekProjects
@@ -396,21 +416,24 @@ async function getWeekFocus(req, res) {
       });
     }
 
-    // 偏差较大指标
+    // 偏差较大指标（基于时间进度）
     const kpis = await Kpi.findAll({
       where: { quarter: currentQuarter, ...deptFilter },
       include: [{ model: Department, attributes: ['name'] }]
     });
+    const qTimeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
     const deviations = [];
     kpis.forEach(k => {
       const rate = k.target > 0 ? (k.actual / k.target) * 100 : 0;
-      if (rate < 60) {
+      const status = getProgressStatus(rate, qTimeProgress);
+      if (status === 'behind') {
         deviations.push({
           dept: k.Department?.name,
           indicator: k.indicator_name,
           rate: parseFloat(rate.toFixed(2)),
           target: k.target,
-          actual: k.actual
+          actual: k.actual,
+          time_progress: qTimeProgress,
         });
       }
     });

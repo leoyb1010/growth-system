@@ -17,15 +17,21 @@ export const defaultStatusColor = { tag: 'default', border: '#9CA3AF', dot: 'gra
 
 export const getStatusStyle = (status) => STATUS_COLORS[status] || defaultStatusColor;
 
-// 进度条颜色
+// 进度条颜色（保留用于项目进度条，基于项目自身进度）
 export const getProgressColor = (pct) => {
   if (pct >= 80) return '#16A34A';
   if (pct >= 60) return '#F59E0B';
   return '#DC2626';
 };
 
-// 完成率颜色
-export const getCompletionColor = (rate) => {
+// 完成率颜色（基于时间进度对比）
+export const getCompletionColor = (rate, timeProgress) => {
+  if (timeProgress !== undefined && timeProgress !== null) {
+    if (rate >= timeProgress + 5) return '#16A34A';
+    if (rate >= timeProgress - 5) return '#F59E0B';
+    return '#DC2626';
+  }
+  // 降级：无时间进度时用硬阈值
   if (rate >= 90) return '#16A34A';
   if (rate >= 60) return '#F59E0B';
   return '#DC2626';
@@ -56,8 +62,8 @@ export const calcManagementPriority = (item) => {
   if (item.days_until_due !== undefined && item.days_until_due >= 0 && item.days_until_due <= 7) {
     score += 50;
   }
-  // 低进度加分
-  if (item.progress_pct !== undefined && item.progress_pct < 60 && item.status !== '完成') {
+  // 落后于时间进度加分
+  if (item.progress_status === 'behind' && item.status !== '完成') {
     score += 30;
   }
   // 长期未更新加分

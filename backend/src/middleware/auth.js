@@ -112,7 +112,7 @@ function authenticate(req, res, next) {
   }
 
   const role = decoded.role || 'dept_staff';
-  const roleLevel = role === 'admin' ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
+  const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
   req.user = { ...decoded, role, roleLevel };
   next();
 }

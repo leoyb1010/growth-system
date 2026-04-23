@@ -111,7 +111,14 @@ function KpiPage() {
 
   const showDetail = (record) => { setDetailRecord(record); setDrawerVisible(true); };
 
-  const getCompletionColor = (rate) => {
+  const getCompletionColor = (rate, timeProgress) => {
+    if (timeProgress !== undefined && timeProgress !== null) {
+      // 基于时间进度判断颜色
+      if (rate >= timeProgress + 5) return '#52c41a';
+      if (rate >= timeProgress - 5) return '#faad14';
+      return '#ff4d4f';
+    }
+    // 降级：无时间进度时用硬阈值
     if (rate >= 90) return '#52c41a';
     if (rate >= 60) return '#faad14';
     return '#ff4d4f';
@@ -181,7 +188,7 @@ function KpiPage() {
           type: 'bar',
           data: items.map(d => parseFloat(d.actual)),
           itemStyle: {
-            color: (params) => getCompletionColor(items[params.dataIndex]?.completion_rate || 0),
+            color: (params) => getCompletionColor(items[params.dataIndex]?.completion_rate || 0, items[params.dataIndex]?.time_progress),
             borderRadius: [4, 4, 0, 0],
           },
           barWidth: '30%',
@@ -212,7 +219,7 @@ function KpiPage() {
         formatter: '{value}%',
         fontSize: 18,
         fontWeight: 700,
-        color: getCompletionColor(item.completion_rate),
+        color: getCompletionColor(item.completion_rate, item.time_progress),
         offsetCenter: [0, '72%'],
       },
       data: [{ value: item.completion_rate }],
@@ -276,8 +283,11 @@ function KpiPage() {
           <Row gutter={[16, 16]}>
             {items.map((item, idx) => {
               const totalRate = item.totalTarget > 0 ? parseFloat(((item.totalActual / item.totalTarget) * 100).toFixed(2)) : 0;
-              const statusColor = totalRate >= 90 ? '#16A34A' : totalRate >= 60 ? '#F59E0B' : '#DC2626';
-              const statusLabel = totalRate >= 90 ? '达标' : totalRate >= 60 ? '追赶' : '落后';
+              // 年度时间进度
+              const yearTP = ((new Date().getMonth() * 30 + new Date().getDate()) / 365 * 100).toFixed(2);
+              const tpNum = parseFloat(yearTP);
+              const statusColor = totalRate >= tpNum + 5 ? '#16A34A' : totalRate >= tpNum - 5 ? '#F59E0B' : '#DC2626';
+              const statusLabel = totalRate >= tpNum + 5 ? '超前' : totalRate >= tpNum - 5 ? '正常' : '落后';
               return (
                 <Col xs={24} sm={12} lg={8} key={idx}>
                   <Card className="surface-card" style={{ borderRadius: 12, height: '100%' }} bodyStyle={{ padding: 20 }}>
@@ -286,7 +296,7 @@ function KpiPage() {
                         <div style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{item.indicator}</div>
                         <div style={{ fontSize: 12, color: '#6B7280' }}>{item.dept}</div>
                       </div>
-                      <Tag color={totalRate >= 90 ? 'success' : totalRate >= 60 ? 'warning' : 'error'}>{statusLabel} {totalRate}%</Tag>
+                      <Tag color={totalRate >= tpNum + 5 ? 'success' : totalRate >= tpNum - 5 ? 'warning' : 'error'}>{statusLabel} {totalRate}%</Tag>
                     </div>
                     <Progress percent={Math.min(totalRate, 100)} strokeColor={statusColor} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 12 }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
@@ -364,7 +374,7 @@ function KpiPage() {
                       {/* 完成率 + 状态标签 */}
                       <div style={{ marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 26, fontWeight: 700, color: getCompletionColor(item.completion_rate), lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 26, fontWeight: 700, color: getCompletionColor(item.completion_rate, item.time_progress), lineHeight: 1.1, whiteSpace: 'nowrap' }}>
                             {item.completion_rate}%
                           </span>
                           <span style={{
@@ -373,13 +383,13 @@ function KpiPage() {
                             borderRadius: 4,
                             flexShrink: 0,
                             lineHeight: '18px',
-                            background: item.completion_rate >= 90 ? '#f6ffed' : item.completion_rate >= 60 ? '#fffbe6' : '#fff2f0',
-                            color: item.completion_rate >= 90 ? '#52c41a' : item.completion_rate >= 60 ? '#faad14' : '#ff4d4f',
+                            background: (item.progress_status || 'error') === 'success' ? '#f6ffed' : (item.progress_status || 'error') === 'warning' ? '#fffbe6' : '#fff2f0',
+                            color: (item.progress_status || 'error') === 'success' ? '#52c41a' : (item.progress_status || 'error') === 'warning' ? '#faad14' : '#ff4d4f',
                           }}>
-                            {item.completion_rate >= 90 ? '达标' : item.completion_rate >= 60 ? '追赶' : '落后'}
+                            {item.progress_label || (item.completion_rate >= 90 ? '达标' : item.completion_rate >= 60 ? '追赶' : '落后')}
                           </span>
                         </div>
-                        <Progress percent={Math.min(item.completion_rate, 100)} strokeColor={getCompletionColor(item.completion_rate)} trailColor="#f0f0f0" showInfo={false} strokeWidth={6} />
+                        <Progress percent={Math.min(item.completion_rate, 100)} strokeColor={getCompletionColor(item.completion_rate, item.time_progress)} trailColor="#f0f0f0" showInfo={false} strokeWidth={6} />
                       </div>
                       {/* 目标/实际值 - 上下排列避免遮挡 */}
                       <div style={{ flex: 1 }}>
@@ -432,8 +442,8 @@ function KpiPage() {
                       <span style={{ fontSize: 14, fontWeight: 600, color: '#262626' }}>{name}</span>
                       <span style={{
                         fontSize: 11, padding: '1px 6px', borderRadius: 4, marginLeft: 'auto',
-                        background: avgRate >= 90 ? '#f6ffed' : avgRate >= 60 ? '#fffbe6' : '#fff2f0',
-                        color: avgRate >= 90 ? '#52c41a' : avgRate >= 60 ? '#faad14' : '#ff4d4f',
+                        background: avgRate >= 90 ? '#f6ffed' : avgRate >= (items[0]?.time_progress || 60) - 5 ? '#fffbe6' : '#fff2f0',
+                        color: avgRate >= 90 ? '#52c41a' : avgRate >= (items[0]?.time_progress || 60) - 5 ? '#faad14' : '#ff4d4f',
                       }}>
                         均值 {avgRate.toFixed(0)}%
                       </span>
@@ -493,12 +503,12 @@ function KpiPage() {
               <Progress
                 type="dashboard"
                 percent={Math.min(detailRecord.completion_rate, 100)}
-                strokeColor={getCompletionColor(detailRecord.completion_rate)}
+                strokeColor={getCompletionColor(detailRecord.completion_rate, detailRecord.time_progress)}
                 format={() => `${detailRecord.completion_rate}%`}
                 size={160}
               />
-              <div style={{ marginTop: 12, fontSize: 16, fontWeight: 600, color: getCompletionColor(detailRecord.completion_rate) }}>
-                {detailRecord.completion_rate >= 90 ? '✓ 已达标' : detailRecord.completion_rate >= 60 ? '⚡ 追赶中' : '⚠ 落后'}
+              <div style={{ marginTop: 12, fontSize: 16, fontWeight: 600, color: getCompletionColor(detailRecord.completion_rate, detailRecord.time_progress) }}>
+                {detailRecord.progress_label === '超前' ? '✓ 超前于时间进度' : detailRecord.progress_label === '正常' ? '⚡ 与时间进度持平' : '⚠ 落后于时间进度'}
               </div>
             </div>
             <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#fafafa', width: 100 }}>

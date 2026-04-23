@@ -3,6 +3,7 @@ const { Kpi, Project, Performance, MonthlyTask, Achievement, Department } = requ
 const { success, error } = require('../utils/response');
 const fs = require('fs');
 const path = require('path');
+const { getYearTimeProgress, getWarningStatus } = require('../utils/timeProgress');
 
 /**
  * 导出指定模块数据为 Excel
@@ -76,7 +77,7 @@ async function exportModule(req, res) {
           const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
           const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
           const rate = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
-          const status = rate >= 90 ? '正常' : rate >= 60 ? '预警' : '严重';
+          const status = totalTarget > 0 ? getWarningStatus(rate, getYearTimeProgress()) : '正常';
           return [
             p.Department?.name || '',
             p.business_type,

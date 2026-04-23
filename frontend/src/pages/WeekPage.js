@@ -78,11 +78,11 @@ function WeekPage() {
   const sortedProjects = [...projects]
     .filter(p => p.type !== '下周重点')
     .sort((a, b) => {
-      // 风险 > 临期 > 低进度 > 长期未更新 > 其他
+      // 风险 > 临期 > 落后于时间进度 > 长期未更新 > 其他
       const getPriority = (p) => {
         if (p.is_risk) return 0;
         if (p.is_due_soon) return 1;
-        if (p.progress_pct < 60 && p.status !== '完成') return 2;
+        if (p.progress_status === 'behind' && p.status !== '完成') return 2;
         if (staleProjects.some(s => s.id === p.id)) return 3;
         return 4;
       };
