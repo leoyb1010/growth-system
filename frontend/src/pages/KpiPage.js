@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Table, Tabs } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Table, Tabs, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { api, useAuth } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import PerformancePage from './PerformancePage';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 
@@ -396,7 +397,7 @@ function KpiPage() {
                       {isDeptManager && (
                         <div style={{ marginTop: 10, display: 'flex', gap: 8, borderTop: '1px solid #f5f5f5', paddingTop: 10 }}>
                           <Button size="small" type="link" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>编辑</Button>
-                          <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}>删除</Button>
+                          <Popconfirm title="确定删除该指标？" onConfirm={() => handleDelete(item.id)} okType="danger"><Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>删除</Button></Popconfirm>
                         </div>
                       )}
                     </div>
@@ -526,7 +527,7 @@ function KpiPage() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -568,7 +569,7 @@ function KpiPage() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={12}>

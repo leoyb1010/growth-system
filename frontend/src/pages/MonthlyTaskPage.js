@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, getStatusStyle, getProgressColor } from '../utils/constants';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -80,7 +81,7 @@ function MonthlyTaskPage() {
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,
               ...(isDeptManager ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
+                <Popconfirm key="del" title="确定删除该月度任务？" onConfirm={() => handleDelete(item.id)} okType="danger"><DeleteOutlined style={{ color: '#DC2626', cursor: 'pointer' }} /></Popconfirm>
               ] : [])
             ]}
           >
@@ -176,7 +177,7 @@ function MonthlyTaskPage() {
                     <td style={{ padding: '10px 8px', fontSize: 13 }}>
                       <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>详情</Button>
                       {isDeptManager && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
-                      {isDeptManager && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>删除</Button>}
+                      {isDeptManager && <Popconfirm title="确定删除该月度任务？" onConfirm={() => handleDelete(item.id)} okType="danger"><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>}
                     </td>
                   </tr>
                 ))}
@@ -232,7 +233,7 @@ function MonthlyTaskPage() {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={8}>

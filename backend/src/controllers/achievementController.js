@@ -100,6 +100,13 @@ async function updateAchievement(req, res) {
       return error(res, '无权修改其他部门数据', 403, 403);
     }
 
+    // self 范围：只能修改自己创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      if (achievement.creator_id && achievement.creator_id !== req.user.id) {
+        return error(res, '只能修改自己创建的成果', 403, 403);
+      }
+    }
+
     const isBlocked = await checkArchived('achievements', achievement.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
@@ -134,6 +141,13 @@ async function deleteAchievement(req, res) {
 
     if (req.deptFilter && req.deptFilter !== achievement.dept_id) {
       return error(res, '无权删除其他部门数据', 403, 403);
+    }
+
+    // self 范围：只能删除自己创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      if (achievement.creator_id && achievement.creator_id !== req.user.id) {
+        return error(res, '只能删除自己创建的成果', 403, 403);
+      }
     }
 
     const isBlocked = await checkArchived('achievements', achievement.quarter, new Date().getFullYear(), error, res);

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Row, Col } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Row, Col, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 
@@ -11,7 +12,7 @@ function PerformancePage() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [form] = Form.useForm();
-  const { isAdmin } = useAuth();
+  const { isDeptManager } = useAuth();
 
   useEffect(() => {
     fetchData();
@@ -104,7 +105,7 @@ function PerformancePage() {
       width: 100,
       render: (status) => <Tag color={getWarningColor(status)}>{status}</Tag>
     },
-    ...(isAdmin ? [{
+    ...(isDeptManager ? [{
       title: '操作',
       key: 'action',
       width: 150,
@@ -112,7 +113,7 @@ function PerformancePage() {
       render: (_, record) => (
         <span>
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
+          <Popconfirm title="确定删除该业绩记录？" onConfirm={() => handleDelete(record.id)} okType="danger"><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>
         </span>
       )
     }] : [])
@@ -122,7 +123,7 @@ function PerformancePage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2>业务线业绩追踪</h2>
-        {isAdmin && (
+        {isDeptManager && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingRecord(null); form.resetFields(); setModalVisible(true); }}>
             新增业绩
           </Button>
@@ -146,10 +147,7 @@ function PerformancePage() {
       >
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item name="dept_id" label="部门" rules={[{ required: true }]}>
-            <Select>
-              <Option value={1}>拓展组</Option>
-              <Option value={2}>运营组</Option>
-            </Select>
+            <DepartmentSelect />
           </Form.Item>
           <Form.Item name="business_type" label="业务类型" rules={[{ required: true }]}>
             <Input placeholder="如：SaaS订阅、广告收入" />

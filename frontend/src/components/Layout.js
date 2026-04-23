@@ -23,6 +23,7 @@ import {
   SettingOutlined,
   ImportOutlined,
   FileProtectOutlined,
+  BankOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
@@ -90,6 +91,7 @@ function AppLayout() {
   const systemMenuItems = can(role, 'user.read') ? [
     { type: 'divider' },
     { key: 'system-group', label: '系统管理', type: 'group', children: [
+      { key: '/departments', icon: <BankOutlined />, label: '部门管理' },
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
       { key: '/audit-logs', icon: <HistoryOutlined />, label: '审计日志' },
       { key: '/archives', icon: <InboxOutlined />, label: '归档管理' },

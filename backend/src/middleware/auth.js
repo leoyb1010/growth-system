@@ -14,6 +14,7 @@ const ROLE_PERMISSIONS = {
     'achievement.read', 'achievement.create', 'achievement.update', 'achievement.delete',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'user.read', 'user.create', 'user.update', 'user.disable', 'user.reset_password',
+    'department.read', 'department.create', 'department.update', 'department.delete',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use'
   ],
@@ -24,6 +25,7 @@ const ROLE_PERMISSIONS = {
     'monthly_task.read', 'monthly_task.create', 'monthly_task.update',
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
+    'department.read',
     'export.data', 'search.use'
   ],
   department_member: [
@@ -33,6 +35,7 @@ const ROLE_PERMISSIONS = {
     'monthly_task.read', 'monthly_task.create', 'monthly_task.update',
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read',
+    'department.read',
     'export.data', 'search.use'
   ]
 };

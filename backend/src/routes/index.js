@@ -6,6 +6,7 @@ const { authenticate, injectAccessContext, requirePermission, applyDataScope, re
 
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
+const departmentController = require('../controllers/departmentController');
 const kpiController = require('../controllers/kpiController');
 const projectController = require('../controllers/projectController');
 const performanceController = require('../controllers/performanceController');
@@ -35,6 +36,12 @@ router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);                         // 用户注册（公开）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
+
+// ==================== 部门管理（super_admin） ====================
+router.get('/departments', ...auth, requirePermission('department.read'), departmentController.getDepartments);
+router.post('/departments', ...auth, requirePermission('department.create'), departmentController.createDepartment);
+router.put('/departments/:id', ...auth, requirePermission('department.update'), departmentController.updateDepartment);
+router.delete('/departments/:id', ...auth, requirePermission('department.delete'), departmentController.deleteDepartment);
 
 // ==================== 用户管理（super_admin） ====================
 router.get('/users', ...auth, requirePermission('user.read'), userController.getUsers);

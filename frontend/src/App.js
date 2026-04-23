@@ -16,6 +16,7 @@ import SettlementPage from './pages/SettlementPage';
 import WeeklyReportPage from './pages/WeeklyReportPage';
 import DataEntryPage from './pages/DataEntryPage';
 import UserPage from './pages/UserPage';
+import DepartmentPage from './pages/DepartmentPage';
 import AuditLogPage from './pages/AuditLogPage';
 import ArchivePage from './pages/ArchivePage';
 import PrivateRoute from './components/PrivateRoute';
@@ -40,6 +41,7 @@ function App() {
             <Route path="weekly-reports" element={<WeeklyReportPage />} />
             <Route path="data-entry" element={<DataEntryPage />} />
             <Route path="users" element={<UserPage />} />
+            <Route path="departments" element={<DepartmentPage />} />
             <Route path="audit-logs" element={<AuditLogPage />} />
             <Route path="archives" element={<ArchivePage />} />
           </Route>

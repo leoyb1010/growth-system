@@ -77,24 +77,44 @@ async function getDashboard(req, res) {
       }));
     }
 
-    const expandGmv = kpis.find(k => k.dept_id === 1 && k.indicator_name === 'GMV');
-    const opsGmv = kpis.find(k => k.dept_id === 2 && k.indicator_name === 'GMV');
-    const expandProfit = kpis.find(k => k.dept_id === 1 && k.indicator_name === '净利润');
-    const opsProfit = kpis.find(k => k.dept_id === 2 && k.indicator_name === '净利润');
+    // 动态按部门分组 KPI，支持任意数量部门
+    const departments = await Department.findAll({ order: [['id', 'ASC']] });
+    const deptKpiMap = {};
+    departments.forEach(d => { deptKpiMap[d.id] = { name: d.name, gmv: null, profit: null }; });
+    
+    kpis.forEach(k => {
+      if (!deptKpiMap[k.dept_id]) return;
+      if (k.indicator_name === 'GMV') {
+        deptKpiMap[k.dept_id].gmv = k;
+      } else if (k.indicator_name === '净利润') {
+        deptKpiMap[k.dept_id].profit = k;
+      }
+    });
 
     const calcRate = (actual, target) => target > 0 ? parseFloat(((actual / target) * 100).toFixed(2)) : 0;
 
-    const expandGmvRate = calcRate(expandGmv?.actual || 0, expandGmv?.target || 0);
-    const opsGmvRate = calcRate(opsGmv?.actual || 0, opsGmv?.target || 0);
-    const expandProfitRate = calcRate(expandProfit?.actual || 0, expandProfit?.target || 0);
-    const opsProfitRate = calcRate(opsProfit?.actual || 0, opsProfit?.target || 0);
+    // 按部门生成 KPI 数据
+    const deptKpiCards = departments.map(d => {
+      const gmv = deptKpiMap[d.id]?.gmv;
+      const profit = deptKpiMap[d.id]?.profit;
+      return {
+        dept_id: d.id,
+        dept_name: d.name,
+        gmv_rate: calcRate(gmv?.actual || 0, gmv?.target || 0),
+        gmv_target: gmv?.target || 0,
+        gmv_actual: gmv?.actual || 0,
+        profit_rate: calcRate(profit?.actual || 0, profit?.target || 0),
+        profit_target: profit?.target || 0,
+        profit_actual: profit?.actual || 0,
+      };
+    });
 
-    const totalGmvTarget = (expandGmv?.target || 0) + (opsGmv?.target || 0);
-    const totalGmvActual = (expandGmv?.actual || 0) + (opsGmv?.actual || 0);
+    const totalGmvTarget = deptKpiCards.reduce((s, d) => s + d.gmv_target, 0);
+    const totalGmvActual = deptKpiCards.reduce((s, d) => s + d.gmv_actual, 0);
     const totalGmvRate = calcRate(totalGmvActual, totalGmvTarget);
 
-    const totalProfitTarget = (expandProfit?.target || 0) + (opsProfit?.target || 0);
-    const totalProfitActual = (expandProfit?.actual || 0) + (opsProfit?.actual || 0);
+    const totalProfitTarget = deptKpiCards.reduce((s, d) => s + d.profit_target, 0);
+    const totalProfitActual = deptKpiCards.reduce((s, d) => s + d.profit_actual, 0);
     const totalProfitRate = calcRate(totalProfitActual, totalProfitTarget);
 
     // ========== 2. 风险项目数 ==========
@@ -164,13 +184,12 @@ async function getDashboard(req, res) {
         attributes: ['quarter', 'dept_id', 'indicator_name', 'target', 'actual']
       });
       ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
-        const qExpandGmv = allKpis.find(k => k.quarter === q && k.dept_id === 1 && k.indicator_name === 'GMV');
-        const qOpsGmv = allKpis.find(k => k.quarter === q && k.dept_id === 2 && k.indicator_name === 'GMV');
-        quarterComparison.push({
-          quarter: q,
-          expand_gmv_actual: qExpandGmv ? parseFloat(qExpandGmv.actual) : 0,
-          ops_gmv_actual: qOpsGmv ? parseFloat(qOpsGmv.actual) : 0
+        const quarterData = { quarter: q };
+        departments.forEach(d => {
+          const qKpi = allKpis.find(k => k.quarter === q && k.dept_id === d.id && k.indicator_name === 'GMV');
+          quarterData[`dept_${d.id}_gmv_actual`] = qKpi ? parseFloat(qKpi.actual) : 0;
         });
+        quarterComparison.push(quarterData);
       });
     }
 
@@ -200,9 +219,10 @@ async function getDashboard(req, res) {
     if (dueThisWeek.length > 0) {
       weekFocus.push({ type: 'due_soon', text: `${dueThisWeek.length}个项目本周到期`, count: dueThisWeek.length });
     }
-    // 偏差较大指标
-    if (expandGmvRate < 60) weekFocus.push({ type: 'deviation', text: '拓展组GMV完成率偏差较大', count: 1 });
-    if (opsGmvRate < 60) weekFocus.push({ type: 'deviation', text: '运营组GMV完成率偏差较大', count: 1 });
+    // 偏差较大指标（动态按部门检测）
+    deptKpiCards.forEach(d => {
+      if (d.gmv_rate < 60) weekFocus.push({ type: 'deviation', text: `${d.dept_name}GMV完成率偏差较大`, count: 1 });
+    });
     // 长期未更新（>3天）
     const staleDate = moment().subtract(3, 'days').toDate();
     const staleProjects = await Project.count({
@@ -225,18 +245,7 @@ async function getDashboard(req, res) {
         total_profit_rate: totalProfitRate,
         total_profit_target: totalProfitTarget,
         total_profit_actual: totalProfitActual,
-        expand_gmv_rate: expandGmvRate,
-        expand_gmv_target: expandGmv?.target || 0,
-        expand_gmv_actual: expandGmv?.actual || 0,
-        ops_gmv_rate: opsGmvRate,
-        ops_gmv_target: opsGmv?.target || 0,
-        ops_gmv_actual: opsGmv?.actual || 0,
-        expand_profit_rate: expandProfitRate,
-        expand_profit_target: expandProfit?.target || 0,
-        expand_profit_actual: expandProfit?.actual || 0,
-        ops_profit_rate: opsProfitRate,
-        ops_profit_target: opsProfit?.target || 0,
-        ops_profit_actual: opsProfit?.actual || 0,
+        dept_cards: deptKpiCards,
         risk_project_count: riskProjects,
         due_this_week_count: dueThisWeekProjects
       },

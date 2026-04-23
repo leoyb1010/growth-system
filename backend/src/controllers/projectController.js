@@ -1,4 +1,4 @@
-const { Project, Department, ProjectUpdateLog } = require('../models');
+const { Project, Department, ProjectUpdateLog, MonthlyTask } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
@@ -248,7 +248,6 @@ async function getProjectStats(req, res) {
       not_started: projects.filter(p => p.status === '未启动').length,
       in_progress: projects.filter(p => p.status === '进行中').length,
       cooperating: projects.filter(p => p.status === '合作中').length,
-      blocked: projects.filter(p => p.status === '阻塞中').length,
       risk: projects.filter(p => p.status === '风险').length,
       completed: projects.filter(p => p.status === '完成').length,
       risk_list: projects
@@ -337,6 +336,22 @@ async function quickUpdateProject(req, res) {
     allowedFields.forEach(f => {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
     });
+
+    // weekly_progress 追加模式：同一天的内容追加而非覆盖
+    if (updateData.weekly_progress) {
+      const today = moment().format('MM/DD');
+      const existing = project.weekly_progress || '';
+      // 检查是否已包含今天的标记
+      if (existing.includes(`[${today}]`)) {
+        // 今天已有记录，替换今天的内容
+        const regex = new RegExp(`\\[${today}\\][\\s\\S]*?(?=\\[\\d{2}/\\d{2}\\]|$)`, 'g');
+        updateData.weekly_progress = existing.replace(regex, `[${today}] ${updateData.weekly_progress}`);
+      } else {
+        // 今天新记录，追加到前面
+        updateData.weekly_progress = `[${today}] ${updateData.weekly_progress}\n${existing}`;
+      }
+    }
+
     updateData.updater_id = req.user?.id || null;
 
     const oldValues = project.toJSON();
@@ -355,6 +370,28 @@ async function quickUpdateProject(req, res) {
     });
 
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
+
+    // [6] 同步选项：将进展同步到月度任务
+    if (req.body.sync_to_monthly && updateData.weekly_progress) {
+      const currentMonth = moment().format('YYYY-MM');
+      const monthlyTask = await MonthlyTask.findOne({
+        where: {
+          project_id: project.id,
+          month: currentMonth,
+        },
+        order: [['created_at', 'DESC']]
+      });
+      if (monthlyTask) {
+        const syncContent = updateData.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const existing = monthlyTask.actual_result || '';
+        // 追加而非覆盖
+        const newResult = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await monthlyTask.update({ actual_result: newResult, updater_id: req.user?.id || null });
+      }
+    }
+
     success(res, project, '快速更新成功');
   } catch (err) {
     console.error('快速更新项目失败:', err);

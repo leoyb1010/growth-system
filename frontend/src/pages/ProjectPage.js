@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import { can } from '../permissions/ability';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, defaultStatusColor, getStatusStyle, getProgressColor } from '../utils/constants';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -158,8 +159,7 @@ function ProjectPage() {
       status: item.status || '进行中',
       risk_desc: item.risk_desc || '',
       next_week_focus: item.next_week_focus || '',
-      next_action: item.next_action || '',
-      block_reason: item.block_reason || '',
+      next_action: item.next_action || item.block_reason || '',
     });
     setTodayUpdateVisible(true);
   };
@@ -184,7 +184,6 @@ function ProjectPage() {
       { key: '未启动', label: '未启动', color: '#9CA3AF', bg: '#F9FAFB' },
       { key: '进行中', label: '进行中', color: '#3B5AFB', bg: '#EFF6FF' },
       { key: '合作中', label: '合作中', color: '#7C3AED', bg: '#F5F3FF' },
-      { key: '阻塞中', label: '阻塞中', color: '#EA580C', bg: '#FFF7ED' },
       { key: '风险', label: '风险', color: '#DC2626', bg: '#FEF2F2' },
       { key: '完成', label: '完成', color: '#16A34A', bg: '#F0FDF4' },
     ];
@@ -220,9 +219,8 @@ function ProjectPage() {
                       </div>
                       <Progress percent={item.progress_pct} strokeColor={getProgressColor(item.progress_pct)} size="small" style={{ marginBottom: 4 }} />
                       {/* 闭环字段 */}
-                      {item.next_action && <div style={{ fontSize: 11, color: '#3B5AFB', marginTop: 4 }}>➡️ {item.next_action}</div>}
+                      {(item.next_action || item.block_reason) && <div style={{ fontSize: 11, color: '#3B5AFB', marginTop: 4 }}>➡️ {item.next_action || item.block_reason}</div>}
                       {item.decision_needed && <Tag color="orange" style={{ fontSize: 10, margin: 0, marginTop: 4 }}>需决策</Tag>}
-                      {item.block_reason && <div style={{ fontSize: 11, color: '#DC2626', marginTop: 4 }}>🚧 {item.block_reason}</div>}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
                         <Tooltip title="查看"><EyeOutlined style={{ cursor: 'pointer', color: '#8C8C8C' }} onClick={() => showDetail(item)} /></Tooltip>
                         {isDeptManager && <Tooltip title="更新"><FormOutlined style={{ cursor: 'pointer', color: '#3B5AFB' }} onClick={() => openTodayUpdate(item)} /></Tooltip>}
@@ -263,13 +261,13 @@ function ProjectPage() {
                   ...(isMobile ? [
                     <Dropdown key="more" menu={{ items: [
                       { key: 'edit', label: '编辑', icon: <EditOutlined />, onClick: () => handleEdit(item) },
-                      { key: 'del', label: '删除', icon: <DeleteOutlined style={{ color: '#DC2626' }} />, danger: true, onClick: () => handleDelete(item.id) }
+                      { key: 'del', label: '删除', icon: <DeleteOutlined style={{ color: '#DC2626' }} />, danger: true, onClick: () => { Modal.confirm({ title: '确认删除', content: `确定删除项目「${item.name}」？`, okType: 'danger', onOk: () => handleDelete(item.id) }); } }
                     ] }}>
                       <MoreOutlined />
                     </Dropdown>
                   ] : [
                     <Tooltip key="edit" title="编辑"><EditOutlined onClick={() => handleEdit(item)} /></Tooltip>,
-                    <Tooltip key="del" title="删除"><DeleteOutlined style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} /></Tooltip>
+                    <Popconfirm key="del" title="确定删除该项目？" onConfirm={() => handleDelete(item.id)} okType="danger"><DeleteOutlined style={{ color: '#DC2626', cursor: 'pointer' }} /></Popconfirm>
                   ])
                 ] : [])
               ]}
@@ -368,15 +366,10 @@ function ProjectPage() {
                 </div>
               )}
 
-              {/* V4 闭环字段：下一步动作 + 阻塞原因 */}
-              {item.next_action && (
+              {/* V4 闭环字段：下一步动作/待解决 */}
+              {(item.next_action || item.block_reason) && (
                 <div style={{ background: '#EFF6FF', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#3B5AFB', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  ➡️ {item.next_action}
-                </div>
-              )}
-              {item.block_reason && (
-                <div style={{ background: '#FEF2F2', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#DC2626', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  🚧 {item.block_reason}
+                  ➡️ {item.next_action || item.block_reason}
                 </div>
               )}
 
@@ -417,14 +410,23 @@ function ProjectPage() {
     { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
     { title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> },
     { title: '状态', dataIndex: 'status', key: 'status', width: 80, render: (s) => <Tag color={getStatusStyle(s).tag}>{s}</Tag> },
-    { title: '截止', dataIndex: 'due_date', key: 'due', width: 100 },
+    { title: '截止', dataIndex: 'due_date', key: 'due', width: 120, render: (due, r) => {
+      if (!due) return '-';
+      const daysLeft = r.days_until_due;
+      const tag = daysLeft !== undefined
+        ? <Tag color={daysLeft < 0 ? 'error' : daysLeft <= 3 ? 'warning' : 'default'} style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', marginLeft: 4 }}>
+            {daysLeft < 0 ? `逾期${Math.abs(daysLeft)}天` : daysLeft === 0 ? '今天' : `剩${daysLeft}天`}
+          </Tag>
+        : null;
+      return <span>{due}{tag}</span>;
+    }},
     {
       title: '操作', key: 'action', width: 180, fixed: 'right',
       render: (_, r) => (
         <span>
           <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(r)}>详情</Button>
           {isDeptManager && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(r)}>编辑</Button>}
-          {isDeptManager && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(r.id)}>删除</Button>}
+          {isDeptManager && <Popconfirm title={`确定删除该项目？`} onConfirm={() => handleDelete(r.id)} okType="danger"><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>}
         </span>
       )
     }
@@ -541,14 +543,9 @@ function ProjectPage() {
                       <Descriptions.Item label="需决策" span={1}>
                         <Tag color={detailRecord.decision_needed ? 'orange' : 'default'}>{detailRecord.decision_needed ? '是' : '否'}</Tag>
                       </Descriptions.Item>
-                      {detailRecord.next_action && (
-                        <Descriptions.Item label="下一步动作" span={2}>
-                          <div style={{ whiteSpace: 'pre-wrap', color: '#3B5AFB' }}>{detailRecord.next_action}</div>
-                        </Descriptions.Item>
-                      )}
-                      {detailRecord.block_reason && (
-                        <Descriptions.Item label="阻塞原因" span={2}>
-                          <div style={{ whiteSpace: 'pre-wrap', color: '#DC2626' }}>{detailRecord.block_reason}</div>
+                      {(detailRecord.next_action || detailRecord.block_reason) && (
+                        <Descriptions.Item label="下一步/待解决" span={2}>
+                          <div style={{ whiteSpace: 'pre-wrap', color: '#3B5AFB' }}>{detailRecord.next_action || detailRecord.block_reason}</div>
                         </Descriptions.Item>
                       )}
                       <Descriptions.Item label="上次更新" span={1}>
@@ -608,7 +605,7 @@ function ProjectPage() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -652,7 +649,6 @@ function ProjectPage() {
                   <Option value="未启动">未启动</Option>
                   <Option value="进行中">进行中</Option>
                   <Option value="合作中">合作中</Option>
-                  <Option value="阻塞中">阻塞中</Option>
                   <Option value="风险">风险</Option>
                   <Option value="完成">完成</Option>
                 </Select>
@@ -691,8 +687,7 @@ function ProjectPage() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="next_action" label="下一步动作"><TextArea rows={2} placeholder="下一步要做什么..." /></Form.Item>
-          <Form.Item name="block_reason" label="阻塞原因"><TextArea rows={2} placeholder="如有阻塞，说明原因..." /></Form.Item>
+          <Form.Item name="next_action" label="下一步/待解决"><TextArea rows={2} placeholder="下一步要做什么、有什么阻塞..." /></Form.Item>
         </Form>
       </Modal>
 
@@ -746,9 +741,8 @@ function ProjectPage() {
                 style={{ width: '100%' }}
               >
                 <Option value="未启动">未启动</Option>
-                <Option value="进行中">进行中</Option>
+                <Option value="进行中">🚀 进行中</Option>
                 <Option value="合作中">🤝 合作中</Option>
-                <Option value="阻塞中">🚧 阻塞中</Option>
                 <Option value="风险">🔴 风险</Option>
                 <Option value="完成">✅ 完成</Option>
               </Select>
@@ -789,22 +783,25 @@ function ProjectPage() {
 
             {/* V4 闭环字段 */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>➡️ 下一步动作</div>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>➡️ 下一步/待解决</div>
               <Input.TextArea
                 rows={2}
-                value={todayUpdateForm.next_action || ''}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_action: e.target.value })}
-                placeholder="下一步要做什么..."
+                value={todayUpdateForm.next_action || todayUpdateForm.block_reason || ''}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_action: e.target.value, block_reason: '' })}
+                placeholder="下一步要做什么、有什么阻塞..."
               />
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>🚧 阻塞原因</div>
-              <Input.TextArea
-                rows={2}
-                value={todayUpdateForm.block_reason || ''}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, block_reason: e.target.value })}
-                placeholder="如有阻塞，说明原因..."
+
+            {/* 同步选项 */}
+            <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Checkbox
+                checked={!!todayUpdateForm.sync_to_monthly}
+                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_monthly: e.target.checked })}
               />
+              <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
+              <Tooltip title="开启后，本次进展内容将追加到该项目关联的月度任务「实际完成情况」中">
+                <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+              </Tooltip>
             </div>
 
             {/* 工作目标（只读参考） */}

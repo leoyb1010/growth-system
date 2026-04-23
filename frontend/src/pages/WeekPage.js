@@ -8,7 +8,7 @@ import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, getStatusStyle, getProgressColor } from '../utils/constants';
 
 function WeekPage() {
-  const { isAdmin, user } = useAuth();
+  const { isDeptManager, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [weekSummary, setWeekSummary] = useState(null);
   const [todayChanges, setTodayChanges] = useState([]);
@@ -144,7 +144,7 @@ function WeekPage() {
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid #F1F5F9' }}>
           <span className="subtle-text" style={{ fontSize: 11 }}>🕐 {moment(item.updated_at).fromNow()}</span>
-          {isAdmin && (
+          {isDeptManager && (
             <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setQuickEditItem(item); setQuickProgress(item.weekly_progress || ''); setQuickEditVisible(true); }}>
               快速更新
             </Button>
@@ -290,7 +290,7 @@ function WeekPage() {
                           <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
                           <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name} · {p.days_since_update}天未更新</div>
                         </div>
-                        {isAdmin && (
+                        {isDeptManager && (
                           <Button type="link" size="small" onClick={() => { setQuickEditItem(p); setQuickProgress(p.weekly_progress || ''); setQuickEditVisible(true); }}>
                             快速更新
                           </Button>

@@ -6,6 +6,7 @@ import {
   BarChartOutlined, ProjectOutlined, TrophyOutlined, CalendarOutlined, StarOutlined, SaveOutlined
 } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
+import DepartmentSelect from '../components/DepartmentSelect';
 import moment from 'moment';
 
 const { TabPane } = Tabs;
@@ -38,12 +39,7 @@ function DataEntryPage() {
     }
   };
 
-  const deptSelect = (
-    <Select placeholder="请选择部门">
-      <Option value={1}>拓展组</Option>
-      <Option value={2}>运营组</Option>
-    </Select>
-  );
+  const deptSelect = <DepartmentSelect placeholder="请选择部门" />;
 
   const quarterSelect = (
     <Select placeholder="请选择季度">

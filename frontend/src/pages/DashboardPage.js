@@ -120,18 +120,13 @@ function DashboardPage() {
       status: (data.kpi_cards?.total_profit_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.total_profit_rate || 0) >= 60 ? 'warning' : 'error',
       icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
-    {
-      title: '拓展组 GMV', value: `${data.kpi_cards?.expand_gmv_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.expand_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.expand_gmv_actual || 0).toLocaleString()} 万`,
-      status: (data.kpi_cards?.expand_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.expand_gmv_rate || 0) >= 60 ? 'warning' : 'error',
-      icon: <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} />,
-    },
-    {
-      title: '运营组 GMV', value: `${data.kpi_cards?.ops_gmv_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.ops_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.ops_gmv_actual || 0).toLocaleString()} 万`,
-      status: (data.kpi_cards?.ops_gmv_rate || 0) >= 90 ? 'success' : (data.kpi_cards?.ops_gmv_rate || 0) >= 60 ? 'warning' : 'error',
-      icon: <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
-    },
+    // 动态渲染各部门 GMV 卡片
+    ...(data.kpi_cards?.dept_cards || []).map((dept, idx) => ({
+      title: `${dept.dept_name} GMV`, value: `${dept.gmv_rate}%`, suffix: '完成率',
+      hint: `目标 ${dept.gmv_target.toLocaleString()} 万 · 实际 ${dept.gmv_actual.toLocaleString()} 万`,
+      status: dept.gmv_rate >= 90 ? 'success' : dept.gmv_rate >= 60 ? 'warning' : 'error',
+      icon: idx % 2 === 0 ? <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} /> : <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
+    })),
   ];
 
   // 工作状态分布饼图
@@ -427,10 +422,10 @@ function DashboardPage() {
               // 待更新
               const staleCount = staleProjects.length;
               if (staleCount > 0) reminders.push({ type: 'stale', text: `${staleCount}个项目超过7天未更新`, count: staleCount });
-              // KPI偏差
-              const deviationItems = [];
-              if (data.kpi_cards?.expand_gmv_rate < 60) deviationItems.push('拓展组GMV');
-              if (data.kpi_cards?.ops_gmv_rate < 60) deviationItems.push('运营组GMV');
+              // KPI偏差（动态按部门检测）
+              const deviationItems = (data.kpi_cards?.dept_cards || [])
+                .filter(d => d.gmv_rate < 60)
+                .map(d => `${d.dept_name}GMV`);
               if (deviationItems.length > 0) reminders.push({ type: 'deviation', text: `${deviationItems.join('、')}完成率偏差较大`, count: deviationItems.length });
 
               if (reminders.length === 0) {

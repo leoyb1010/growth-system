@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Tag, Row, Col, Card, Statistic, Popconfirm, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, UserOutlined, SafetyOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 
@@ -258,10 +259,7 @@ function UserPage() {
             </Col>
             <Col span={12}>
               <Form.Item name="dept_id" label="所属部门">
-                <Select allowClear placeholder="管理员可不选">
-                  <Option value={1}>拓展组</Option>
-                  <Option value={2}>运营组</Option>
-                </Select>
+                <DepartmentSelect allowClear placeholder="管理员可不选" />
               </Form.Item>
             </Col>
           </Row>

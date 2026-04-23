@@ -102,6 +102,13 @@ async function updateMonthlyTask(req, res) {
       return error(res, '无权修改其他部门数据', 403, 403);
     }
 
+    // self 范围：只能修改自己创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      if (task.creator_id && task.creator_id !== req.user.id) {
+        return error(res, '只能修改自己创建的月度工作', 403, 403);
+      }
+    }
+
     const isBlocked = await checkArchived('monthly_tasks', task.quarter, new Date().getFullYear(), error, res);
     if (isBlocked) return;
 
@@ -136,6 +143,13 @@ async function deleteMonthlyTask(req, res) {
 
     if (req.deptFilter && req.deptFilter !== task.dept_id) {
       return error(res, '无权删除其他部门数据', 403, 403);
+    }
+
+    // self 范围：只能删除自己创建的
+    if (req.dataScope && req.dataScope.type === 'self') {
+      if (task.creator_id && task.creator_id !== req.user.id) {
+        return error(res, '只能删除自己创建的月度工作', 403, 403);
+      }
     }
 
     const isBlocked = await checkArchived('monthly_tasks', task.quarter, new Date().getFullYear(), error, res);

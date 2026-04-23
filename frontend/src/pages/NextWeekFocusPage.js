@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Drawer, Descriptions } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Drawer, Descriptions, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
+import DepartmentSelect from '../components/DepartmentSelect';
 import moment from 'moment';
 
 const { Option } = Select;
@@ -153,7 +154,7 @@ function NextWeekFocusPage() {
                   {isAdmin && (
                     <div style={{ display: 'flex', gap: 4 }}>
                       <Button size="small" type="link" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); handleEdit(item); }} />
-                      <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} />
+                      <Popconfirm title="确定删除该项目？" onConfirm={() => handleDelete(item.id)} okType="danger"><Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} /></Popconfirm>
                     </div>
                   )}
                 </div>
@@ -201,7 +202,7 @@ function NextWeekFocusPage() {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={12}>

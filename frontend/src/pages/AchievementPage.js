@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbox, message, Tag, Drawer, Descriptions, Table, Space } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbox, message, Tag, Drawer, Descriptions, Table, Space, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, TrophyOutlined, AppstoreOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
+import DepartmentSelect from '../components/DepartmentSelect';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -118,7 +119,7 @@ function AchievementPage() {
               <EyeOutlined key="view" onClick={() => showDetail(item)} />,
               ...(isDeptManager ? [
                 <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <DeleteOutlined key="del" style={{ color: '#DC2626' }} onClick={() => handleDelete(item.id)} />
+                <Popconfirm key="del" title="确定删除该成果？" onConfirm={() => handleDelete(item.id)} okType="danger"><DeleteOutlined style={{ color: '#DC2626', cursor: 'pointer' }} /></Popconfirm>
               ] : [])
             ]}
           >
@@ -207,7 +208,7 @@ function AchievementPage() {
                   <td style={{ padding: '10px 8px', fontSize: 13 }}>
                     <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>详情</Button>
                     {isDeptManager && <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>}
-                    {isDeptManager && <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(item.id)}>删除</Button>}
+                    {isDeptManager && <Popconfirm title="确定删除该成果？" onConfirm={() => handleDelete(item.id)} okType="danger"><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>}
                   </td>
                 </tr>
               ))}
@@ -261,7 +262,7 @@ function AchievementPage() {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
-                <Select><Option value={1}>拓展组</Option><Option value={2}>运营组</Option></Select>
+                <DepartmentSelect />
               </Form.Item>
             </Col>
             <Col span={8}>

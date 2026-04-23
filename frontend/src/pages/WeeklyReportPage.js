@@ -74,13 +74,29 @@ function WeeklyReportPage() {
   // ===== 导出功能（保持不变） =====
 
   const handleExportPng = async (content) => {
-    if (!reportRef.current) return;
+    if (!reportRef.current) {
+      message.error('报告内容未渲染，无法导出');
+      return;
+    }
     try {
+      // 等待一帧确保 DOM 渲染完成
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const dataUrl = await toPng(reportRef.current, {
         width: 1200,
         pixelRatio: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        imagePlaceholder: undefined,
       });
+      
+      // 空白图检测：base64 长度 < 5KB 说明截图失败
+      const base64Data = dataUrl.split(',')[1];
+      if (!base64Data || base64Data.length < 5000) {
+        message.error('截图生成异常（空白图），请稍后重试');
+        return;
+      }
+      
       const link = document.createElement('a');
       const c = content || currentReport;
       link.download = `增长组周报_${c?.week_start || ''}_${c?.week_end || ''}.png`;
@@ -88,7 +104,8 @@ function WeeklyReportPage() {
       link.click();
       message.success('PNG 导出成功');
     } catch (err) {
-      message.error('导出 PNG 失败');
+      console.error('PNG导出失败:', err);
+      message.error('导出 PNG 失败，请尝试使用 MD 或 Word 格式导出');
     }
   };
 
