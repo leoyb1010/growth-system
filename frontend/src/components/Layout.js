@@ -72,11 +72,19 @@ function AppLayout() {
   useEffect(() => {
     window.__aiAssistant = {
       openDrawer: (mode) => {
-        aiAssistant.openDrawer(mode);
-        aiAssistant.loadPanel(mode || 'today_judgment', aiContext.currentPage, aiContext.currentObject);
+        aiAssistant.openDrawer(mode || 'free_ask');
+        if (mode && mode !== 'free_ask') {
+          aiAssistant.loadPanel(mode, aiContext.currentPage, aiContext.currentObject);
+        }
       },
-      runAction: handleAIAction,
-      generateBriefing: aiAssistant.generateBriefing,
+      runAction: (actionKey, currentPage, currentObject) => {
+        aiAssistant.openDrawer('briefing_meeting');
+        aiAssistant.runAction(actionKey, currentPage || aiContext.currentPage, currentObject || aiContext.currentObject);
+      },
+      generateBriefing: (type, currentPage, currentObject) => {
+        aiAssistant.openDrawer('briefing_meeting');
+        aiAssistant.generateBriefing(type, currentPage || aiContext.currentPage, currentObject || aiContext.currentObject);
+      },
     };
     return () => { delete window.__aiAssistant; };
   }, [aiContext.currentPage, aiContext.currentObject]);
@@ -396,7 +404,7 @@ function AppLayout() {
       {/* ===== AI 助手 ===== */}
       <AIFloatingButton
         badgeData={aiAssistant.badgeData}
-        onClick={() => aiAssistant.openDrawer('today_judgment')}
+        onClick={() => aiAssistant.openDrawer('free_ask')}
       />
       <AIAssistantDrawer
         open={aiAssistant.open}

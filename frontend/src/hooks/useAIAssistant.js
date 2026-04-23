@@ -5,15 +5,15 @@ import { useState, useCallback, useRef } from 'react';
 import { fetchAIPanel, fetchAIAnalyze, fetchAIChat, fetchAIBriefing, fetchBadgeSummary } from '../services/aiService';
 
 const MODES = [
+  { key: 'free_ask', label: '问我任何问题' },
   { key: 'today_judgment', label: '今日判断' },
   { key: 'risk_closure', label: '风险与闭环' },
   { key: 'briefing_meeting', label: '汇报与周会' },
-  { key: 'free_ask', label: '问我任何问题' },
 ];
 
 export function useAIAssistant() {
   const [open, setOpen] = useState(false);
-  const [activeMode, setActiveMode] = useState('today_judgment');
+  const [activeMode, setActiveMode] = useState('free_ask');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
