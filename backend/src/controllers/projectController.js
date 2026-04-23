@@ -25,11 +25,12 @@ function applyProjectRoleFilter(where, req) {
   }
   // dept_staff: 只能看自己负责或创建的项目
   // V4: 优先用 owner_user_id，过渡期兼容 owner_name
-  where[Op.or] = [
+  const orConditions = [
     { owner_user_id: id },
     { creator_id: id },
-    { owner_name: name }  // 过渡期兼容
   ];
+  if (name) orConditions.push({ owner_name: name }); // name 存在时才追加过渡兼容条件
+  where[Op.or] = orConditions;
   return where;
 }
 

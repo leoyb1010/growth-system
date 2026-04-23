@@ -361,6 +361,7 @@ async function getWeekFocus(req, res) {
     const now = new Date();
     const month = now.getMonth() + 1;
     const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+    const currentYear = now.getFullYear();
     const weekEnd = moment().endOf('isoWeek').format('YYYY-MM-DD');
     const staleDate = moment().subtract(3, 'days').toDate();
     const deptFilter = req.deptFilter ? { dept_id: req.deptFilter } : {};
