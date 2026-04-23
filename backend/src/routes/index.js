@@ -19,6 +19,7 @@ const exportController = require('../controllers/exportController');
 const archiveController = require('../controllers/archiveController');
 const auditLogController = require('../controllers/auditLogController');
 const searchController = require('../controllers/searchController');
+const aiRoutes = require('../ai/routes/aiRoutes');
 
 const router = express.Router();
 
@@ -118,5 +119,8 @@ router.get('/audit-logs/:table_name/:record_id', ...auth, auditLogController.get
 
 // ==================== 全局搜索 ====================
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
+
+// ==================== AI 助手 ====================
+router.use('/ai', aiRoutes);
 
 module.exports = router;

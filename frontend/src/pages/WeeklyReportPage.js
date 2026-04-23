@@ -6,6 +6,7 @@ import { toPng } from 'html-to-image';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import MetricCard from '../components/ui/MetricCard';
+import { RobotOutlined } from '@ant-design/icons';
 
 function WeeklyReportPage() {
   const [reports, setReports] = useState([]);
@@ -464,6 +465,8 @@ th { background: #fafafa; font-weight: 600; }
         title="周报与复盘"
         subtitle="结果输出页 · 周报内容自动生成，只需补充管理评语和复盘结论"
         extra={[
+          <Button key="ai_brief" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.generateBriefing('brief', 'weekly_reports')}>AI 简报</Button>,
+          <Button key="ai_agenda" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.runAction('generate_agenda', 'weekly_reports')}>AI 周会议程</Button>,
           <Button key="gen" type="primary" icon={<FileTextOutlined />} onClick={handleGenerate} loading={generating}>
             生成周报
           </Button>,
