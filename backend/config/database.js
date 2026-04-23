@@ -1,14 +1,28 @@
 const { Sequelize } = require('sequelize');
+const path = require('path');
 
 const dialect = process.env.DB_DIALECT || 'postgres';
 
 let sequelize;
 
 if (dialect === 'sqlite') {
+  // 使用绝对路径避免 pm2 工作目录变化导致的路径问题
+  const dbPath = process.env.DB_STORAGE || path.resolve(__dirname, '..', 'growth_system.sqlite');
+  console.log(`[DB] SQLite 路径: ${dbPath}`);
+
   sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: process.env.DB_STORAGE || './growth_system.sqlite',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false
+    storage: dbPath,
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialectOptions: {
+      mode: require('sqlite3').OPEN_READWRITE | require('sqlite3').OPEN_CREATE
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
   });
 } else {
   sequelize = new Sequelize(
