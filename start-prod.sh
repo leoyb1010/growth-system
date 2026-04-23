@@ -38,7 +38,9 @@ fi
 if command -v pm2 &> /dev/null; then
   echo "使用 pm2 启动..."
   cd backend
-  pm2 start src/app.js --name growth-system -- --inspect || true
+  # pm2 delete + start 避免 restart 导致的 SQLITE_READONLY 问题
+  pm2 delete growth-system 2>/dev/null || true
+  pm2 start src/app.js --name growth-system || true
   pm2 save
   echo "pm2 启动完成。使用 'pm2 logs growth-system' 查看日志"
 else
