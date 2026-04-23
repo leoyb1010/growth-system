@@ -2,10 +2,10 @@ import React from 'react';
 import { Tabs } from 'antd';
 
 const MODES = [
+  { key: 'free_ask', label: '💬 问我任何问题' },
   { key: 'today_judgment', label: '💡 今日判断' },
   { key: 'risk_closure', label: '⚠️ 风险与闭环' },
   { key: 'briefing_meeting', label: '📋 汇报与周会' },
-  { key: 'free_ask', label: '💬 问我任何问题' },
 ];
 
 /**

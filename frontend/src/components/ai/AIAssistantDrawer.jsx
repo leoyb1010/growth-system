@@ -28,9 +28,9 @@ export default function AIAssistantDrawer({
   const { currentPage, currentObject } = useAIContext();
   const [chatInput, setChatInput] = useState('');
 
-  // 打开时自动加载
+  // 打开时自动加载（仅非 free_ask 模式）
   useEffect(() => {
-    if (open && !data) {
+    if (open && !data && activeMode !== 'free_ask') {
       onLoadPanel?.(activeMode, currentPage, currentObject);
     }
   }, [open]);
@@ -128,10 +128,60 @@ export default function AIAssistantDrawer({
 
         {activeMode !== 'free_ask' && data && (
           <>
-            {/* 结构化卡片 */}
-            {data.cards?.map((card, i) => (
+            {/* 结构化卡片模式 */}
+            {data.cards?.length > 0 && data.cards.map((card, i) => (
               <AIInsightCard key={card.id || i} card={card} onAction={handleAction} />
             ))}
+
+            {/* 简报/议程模式 */}
+            {(data.sections?.length > 0 || data.content) && !data.cards?.length && (
+              <div>
+                {data.title && (
+                  <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10, color: '#262626' }}>
+                    {data.title}
+                  </div>
+                )}
+                {data.sections?.map((section, i) => (
+                  <div key={i} style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1890ff', marginBottom: 4 }}>
+                      {section.title}
+                    </div>
+                    <div style={{
+                      background: '#fafafa',
+                      borderRadius: 6,
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      lineHeight: 1.7,
+                      color: '#595959',
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {section.content}
+                    </div>
+                  </div>
+                ))}
+                {data.content && !data.sections?.length && (
+                  <div style={{
+                    background: '#fafafa',
+                    borderRadius: 6,
+                    padding: '10px 12px',
+                    fontSize: 13,
+                    lineHeight: 1.7,
+                    color: '#595959',
+                    whiteSpace: 'pre-wrap',
+                    position: 'relative',
+                  }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => handleCopy(data.content)}
+                      style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}
+                    />
+                    {data.content}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 快捷动作 */}
             {data.actions?.length > 0 && (

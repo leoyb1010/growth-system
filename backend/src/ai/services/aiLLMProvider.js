@@ -8,7 +8,7 @@ const axios = require('axios');
 const LLM_CONFIG = {
   provider: process.env.AI_LLM_PROVIDER || 'deepseek',
   apiKey: process.env.AI_LLM_API_KEY || '',
-  model: process.env.AI_LLM_MODEL || 'deepseek-reasoner',
+  model: process.env.AI_LLM_MODEL || 'deepseek-chat',
   baseUrl: process.env.AI_LLM_BASE_URL || 'https://api.deepseek.com',
   maxTokens: parseInt(process.env.AI_LLM_MAX_TOKENS) || 2000,
   temperature: parseFloat(process.env.AI_LLM_TEMPERATURE) || 0.7,
@@ -54,7 +54,7 @@ async function call(systemPrompt, userPrompt, options = {}) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
       },
-      timeout: 60000, // 60s timeout for reasoning models
+      timeout: 30000, // 30s timeout (chat model is fast)
     });
 
     const choice = response.data?.choices?.[0];
