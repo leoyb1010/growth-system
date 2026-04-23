@@ -19,11 +19,11 @@ const ROLE_PERMISSIONS = {
     'import.excel', 'export.data', 'search.use'
   ],
   department_manager: [
-    'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update',
-    'project.read', 'project.create', 'project.update', 'project.quick_update',
-    'performance.read', 'performance.create', 'performance.update',
-    'monthly_task.read', 'monthly_task.create', 'monthly_task.update',
-    'achievement.read', 'achievement.create', 'achievement.update',
+    'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update', 'kpi.delete',
+    'project.read', 'project.create', 'project.update', 'project.delete', 'project.quick_update',
+    'performance.read', 'performance.create', 'performance.update', 'performance.delete',
+    'monthly_task.read', 'monthly_task.create', 'monthly_task.update', 'monthly_task.delete',
+    'achievement.read', 'achievement.create', 'achievement.update', 'achievement.delete',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'department.read',
     'export.data', 'search.use'

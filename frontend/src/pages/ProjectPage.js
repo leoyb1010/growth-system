@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import { can } from '../permissions/ability';
@@ -80,6 +80,8 @@ function ProjectPage() {
       const payload = {
         ...values,
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : (isNextWeek ? nextWeek.end : null),
+        action_due_date: values.action_due_date ? values.action_due_date.format('YYYY-MM-DD') : null,
+        decision_needed: values.decision_needed || false,
         owner_user_id: values.owner_user_id || user?.id,
       };
       if (editingRecord) {
@@ -93,7 +95,7 @@ function ProjectPage() {
       setEditingRecord(null);
       form.resetFields();
       fetchData();
-    } catch (err) { message.error('操作失败'); }
+    } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
@@ -104,7 +106,7 @@ function ProjectPage() {
 
   const handleDelete = async (id) => {
     try { await api.delete(`/projects/${id}`); message.success('删除成功'); fetchData(); }
-    catch (err) { message.error('删除失败'); }
+    catch (err) { message.error(err?.response?.data?.message || err?.message || '删除失败'); }
   };
 
   const showDetail = async (record) => {
@@ -131,7 +133,7 @@ function ProjectPage() {
       setEditingProgressId(null);
       fetchData();
     } catch (err) {
-      message.error('更新失败');
+      message.error(err?.response?.data?.message || err?.message || '更新失败');
     }
   };
 
@@ -146,7 +148,7 @@ function ProjectPage() {
       setQuickWeeklyProgress('');
       fetchData();
     } catch (err) {
-      message.error('更新失败');
+      message.error(err?.response?.data?.message || err?.message || '更新失败');
     }
   };
 
@@ -174,7 +176,7 @@ function ProjectPage() {
       setTodayUpdateItem(null);
       fetchData();
     } catch (err) {
-      message.error('更新失败');
+      message.error(err?.response?.data?.message || err?.message || '更新失败');
     }
   };
 
@@ -337,9 +339,9 @@ function ProjectPage() {
 
               {/* 本周进展摘要 — 点击可快速更新 */}
               {item.weekly_progress && (
-                <Tooltip title={isDeptManager ? '点击快速更新' : ''}>
+                <Tooltip title={isDeptManager ? '点击每日更新' : ''}>
                   <div
-                    onClick={() => isDeptManager && (setQuickUpdateItem(item), setQuickWeeklyProgress(item.weekly_progress || ''), setQuickUpdateVisible(true))}
+                    onClick={() => isDeptManager && openTodayUpdate(item)}
                     style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: isDeptManager ? 'pointer' : 'default' }}
                   >
                     📝 {item.weekly_progress}
@@ -347,7 +349,7 @@ function ProjectPage() {
                 </Tooltip>
               )}
               {!item.weekly_progress && isDeptManager && (
-                <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => { setQuickUpdateItem(item); setQuickWeeklyProgress(''); setQuickUpdateVisible(true); }}>
+                <Button type="dashed" size="small" block style={{ marginBottom: 8, fontSize: 12 }} onClick={() => openTodayUpdate(item)}>
                   + 补充进展
                 </Button>
               )}
@@ -656,7 +658,7 @@ function ProjectPage() {
             </Col>
             <Col span={8}>
               <Form.Item name="due_date" label="预计完成时间">
-                  <Input disabled value="" />
+                  <DatePicker style={{ width: '100%' }} placeholder="选择日期" />
               </Form.Item>
             </Col>
           </Row>
@@ -674,16 +676,13 @@ function ProjectPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="decision_needed" label="需决策" initialValue={false}>
-                <Select>
-                  <Option value={true}>是</Option>
-                  <Option value={false}>否</Option>
-                </Select>
+              <Form.Item name="decision_needed" label="需决策" valuePropName="checked" initialValue={false}>
+                <Switch checkedChildren="是" unCheckedChildren="否" />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="action_due_date" label="动作截止日">
-                <Input placeholder="YYYY-MM-DD" />
+                <DatePicker style={{ width: '100%' }} placeholder="选择日期" />
               </Form.Item>
             </Col>
           </Row>
@@ -793,15 +792,27 @@ function ProjectPage() {
             </div>
 
             {/* 同步选项 */}
-            <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Checkbox
-                checked={!!todayUpdateForm.sync_to_monthly}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_monthly: e.target.checked })}
-              />
-              <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
-              <Tooltip title="开启后，本次进展内容将追加到该项目关联的月度任务「实际完成情况」中">
-                <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
-              </Tooltip>
+            <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Checkbox
+                  checked={!!todayUpdateForm.sync_to_monthly}
+                  onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_monthly: e.target.checked })}
+                />
+                <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
+                <Tooltip title="开启后，本次进展内容将追加到该项目关联的月度任务「实际完成情况」中">
+                  <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+                </Tooltip>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Checkbox
+                  checked={!!todayUpdateForm.sync_to_achievement}
+                  onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_achievement: e.target.checked })}
+                />
+                <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本季季度成果</span>
+                <Tooltip title="开启后，本次进展内容将追加到该项目关联的季度成果「成果描述」中">
+                  <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+                </Tooltip>
+              </div>
             </div>
 
             {/* 工作目标（只读参考） */}
@@ -811,35 +822,6 @@ function ProjectPage() {
                 <span style={{ color: '#6B7280' }}>{todayUpdateItem.goal}</span>
               </div>
             )}
-          </div>
-        )}
-      </Drawer>
-
-      {/* ===== 简易快速更新 Drawer（卡片内点击进展文本时触发） ===== */}
-      <Drawer
-        title={quickUpdateItem ? `快速更新：${quickUpdateItem.name}` : '快速更新'}
-        open={quickUpdateVisible}
-        onClose={() => { setQuickUpdateVisible(false); setQuickUpdateItem(null); setQuickWeeklyProgress(''); }}
-        width={480}
-        extra={<Button type="primary" onClick={handleQuickUpdate}>保存</Button>}
-      >
-        {quickUpdateItem && (
-          <div>
-            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-              <Tag color={getStatusStyle(quickUpdateItem.status).tag}>{quickUpdateItem.status}</Tag>
-              <Tag>{quickUpdateItem.Department?.name}</Tag>
-              <span className="subtle-text">{quickUpdateItem.owner_name}</span>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <Progress percent={quickUpdateItem.progress_pct} strokeColor={getProgressColor(quickUpdateItem.progress_pct)} />
-            </div>
-            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>本周进展</div>
-            <TextArea
-              rows={4}
-              value={quickWeeklyProgress}
-              onChange={(e) => setQuickWeeklyProgress(e.target.value)}
-              placeholder="输入本周进展..."
-            />
           </div>
         )}
       </Drawer>

@@ -46,7 +46,7 @@ function MonthlyTaskPage() {
       if (editingRecord) { await api.put(`/monthly-tasks/${editingRecord.id}`, values); message.success('更新成功'); }
       else { await api.post('/monthly-tasks', values); message.success('创建成功'); }
       setModalVisible(false); setEditingRecord(null); form.resetFields(); fetchData();
-    } catch (err) { message.error('操作失败'); }
+    } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
@@ -57,7 +57,7 @@ function MonthlyTaskPage() {
 
   const handleDelete = async (id) => {
     try { await api.delete(`/monthly-tasks/${id}`); message.success('删除成功'); fetchData(); }
-    catch (err) { message.error('删除失败'); }
+    catch (err) { message.error(err?.response?.data?.message || err?.message || '删除失败'); }
   };
 
   const showDetail = (record) => { setDetailRecord(record); setDrawerVisible(true); };

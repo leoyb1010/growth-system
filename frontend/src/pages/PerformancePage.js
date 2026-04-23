@@ -46,7 +46,7 @@ function PerformancePage() {
       form.resetFields();
       fetchData();
     } catch (err) {
-      message.error('操作失败');
+      message.error(err?.response?.data?.message || err?.message || '操作失败');
     }
   };
 
@@ -62,7 +62,7 @@ function PerformancePage() {
       message.success('删除成功');
       fetchData();
     } catch (err) {
-      message.error('删除失败');
+      message.error(err?.response?.data?.message || err?.message || '删除失败');
     }
   };
 

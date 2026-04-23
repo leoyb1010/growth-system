@@ -50,7 +50,7 @@ function TodayPage() {
       setQuickProgress('');
       fetchAllData();
     } catch (err) {
-      message.error('更新失败');
+      message.error(err?.response?.data?.message || err?.message || '更新失败');
     }
   };
 

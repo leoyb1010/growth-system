@@ -403,6 +403,24 @@ async function quickUpdateProject(req, res) {
       }
     }
 
+    // [7] 同步选项：将进展同步到季度成果
+    if (req.body.sync_to_achievement && updateData.weekly_progress) {
+      const Achievement = require('../models').Achievement;
+      const achievements = await Achievement.findAll({
+        where: { project_id: project.id, quarter: project.quarter },
+        order: [['created_at', 'DESC']]
+      });
+      if (achievements.length > 0) {
+        const syncContent = updateData.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const achievement = achievements[0]; // 同步到最新的季度成果
+        const existing = achievement.description || '';
+        const newDesc = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
+      }
+    }
+
     success(res, project, '快速更新成功');
   } catch (err) {
     console.error('快速更新项目失败:', err);

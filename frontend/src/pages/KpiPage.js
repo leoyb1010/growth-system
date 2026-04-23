@@ -86,16 +86,17 @@ function KpiPage() {
       annualForm.resetFields();
       fetchAnnualKpis();
     } catch (err) {
-      message.error('年度指标创建失败');
+      message.error(err?.response?.data?.message || err?.message || '年度指标创建失败');
     }
   };
 
   const handleSubmit = async (values) => {
     try {
-      if (editingRecord) { await api.put(`/kpis/${editingRecord.id}`, values); message.success('更新成功'); }
-      else { await api.post('/kpis', values); message.success('创建成功'); }
+      const payload = { ...values, year: values.year || new Date().getFullYear() };
+      if (editingRecord) { await api.put(`/kpis/${editingRecord.id}`, payload); message.success('更新成功'); }
+      else { await api.post('/kpis', payload); message.success('创建成功'); }
       setModalVisible(false); setEditingRecord(null); form.resetFields(); fetchData();
-    } catch (err) { message.error('操作失败'); }
+    } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
@@ -106,7 +107,7 @@ function KpiPage() {
 
   const handleDelete = async (id) => {
     try { await api.delete(`/kpis/${id}`); message.success('删除成功'); fetchData(); }
-    catch (err) { message.error('删除失败'); }
+    catch (err) { message.error(err?.response?.data?.message || err?.message || '删除失败'); }
   };
 
   const showDetail = (record) => { setDetailRecord(record); setDrawerVisible(true); };
@@ -535,14 +536,19 @@ function KpiPage() {
       >
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>
                 <DepartmentSelect />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="quarter" label="季度" rules={[{ required: true }]} initialValue={currentQuarter}>
                 <Select><Option value="Q1">Q1</Option><Option value="Q2">Q2</Option><Option value="Q3">Q3</Option><Option value="Q4">Q4</Option></Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="year" label="年份" initialValue={now.getFullYear()}>
+                <InputNumber min={2020} max={2030} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>

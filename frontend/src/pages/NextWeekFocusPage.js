@@ -61,7 +61,7 @@ function NextWeekFocusPage() {
         message.success('录入成功');
       }
       setModalVisible(false); setEditingRecord(null); form.resetFields(); fetchData();
-    } catch (err) { message.error('操作失败'); }
+    } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
@@ -72,7 +72,7 @@ function NextWeekFocusPage() {
 
   const handleDelete = async (id) => {
     try { await api.delete(`/projects/${id}`); message.success('删除成功'); fetchData(); }
-    catch (err) { message.error('删除失败'); }
+    catch (err) { message.error(err?.response?.data?.message || err?.message || '删除失败'); }
   };
 
   const getStatusColor = (status) => {

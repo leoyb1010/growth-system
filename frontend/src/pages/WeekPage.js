@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Tag, Progress, Tabs, Badge, Tooltip, Spin, Empty, Input, message, Drawer, Descriptions } from 'antd';
-import { ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, ThunderboltOutlined, EditOutlined, CalendarOutlined, WarningOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Tag, Progress, Tabs, Badge, Tooltip, Spin, Empty, Input, message, Drawer, Descriptions, Checkbox } from 'antd';
+import { ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, ThunderboltOutlined, EditOutlined, CalendarOutlined, WarningOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
@@ -19,6 +19,8 @@ function WeekPage() {
   const [quickEditVisible, setQuickEditVisible] = useState(false);
   const [quickEditItem, setQuickEditItem] = useState(null);
   const [quickProgress, setQuickProgress] = useState('');
+  const [quickSyncMonthly, setQuickSyncMonthly] = useState(false);
+  const [quickSyncAchievement, setQuickSyncAchievement] = useState(false);
 
   // 本周日期范围
   const getWeekRange = () => {
@@ -59,18 +61,24 @@ function WeekPage() {
     return m < 3 ? 'Q1' : m < 6 ? 'Q2' : m < 9 ? 'Q3' : 'Q4';
   };
 
-  // 快速更新
+  // 每日更新
   const handleQuickUpdate = async () => {
     if (!quickEditItem || !quickProgress.trim()) return;
     try {
-      await api.put(`/projects/${quickEditItem.id}/quick-update`, { weekly_progress: quickProgress });
-      message.success('更新成功');
+      await api.put(`/projects/${quickEditItem.id}/quick-update`, {
+        weekly_progress: quickProgress,
+        sync_to_monthly: quickSyncMonthly,
+        sync_to_achievement: quickSyncAchievement,
+      });
+      message.success('每日更新成功');
       setQuickEditVisible(false);
       setQuickEditItem(null);
       setQuickProgress('');
+      setQuickSyncMonthly(false);
+      setQuickSyncAchievement(false);
       fetchAllData();
     } catch (err) {
-      message.error('更新失败');
+      message.error(err?.response?.data?.message || err?.message || '更新失败');
     }
   };
 
@@ -145,8 +153,8 @@ function WeekPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid #F1F5F9' }}>
           <span className="subtle-text" style={{ fontSize: 11 }}>🕐 {moment(item.updated_at).fromNow()}</span>
           {isDeptManager && (
-            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setQuickEditItem(item); setQuickProgress(item.weekly_progress || ''); setQuickEditVisible(true); }}>
-              快速更新
+            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setQuickEditItem(item); setQuickProgress(item.weekly_progress || ''); setQuickSyncMonthly(false); setQuickSyncAchievement(false); setQuickEditVisible(true); }}>
+              每日更新
             </Button>
           )}
         </div>
@@ -291,8 +299,8 @@ function WeekPage() {
                           <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name} · {p.days_since_update}天未更新</div>
                         </div>
                         {isDeptManager && (
-                          <Button type="link" size="small" onClick={() => { setQuickEditItem(p); setQuickProgress(p.weekly_progress || ''); setQuickEditVisible(true); }}>
-                            快速更新
+                          <Button type="link" size="small" onClick={() => { setQuickEditItem(p); setQuickProgress(p.weekly_progress || ''); setQuickSyncMonthly(false); setQuickSyncAchievement(false); setQuickEditVisible(true); }}>
+                            每日更新
                           </Button>
                         )}
                       </div>
@@ -334,11 +342,11 @@ function WeekPage() {
         },
       ]} />
 
-      {/* 快速更新抽屉 */}
+      {/* 每日更新抽屉 */}
       <Drawer
-        title={quickEditItem ? `快速更新：${quickEditItem.name}` : '快速更新'}
+        title={quickEditItem ? `每日更新：${quickEditItem.name}` : '每日更新'}
         open={quickEditVisible}
-        onClose={() => { setQuickEditVisible(false); setQuickEditItem(null); setQuickProgress(''); }}
+        onClose={() => { setQuickEditVisible(false); setQuickEditItem(null); setQuickProgress(''); setQuickSyncMonthly(false); setQuickSyncAchievement(false); }}
         width={480}
         extra={<Button type="primary" onClick={handleQuickUpdate}>保存</Button>}
       >
@@ -352,13 +360,36 @@ function WeekPage() {
             <div style={{ marginBottom: 16 }}>
               <Progress percent={quickEditItem.progress_pct} strokeColor={getProgressColor(quickEditItem.progress_pct)} />
             </div>
-            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>本周进展</div>
+            <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13 }}>📝 今日进展</div>
             <Input.TextArea
               rows={4}
               value={quickProgress}
               onChange={(e) => setQuickProgress(e.target.value)}
-              placeholder="输入本周进展..."
+              placeholder="输入今日进展（追加模式，不会覆盖已有内容）..."
             />
+            {/* 同步选项 */}
+            <div style={{ marginTop: 16, background: '#F8FAFC', borderRadius: 8, padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Checkbox
+                  checked={quickSyncMonthly}
+                  onChange={(e) => setQuickSyncMonthly(e.target.checked)}
+                />
+                <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
+                <Tooltip title="开启后，本次进展内容将追加到该项目关联的月度任务「实际完成情况」中">
+                  <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+                </Tooltip>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Checkbox
+                  checked={quickSyncAchievement}
+                  onChange={(e) => setQuickSyncAchievement(e.target.checked)}
+                />
+                <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本季季度成果</span>
+                <Tooltip title="开启后，本次进展内容将追加到该项目关联的季度成果「成果描述」中">
+                  <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+                </Tooltip>
+              </div>
+            </div>
           </div>
         )}
       </Drawer>
