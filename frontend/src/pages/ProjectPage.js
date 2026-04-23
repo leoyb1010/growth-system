@@ -33,10 +33,12 @@ function ProjectPage() {
   const [quickUpdateVisible, setQuickUpdateVisible] = useState(false);
   const [quickUpdateItem, setQuickUpdateItem] = useState(null);
   const [quickWeeklyProgress, setQuickWeeklyProgress] = useState('');
-  // 增强版今日更新
+  // 每日更新
   const [todayUpdateVisible, setTodayUpdateVisible] = useState(false);
   const [todayUpdateItem, setTodayUpdateItem] = useState(null);
-  const [todayUpdateForm, setTodayUpdateForm] = useState({ weekly_progress: '', progress_pct: 0, status: '', risk_desc: '' });
+  const [todayDailyInput, setTodayDailyInput] = useState('');
+  const [todaySyncMonthly, setTodaySyncMonthly] = useState(false);
+  const [todaySyncAchievement, setTodaySyncAchievement] = useState(false);
   // 更新日历
   const [updateLogs, setUpdateLogs] = useState([]);
   const [logModalVisible, setLogModalVisible] = useState(false);
@@ -83,6 +85,8 @@ function ProjectPage() {
         action_due_date: values.action_due_date ? values.action_due_date.format('YYYY-MM-DD') : null,
         decision_needed: values.decision_needed || false,
         owner_user_id: values.owner_user_id || user?.id,
+        sync_to_monthly: values.sync_to_monthly || false,
+        sync_to_achievement: values.sync_to_achievement || false,
       };
       if (editingRecord) {
         await api.put(`/projects/${editingRecord.id}`, payload);
@@ -152,28 +156,31 @@ function ProjectPage() {
     }
   };
 
-  // 打开"今日更新"增强面板
+  // 打开"每日更新"
   const openTodayUpdate = (item) => {
     setTodayUpdateItem(item);
-    setTodayUpdateForm({
-      weekly_progress: item.weekly_progress || '',
-      progress_pct: item.progress_pct || 0,
-      status: item.status || '进行中',
-      risk_desc: item.risk_desc || '',
-      next_week_focus: item.next_week_focus || '',
-      next_action: item.next_action || item.block_reason || '',
-    });
+    setTodayDailyInput('');
+    setTodaySyncMonthly(false);
+    setTodaySyncAchievement(false);
     setTodayUpdateVisible(true);
   };
 
-  // 提交"今日更新"
+  // 提交"每日更新" — 追加模式，不覆盖
   const handleTodayUpdate = async () => {
-    if (!todayUpdateItem) return;
+    if (!todayUpdateItem || !todayDailyInput.trim()) return;
     try {
-      await api.put(`/projects/${todayUpdateItem.id}/quick-update`, todayUpdateForm);
-      message.success('更新成功');
+      // 后端 quickUpdate 会自动追加 [MM/DD] 前缀，前端只需传纯内容
+      await api.put(`/projects/${todayUpdateItem.id}/quick-update`, {
+        weekly_progress: todayDailyInput.trim(),
+        sync_to_monthly: todaySyncMonthly,
+        sync_to_achievement: todaySyncAchievement,
+      });
+      message.success('每日更新成功');
       setTodayUpdateVisible(false);
       setTodayUpdateItem(null);
+      setTodayDailyInput('');
+      setTodaySyncMonthly(false);
+      setTodaySyncAchievement(false);
       fetchData();
     } catch (err) {
       message.error(err?.response?.data?.message || err?.message || '更新失败');
@@ -687,20 +694,43 @@ function ProjectPage() {
             </Col>
           </Row>
           <Form.Item name="next_action" label="下一步/待解决"><TextArea rows={2} placeholder="下一步要做什么、有什么阻塞..." /></Form.Item>
+
+          {/* 同步选项 */}
+          <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginTop: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#334155' }}>同步选项</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Form.Item name="sync_to_monthly" valuePropName="checked" initialValue={false} noStyle>
+                <Checkbox />
+              </Form.Item>
+              <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
+              <Tooltip title="开启后，项目进展将同步追加到关联的月度任务「实际完成情况」中">
+                <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+              </Tooltip>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Form.Item name="sync_to_achievement" valuePropName="checked" initialValue={false} noStyle>
+                <Checkbox />
+              </Form.Item>
+              <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本季季度成果</span>
+              <Tooltip title="开启后，项目进展将同步追加到关联的季度成果「成果描述」中">
+                <QuestionCircleOutlined style={{ color: '#9CA3AF', cursor: 'help' }} />
+              </Tooltip>
+            </div>
+          </div>
         </Form>
       </Modal>
 
-      {/* ===== 今日更新 Drawer（增强版，支持进展+进度+状态+风险） ===== */}
+      {/* ===== 每日更新 Drawer ===== */}
       <Drawer
-        title={todayUpdateItem ? `今日更新：${todayUpdateItem.name}` : '今日更新'}
+        title={todayUpdateItem ? `每日更新：${todayUpdateItem.name}` : '每日更新'}
         open={todayUpdateVisible}
-        onClose={() => { setTodayUpdateVisible(false); setTodayUpdateItem(null); }}
+        onClose={() => { setTodayUpdateVisible(false); setTodayUpdateItem(null); setTodayDailyInput(''); setTodaySyncMonthly(false); setTodaySyncAchievement(false); }}
         width={520}
-        extra={<Button type="primary" onClick={handleTodayUpdate}>保存更新</Button>}
+        extra={<Button type="primary" onClick={handleTodayUpdate} disabled={!todayDailyInput.trim()}>保存更新</Button>}
       >
         {todayUpdateItem && (
           <div>
-            {/* 项目基本信息 */}
+            {/* 项目基本信息（只读） */}
             <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Tag color={getStatusStyle(todayUpdateItem.status).tag}>{todayUpdateItem.status}</Tag>
               <Tag>{todayUpdateItem.Department?.name}</Tag>
@@ -710,93 +740,72 @@ function ProjectPage() {
               )}
             </div>
 
-            {/* 进度 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
-                📊 进度 <span className="subtle-text" style={{ fontWeight: 400, fontSize: 12 }}>当前 {todayUpdateForm.progress_pct}%</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Progress
-                  percent={todayUpdateForm.progress_pct}
-                  strokeColor={getProgressColor(todayUpdateForm.progress_pct)}
-                  style={{ flex: 1 }}
-                />
-                <InputNumber
-                  min={0} max={100}
-                  value={todayUpdateForm.progress_pct}
-                  onChange={(v) => setTodayUpdateForm({ ...todayUpdateForm, progress_pct: v })}
-                  style={{ width: 72 }}
-                />
-                <span style={{ fontSize: 12, color: '#6B7280' }}>%</span>
-              </div>
+            {/* 进度（只读） */}
+            <div style={{ marginBottom: 16 }}>
+              <Progress percent={todayUpdateItem.progress_pct} strokeColor={getProgressColor(todayUpdateItem.progress_pct)} />
             </div>
 
-            {/* 状态 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>🏷️ 状态</div>
-              <Select
-                value={todayUpdateForm.status}
-                onChange={(v) => setTodayUpdateForm({ ...todayUpdateForm, status: v })}
-                style={{ width: '100%' }}
-              >
-                <Option value="未启动">未启动</Option>
-                <Option value="进行中">🚀 进行中</Option>
-                <Option value="合作中">🤝 合作中</Option>
-                <Option value="风险">🔴 风险</Option>
-                <Option value="完成">✅ 完成</Option>
-              </Select>
-            </div>
+            {/* 本周进展（只读） */}
+            {todayUpdateItem.weekly_progress && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#334155' }}>📝 本周进展</div>
+                <div style={{ background: '#F5F7FB', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto' }}>
+                  {todayUpdateItem.weekly_progress}
+                </div>
+              </div>
+            )}
 
-            {/* 本周进展 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>📝 本周进展</div>
+            {/* 风险与问题（只读） */}
+            {todayUpdateItem.risk_desc && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#DC2626' }}>⚠️ 风险与问题</div>
+                <div style={{ background: '#FEF2F2', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#991B1B', whiteSpace: 'pre-wrap' }}>
+                  {todayUpdateItem.risk_desc}
+                </div>
+              </div>
+            )}
+
+            {/* 下周重点工作（只读） */}
+            {todayUpdateItem.next_week_focus && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>📋 下周重点工作</div>
+                <div style={{ background: '#F0F4FF', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#1E40AF', whiteSpace: 'pre-wrap' }}>
+                  {todayUpdateItem.next_week_focus}
+                </div>
+              </div>
+            )}
+
+            {/* 下一步/待解决（只读） */}
+            {(todayUpdateItem.next_action || todayUpdateItem.block_reason) && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>➡️ 下一步/待解决</div>
+                <div style={{ background: '#EFF6FF', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#1E40AF', whiteSpace: 'pre-wrap' }}>
+                  {todayUpdateItem.next_action || todayUpdateItem.block_reason}
+                </div>
+              </div>
+            )}
+
+            {/* 分隔线 */}
+            <div style={{ borderTop: '2px solid #E2E8F0', margin: '16px 0', paddingTop: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#111827' }}>
+                ➕ 每日更新
+                <span className="subtle-text" style={{ fontWeight: 400, fontSize: 12, marginLeft: 8 }}>追加模式，不会覆盖已有内容</span>
+              </div>
               <Input.TextArea
                 rows={4}
-                value={todayUpdateForm.weekly_progress}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, weekly_progress: e.target.value })}
-                placeholder="描述本周的进展、成果和关键节点..."
-              />
-            </div>
-
-            {/* 风险与问题 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>⚠️ 风险与问题</div>
-              <Input.TextArea
-                rows={3}
-                value={todayUpdateForm.risk_desc}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, risk_desc: e.target.value })}
-                placeholder="如有风险或阻塞，在此描述..."
-              />
-            </div>
-
-            {/* 下周重点工作 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>📋 下周重点工作</div>
-              <Input.TextArea
-                rows={3}
-                value={todayUpdateForm.next_week_focus || ''}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_week_focus: e.target.value })}
-                placeholder="下周计划推进的重点工作..."
-              />
-            </div>
-
-            {/* V4 闭环字段 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>➡️ 下一步/待解决</div>
-              <Input.TextArea
-                rows={2}
-                value={todayUpdateForm.next_action || todayUpdateForm.block_reason || ''}
-                onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, next_action: e.target.value, block_reason: '' })}
-                placeholder="下一步要做什么、有什么阻塞..."
+                value={todayDailyInput}
+                onChange={(e) => setTodayDailyInput(e.target.value)}
+                placeholder="输入今日进展，保存时自动追加 [日期] 前缀..."
+                autoFocus
               />
             </div>
 
             {/* 同步选项 */}
-            <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginBottom: 20 }}>
+            <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginTop: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Checkbox
-                  checked={!!todayUpdateForm.sync_to_monthly}
-                  onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_monthly: e.target.checked })}
+                  checked={todaySyncMonthly}
+                  onChange={(e) => setTodaySyncMonthly(e.target.checked)}
                 />
                 <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本月月度任务</span>
                 <Tooltip title="开启后，本次进展内容将追加到该项目关联的月度任务「实际完成情况」中">
@@ -805,8 +814,8 @@ function ProjectPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Checkbox
-                  checked={!!todayUpdateForm.sync_to_achievement}
-                  onChange={(e) => setTodayUpdateForm({ ...todayUpdateForm, sync_to_achievement: e.target.checked })}
+                  checked={todaySyncAchievement}
+                  onChange={(e) => setTodaySyncAchievement(e.target.checked)}
                 />
                 <span style={{ fontSize: 13, color: '#334155' }}>同步进展到本季季度成果</span>
                 <Tooltip title="开启后，本次进展内容将追加到该项目关联的季度成果「成果描述」中">
@@ -817,7 +826,7 @@ function ProjectPage() {
 
             {/* 工作目标（只读参考） */}
             {todayUpdateItem.goal && (
-              <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, fontSize: 12 }}>
+              <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 12 }}>
                 <span style={{ fontWeight: 600, color: '#334155' }}>🎯 工作目标：</span>
                 <span style={{ color: '#6B7280' }}>{todayUpdateItem.goal}</span>
               </div>

@@ -214,7 +214,7 @@ const QuarterArchive = sequelize.define('QuarterArchive', {
 // F表：项目更新日志（每日内容更新，非操作审计）
 const ProjectUpdateLog = sequelize.define('ProjectUpdateLog', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  project_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Project', key: 'id' } },
+  project_id: { type: DataTypes.INTEGER, allowNull: false },
   update_date: { type: DataTypes.DATEONLY, allowNull: false }, // 更新日期
   progress_content: { type: DataTypes.TEXT, allowNull: true }, // 本次进展
   status: { type: DataTypes.STRING(20), allowNull: true }, // 更新时状态

@@ -157,6 +157,42 @@ async function createProject(req, res) {
 
     const project = await Project.create(payload);
     await logAudit('projects', project.id, 'create', getOperator(req), null, project.toJSON());
+
+    // 同步选项：同步到月度任务
+    if (data.sync_to_monthly && payload.weekly_progress) {
+      const currentMonth = moment().format('YYYY-MM');
+      const monthlyTask = await MonthlyTask.findOne({
+        where: { project_id: project.id, month: currentMonth },
+        order: [['created_at', 'DESC']]
+      });
+      if (monthlyTask) {
+        const syncContent = payload.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const existing = monthlyTask.actual_result || '';
+        const newResult = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await monthlyTask.update({ actual_result: newResult, updater_id: req.user?.id || null });
+      }
+    }
+
+    // 同步选项：同步到季度成果
+    if (data.sync_to_achievement && payload.weekly_progress) {
+      const Achievement = require('../models').Achievement;
+      const achievements = await Achievement.findAll({
+        where: { project_id: project.id, quarter: project.quarter },
+        order: [['created_at', 'DESC']]
+      });
+      if (achievements.length > 0) {
+        const syncContent = payload.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const achievement = achievements[0];
+        const existing = achievement.description || '';
+        const newDesc = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
+      }
+    }
+
     success(res, project, '项目创建成功');
   } catch (err) {
     console.error('创建项目失败:', err);
@@ -199,6 +235,42 @@ async function updateProject(req, res) {
     const oldValues = project.toJSON();
     await project.update(updateData);
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
+
+    // 同步选项：同步到月度任务
+    if (req.body.sync_to_monthly && updateData.weekly_progress) {
+      const currentMonth = moment().format('YYYY-MM');
+      const monthlyTask = await MonthlyTask.findOne({
+        where: { project_id: project.id, month: currentMonth },
+        order: [['created_at', 'DESC']]
+      });
+      if (monthlyTask) {
+        const syncContent = updateData.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const existing = monthlyTask.actual_result || '';
+        const newResult = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await monthlyTask.update({ actual_result: newResult, updater_id: req.user?.id || null });
+      }
+    }
+
+    // 同步选项：同步到季度成果
+    if (req.body.sync_to_achievement && updateData.weekly_progress) {
+      const Achievement = require('../models').Achievement;
+      const achievements = await Achievement.findAll({
+        where: { project_id: project.id, quarter: project.quarter },
+        order: [['created_at', 'DESC']]
+      });
+      if (achievements.length > 0) {
+        const syncContent = updateData.weekly_progress.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+        const achievement = achievements[0];
+        const existing = achievement.description || '';
+        const newDesc = existing
+          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+          : `[同步${moment().format('M/D')}] ${syncContent}`;
+        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
+      }
+    }
+
     success(res, project, '项目更新成功');
   } catch (err) {
     console.error('更新项目失败:', err);
