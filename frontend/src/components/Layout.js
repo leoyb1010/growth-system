@@ -28,6 +28,10 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
 import { can, canSeeMenu } from '../permissions/ability';
+import AIFloatingButton from './ai/AIFloatingButton';
+import AIAssistantDrawer from './ai/AIAssistantDrawer';
+import useAIAssistant from '../hooks/useAIAssistant';
+import useAIContext from '../hooks/useAIContext';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -47,6 +51,35 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = user?.role || 'dept_staff';
+
+  // ===== AI 助手 =====
+  const aiAssistant = useAIAssistant();
+  const aiContext = useAIContext();
+
+  // 定期刷新角标
+  useEffect(() => {
+    aiAssistant.refreshBadge(aiContext.currentPage);
+    const timer = setInterval(() => aiAssistant.refreshBadge(aiContext.currentPage), 60000);
+    return () => clearInterval(timer);
+  }, [aiContext.currentPage]);
+
+  // 处理 AI 动作
+  const handleAIAction = (actionKey, currentPage, currentObject) => {
+    aiAssistant.runAction(actionKey, currentPage || aiContext.currentPage, currentObject || aiContext.currentObject);
+  };
+
+  // 暴露 AI 助手到 window，供页面内按钮调用
+  useEffect(() => {
+    window.__aiAssistant = {
+      openDrawer: (mode) => {
+        aiAssistant.openDrawer(mode);
+        aiAssistant.loadPanel(mode || 'today_judgment', aiContext.currentPage, aiContext.currentObject);
+      },
+      runAction: handleAIAction,
+      generateBriefing: aiAssistant.generateBriefing,
+    };
+    return () => { delete window.__aiAssistant; };
+  }, [aiContext.currentPage, aiContext.currentObject]);
 
   // 全局搜索
   const handleSearch = async (value) => {
@@ -359,6 +392,29 @@ function AppLayout() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* ===== AI 助手 ===== */}
+      <AIFloatingButton
+        badgeData={aiAssistant.badgeData}
+        onClick={() => aiAssistant.openDrawer('today_judgment')}
+      />
+      <AIAssistantDrawer
+        open={aiAssistant.open}
+        onClose={aiAssistant.closeDrawer}
+        activeMode={aiAssistant.activeMode}
+        loading={aiAssistant.loading}
+        data={aiAssistant.data}
+        chatHistory={aiAssistant.chatHistory}
+        onModeChange={(mode) => {
+          aiAssistant.setActiveMode(mode);
+          if (mode !== 'free_ask') {
+            aiAssistant.loadPanel(mode, aiContext.currentPage, aiContext.currentObject);
+          }
+        }}
+        onAction={handleAIAction}
+        onChat={aiAssistant.sendChat}
+        onLoadPanel={aiAssistant.loadPanel}
+      />
     </Layout>
   );
 }

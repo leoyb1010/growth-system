@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented, Drawer, Input, Badge, Spin, Empty, Tooltip } from 'antd';
-import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, RocketOutlined, CheckCircleOutlined, FlagOutlined, UserOutlined } from '@ant-design/icons';
+import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, RocketOutlined, CheckCircleOutlined, FlagOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { api, useAuth } from '../hooks/useAuth';
@@ -9,6 +9,8 @@ import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { getStatusStyle, getProgressColor } from '../utils/constants';
+import useAIAssistant from '../hooks/useAIAssistant';
+import useAIContext from '../hooks/useAIContext';
 
 function DashboardPage() {
   const [data, setData] = useState(null);
@@ -364,6 +366,7 @@ function DashboardPage() {
             options={[{ label: `${data.current_quarter} 季度`, value: 'quarter' }, { label: '全年累计', value: 'year' }]}
           />,
           <Button key="today" type="primary" ghost icon={<ClockCircleOutlined />} onClick={openTodayDrawer}>今日更新</Button>,
+          <Button key="ai" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.openDrawer('today_judgment')}>AI 分析</Button>,
           can(role, 'weekly_report.generate') && <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>生成周报</Button>,
         ]}
       />

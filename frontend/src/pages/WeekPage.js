@@ -6,6 +6,7 @@ import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, getStatusStyle, getProgressColor } from '../utils/constants';
+import { RobotOutlined } from '@ant-design/icons';
 
 function WeekPage() {
   const { isDeptManager, user } = useAuth();
@@ -170,6 +171,8 @@ function WeekPage() {
         title="本周管理"
         subtitle={`${weekRange.label} · 过程管理 · 以下内容均为项目推进页数据的自动汇总，无需重复填写`}
         extra={[
+          <Button key="ai_closure" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.openDrawer('risk_closure')}>闭环检查</Button>,
+          <Button key="ai_meeting" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.runAction('prepare_meeting')}>准备周会</Button>,
           <Button key="refresh" onClick={fetchAllData}>刷新</Button>,
         ]}
       />
