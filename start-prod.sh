@@ -13,6 +13,12 @@ export PORT=3001
 # 如果没有设置环境变量，使用默认值（请在正式部署时更换）
 export JWT_SECRET=${JWT_SECRET:-"growth-secret-key-2026-PROD-$(date +%s)"}
 
+# AI 助手配置
+export AI_LLM_PROVIDER=deepseek
+export AI_LLM_API_KEY=sk-10a301079153469cb7a3e37d65b02219
+export AI_LLM_MODEL=deepseek-reasoner
+export AI_LLM_BASE_URL=https://api.deepseek.com
+
 echo "========================================="
 echo "  Growth System 生产环境启动"
 echo "========================================="

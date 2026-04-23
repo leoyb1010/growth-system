@@ -8,6 +8,7 @@ import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, defaultStatusColor, getStatusStyle, getProgressColor } from '../utils/constants';
 import DepartmentSelect from '../components/DepartmentSelect';
+import { RobotOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -461,6 +462,7 @@ function ProjectPage() {
           >
             {viewMode === 'card' ? '列表' : viewMode === 'table' ? '看板' : '卡片'}
           </Button>,
+          <Button key="ai_risk" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.openDrawer('risk_closure')}>AI 风险</Button>,
           isDeptManager && (
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => {
               setEditingRecord(null);
