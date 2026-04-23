@@ -493,12 +493,13 @@ function DashboardPage() {
           >
             {(() => {
               const focusProjects = (data.recent_projects || [])
-                .filter(p => p.status === '风险' || p.is_due_soon || p.progress_status === 'behind')
+                .filter(p => p.status === '风险' || p.is_due_soon || p.progress_status === 'behind' || p.priority === '高')
                 .slice(0, 6);
               if (focusProjects.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>暂无重点推进事项</div>;
               return focusProjects.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: p.status === '风险' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
                   {p.status === '风险' && <Tag color="error" style={{ margin: 0, fontSize: 11 }}>风险</Tag>}
+                  {p.priority === '高' && p.status !== '风险' && <Tag color="red" style={{ margin: 0, fontSize: 11 }}>🔥 高优先</Tag>}
                   {p.is_due_soon && !p.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>临期</Tag>}
                   {p.progress_status === 'behind' && p.status !== '风险' && !p.is_due_soon && <Tag color="default" style={{ margin: 0, fontSize: 11 }}>落后</Tag>}
                   <span style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{p.name}</span>
