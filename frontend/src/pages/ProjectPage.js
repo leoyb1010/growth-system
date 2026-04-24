@@ -15,6 +15,8 @@ const { TextArea } = Input;
 
 const { useBreakpoint } = Grid;
 
+const PROJECT_DRAFT_KEY = 'growth_project_draft';
+
 function ProjectPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -99,13 +101,39 @@ function ProjectPage() {
       setModalVisible(false);
       setEditingRecord(null);
       form.resetFields();
+      localStorage.removeItem(PROJECT_DRAFT_KEY); // 提交成功清除草稿
       fetchData();
     } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
     setEditingRecord(record);
-    form.setFieldsValue({ ...record, due_date: record.due_date ? moment(record.due_date) : null });
+    // 字段白名单，防止脏数据导致白屏
+    const safeMoment = (v) => {
+      if (!v) return null;
+      const m = moment(v);
+      return m.isValid() ? m : null;
+    };
+    form.setFieldsValue({
+      dept_id: record.dept_id,
+      quarter: record.quarter,
+      type: record.type,
+      name: record.name,
+      owner_name: record.owner_name,
+      goal: record.goal || '',
+      weekly_progress: record.weekly_progress || '',
+      next_week_focus: record.next_week_focus || '',
+      progress_pct: record.progress_pct ?? 0,
+      status: record.status || '进行中',
+      due_date: safeMoment(record.due_date),
+      risk_desc: record.risk_desc || '',
+      priority: record.priority || '中',
+      decision_needed: !!record.decision_needed,
+      action_due_date: safeMoment(record.action_due_date),
+      next_action: record.next_action || '',
+      sync_to_monthly: !!record.sync_to_monthly,
+      sync_to_achievement: !!record.sync_to_achievement,
+    });
     setModalVisible(true);
   };
 
@@ -467,6 +495,24 @@ function ProjectPage() {
             <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => {
               setEditingRecord(null);
               form.resetFields();
+              // 恢复草稿
+              try {
+                const saved = localStorage.getItem(PROJECT_DRAFT_KEY);
+                if (saved) {
+                  const draft = JSON.parse(saved);
+                  const safeMoment = (v) => {
+                    if (!v) return undefined;
+                    const m = moment(v);
+                    return m.isValid() ? m : undefined;
+                  };
+                  form.setFieldsValue({
+                    ...draft,
+                    due_date: safeMoment(draft.due_date),
+                    action_due_date: safeMoment(draft.action_due_date),
+                  });
+                  message.info('已恢复上次未提交的草稿', 2);
+                }
+              } catch (e) { /* 草稿损坏则忽略 */ }
               setModalVisible(true);
             }}>
               新增项目
@@ -609,10 +655,47 @@ function ProjectPage() {
         title={editingRecord ? '编辑项目' : '新增项目'}
         open={modalVisible}
         onOk={() => form.submit()}
-        onCancel={() => { setModalVisible(false); setEditingRecord(null); }}
+        onCancel={() => {
+          const values = form.getFieldsValue();
+          const hasContent = values.name || values.goal || values.weekly_progress || values.owner_name;
+          if (hasContent && !editingRecord) {
+            // 新增模式有内容，保存草稿并确认关闭
+            Modal.confirm({
+              title: '确认关闭？',
+              content: '当前填写内容将保存为草稿，下次新增时自动恢复',
+              okText: '关闭',
+              cancelText: '继续填写',
+              onOk: () => {
+                // 保存草稿（日期转字符串）
+                const draft = { ...values };
+                if (draft.due_date && moment.isMoment(draft.due_date)) draft.due_date = draft.due_date.format('YYYY-MM-DD');
+                if (draft.action_due_date && moment.isMoment(draft.action_due_date)) draft.action_due_date = draft.action_due_date.format('YYYY-MM-DD');
+                localStorage.setItem(PROJECT_DRAFT_KEY, JSON.stringify(draft));
+                setModalVisible(false);
+                setEditingRecord(null);
+              },
+            });
+          } else {
+            setModalVisible(false);
+            setEditingRecord(null);
+          }
+        }}
+        maskClosable={false}
         width={700}
       >
-        <Form form={form} onFinish={handleSubmit} layout="vertical">
+        <Form form={form} onFinish={handleSubmit} layout="vertical"
+          onValuesChange={(_, allValues) => {
+            // 新增模式下自动保存草稿
+            if (!editingRecord) {
+              try {
+                const draft = { ...allValues };
+                if (draft.due_date && moment.isMoment(draft.due_date)) draft.due_date = draft.due_date.format('YYYY-MM-DD');
+                if (draft.action_due_date && moment.isMoment(draft.action_due_date)) draft.action_due_date = draft.action_due_date.format('YYYY-MM-DD');
+                localStorage.setItem(PROJECT_DRAFT_KEY, JSON.stringify(draft));
+              } catch (e) { /* ignore */ }
+            }
+          }}
+        >
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="dept_id" label="部门" rules={[{ required: true }]} initialValue={1}>

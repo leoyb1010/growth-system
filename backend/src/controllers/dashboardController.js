@@ -221,6 +221,23 @@ async function getDashboard(req, res) {
       limit: 20
     });
 
+    // 如果有部门过滤，过滤掉不属于当前部门的变更记录
+    let filteredTodayChanges = todayChanges;
+    if (scopeDeptId) {
+      const modelMap = { projects: Project, kpis: Kpi, performances: Performance, monthly_tasks: require('../models').MonthlyTask, achievements: require('../models').Achievement };
+      const validated = [];
+      for (const c of todayChanges) {
+        try {
+          const Model = modelMap[c.table_name];
+          if (Model) {
+            const record = await Model.findByPk(c.record_id, { attributes: ['dept_id'] });
+            if (record && record.dept_id === scopeDeptId) validated.push(c);
+          }
+        } catch (e) { /* 静默 */ }
+      }
+      filteredTodayChanges = validated;
+    }
+
     // ========== 10. 本周关注（规则驱动）==========
     const weekFocus = [];
     // 本周需收口
@@ -228,7 +245,8 @@ async function getDashboard(req, res) {
       where: {
         due_date: { [Op.lte]: weekEnd },
         status: { [Op.ne]: '完成' },
-        quarter: effectiveQuarter
+        quarter: effectiveQuarter,
+        ...deptFilter
       },
       include: [{ model: Department, attributes: ['name'] }]
     });
@@ -243,7 +261,7 @@ async function getDashboard(req, res) {
     // 长期未更新（>3天）
     const staleDate = moment().subtract(3, 'days').toDate();
     const staleProjects = await Project.count({
-      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: effectiveQuarter }
+      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.ne]: '完成' }, quarter: effectiveQuarter, ...deptFilter }
     });
     if (staleProjects > 0) {
       weekFocus.push({ type: 'stale', text: `${staleProjects}项重点工作超过3天未更新`, count: staleProjects });
@@ -280,7 +298,7 @@ async function getDashboard(req, res) {
         ...p.toJSON(),
         days_until: moment(p.due_date).diff(moment(), 'days')
       })),
-      today_changes: todayChanges.map(c => ({
+      today_changes: filteredTodayChanges.map(c => ({
         id: c.id,
         table_name: c.table_name,
         action: c.action,
