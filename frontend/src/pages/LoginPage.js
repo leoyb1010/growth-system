@@ -162,10 +162,7 @@ function LoginPage() {
           </Form.Item>
         </Form>
 
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <span style={{ color: '#9CA3AF', fontSize: 13 }}>还没有账号？</span>
-          <a href="/register" style={{ fontSize: 13, marginLeft: 4 }}>立即注册</a>
-        </div>
+        {/* 注册入口已关闭：ENABLE_PUBLIC_REGISTER 默认 false，不展示注册链接 */}
       </div>
     </div>
   );

@@ -96,8 +96,9 @@ async function injectAccessContext(req, res, next) {
 
 /**
  * JWT 认证中间件
+ * 验证 token 后，从数据库查询用户最新状态（防止禁用用户旧 token 继续访问）
  */
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -111,10 +112,42 @@ function authenticate(req, res, next) {
     return error(res, '认证令牌已过期或无效', 401, 401);
   }
 
-  const role = decoded.role || 'dept_staff';
-  const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
-  req.user = { ...decoded, role, roleLevel };
-  next();
+  // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
+  try {
+    const dbUser = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status'],
+      include: [{ model: Department, attributes: ['id', 'name'] }]
+    });
+
+    if (!dbUser) {
+      return error(res, '用户不存在', 401, 401);
+    }
+
+    if (dbUser.status === 'disabled') {
+      return error(res, '账号已被禁用，请联系管理员', 403, 403);
+    }
+
+    // 使用数据库中的最新角色信息，不完全信任 token 内的 role
+    const role = dbUser.role || 'dept_staff';
+    const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
+    req.user = {
+      ...decoded,
+      role,
+      roleLevel,
+      dept_id: dbUser.dept_id,
+      name: dbUser.name,
+      username: dbUser.username,
+      status: dbUser.status,
+    };
+    next();
+  } catch (err) {
+    console.error('认证中间件数据库查询失败:', err);
+    // 数据库查询失败时降级：仍用 token 中的信息，但打警告
+    const role = decoded.role || 'dept_staff';
+    const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
+    req.user = { ...decoded, role, roleLevel };
+    next();
+  }
 }
 
 /**
