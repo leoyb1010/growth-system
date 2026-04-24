@@ -78,8 +78,10 @@ async function getDashboard(req, res) {
       }));
     }
 
-    // 动态按部门分组 KPI，支持任意数量部门
-    const departments = await Department.findAll({ order: [['id', 'ASC']] });
+    // 动态按部门分组 KPI，支持任意数量部门（受 deptFilter 约束）
+    const departments = scopeDeptId
+      ? await Department.findAll({ where: { id: scopeDeptId }, order: [['id', 'ASC']] })
+      : await Department.findAll({ order: [['id', 'ASC']] });
     const deptKpiMap = {};
     departments.forEach(d => { deptKpiMap[d.id] = { name: d.name, gmv: null, profit: null }; });
     

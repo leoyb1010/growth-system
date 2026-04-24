@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Drawer, Typography, Divider, Tag, Button, Space, message } from 'antd';
-import { CloseOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import { CloseOutlined, ReloadOutlined, CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import AITabHeader from './AITabHeader';
 import AIInsightCard from './AIInsightCard';
 import AIActionList from './AIActionList';
@@ -27,6 +27,7 @@ export default function AIAssistantDrawer({
 }) {
   const { currentPage, currentObject } = useAIContext();
   const [chatInput, setChatInput] = useState('');
+  const [rawExpanded, setRawExpanded] = useState(false);
 
   // 打开时自动加载（仅非 free_ask 模式）
   useEffect(() => {
@@ -191,29 +192,39 @@ export default function AIAssistantDrawer({
               </>
             )}
 
-            {/* 原始分析（如果有LLM输出） */}
+            {/* 原始分析（折叠展示） */}
             {data.rawAnalysis && (
               <>
-                <Divider style={{ margin: '8px 0', fontSize: 12, color: '#8c8c8c' }}>AI 深度分析</Divider>
-                <div style={{
-                  background: '#fafafa',
-                  borderRadius: 6,
-                  padding: '10px 12px',
-                  fontSize: 13,
-                  lineHeight: 1.7,
-                  color: '#595959',
-                  whiteSpace: 'pre-wrap',
-                  position: 'relative',
-                }}>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    onClick={() => handleCopy(data.rawAnalysis)}
-                    style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}
-                  />
-                  {data.rawAnalysis}
-                </div>
+                <Divider style={{ margin: '8px 0', fontSize: 12, color: '#8c8c8c' }}>
+                  <span
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setRawExpanded(!rawExpanded)}
+                  >
+                    {rawExpanded ? <DownOutlined style={{ fontSize: 10 }} /> : <RightOutlined style={{ fontSize: 10 }} />}
+                    {' '}AI 深度分析
+                  </span>
+                </Divider>
+                {rawExpanded && (
+                  <div style={{
+                    background: '#fafafa',
+                    borderRadius: 6,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    lineHeight: 1.7,
+                    color: '#8c8c8c',
+                    whiteSpace: 'pre-wrap',
+                    position: 'relative',
+                  }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => handleCopy(data.rawAnalysis)}
+                      style={{ position: 'absolute', top: 4, right: 4, fontSize: 11 }}
+                    />
+                    {data.rawAnalysis}
+                  </div>
+                )}
               </>
             )}
           </>

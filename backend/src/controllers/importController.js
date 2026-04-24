@@ -26,8 +26,10 @@ async function importExcel(req, res) {
       return keywords.some(k => headersLower.some(h => h.includes(k.toLowerCase())));
     }
 
-    // 获取部门映射
-    const departments = await Department.findAll();
+    // 获取部门映射（受 deptFilter 约束，防止跨部门导入）
+    const scopeDeptId = req.deptFilter || null;
+    const whereOpt = scopeDeptId ? { where: { id: scopeDeptId } } : {};
+    const departments = await Department.findAll(whereOpt);
     const deptMap = {};
     departments.forEach(d => { deptMap[d.name] = d.id; });
 

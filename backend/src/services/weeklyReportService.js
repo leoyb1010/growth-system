@@ -102,27 +102,25 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
     }
   });
 
-  // 4. 下周焦点
-  const nextWeekStart = moment(weekEnd).add(1, 'days').format('YYYY-MM-DD');
-  const nextWeekEnd = moment(weekEnd).add(7, 'days').format('YYYY-MM-DD');
-
-  const upcomingWhere = {
-    due_date: { [Op.between]: [nextWeekStart, nextWeekEnd] },
-    status: { [Op.ne]: '完成' }
+  // 4. 下周重点工作（基于项目填写的 next_week_focus 字段，而非 due_date 时间）
+  const focusWhere = {
+    next_week_focus: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
   };
-  if (deptFilter) upcomingWhere.dept_id = deptFilter;
-  const upcomingProjects = await Project.findAll({
-    where: upcomingWhere,
-    include: [{ model: Department, attributes: ['name'] }]
+  if (deptFilter) focusWhere.dept_id = deptFilter;
+  const focusProjects = await Project.findAll({
+    where: focusWhere,
+    include: [{ model: Department, attributes: ['name'] }],
+    order: [['updated_at', 'DESC']]
   });
 
-  const nextWeekFocus = upcomingProjects.map(p => ({
+  const nextWeekKeyWork = focusProjects.map(p => ({
     id: p.id,
     dept_name: p.Department?.name || '',
     name: p.name,
     owner_name: p.owner_name,
-    due_date: p.due_date,
-    progress_pct: p.progress_pct
+    next_week_focus: p.next_week_focus,
+    progress_pct: p.progress_pct,
+    status: p.status
   }));
 
   // D表下月跟进非空事项
@@ -179,7 +177,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
       total_updated_projects: updatedProjects.length,
       total_risk_projects: riskProjects.length,
       total_severe_warnings: severeWarnings.length,
-      total_upcoming: upcomingProjects.length,
+      total_next_week_key_work: focusProjects.length,
       total_new_achievements: newAchievements.length
     },
     kpi_summary: kpiSummary,
@@ -188,10 +186,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
       risk_projects: riskList,
       severe_warnings: severeWarnings
     },
-    next_week_focus: {
-      upcoming_projects: nextWeekFocus,
-      follow_up_items: followUps
-    },
+    next_week_key_work: nextWeekKeyWork,
     new_achievements: achievementList
   };
 }
@@ -251,10 +246,17 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
 }
 
 /**
- * 提取关键变化
+ * 提取关键变化（基于时间进度判断，非硬阈值）
  */
 function extractKeyChanges(kpiSummary, updatedProjects, riskList) {
   const changes = [];
+
+  // 计算当前时间进度
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+  const timeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
 
   // 状态变更 -> 风险的项目
   riskList.forEach(p => {
@@ -268,13 +270,17 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList) {
     }
   });
 
-  // KPI 偏差
+  // KPI 偏差（基于时间进度判断，而非硬阈值60%）
   kpiSummary.forEach(k => {
-    if (k.completion_rate < 60) {
-      changes.push({ type: 'deviation', text: `${k.dept_name}·${k.indicator} 完成率仅${k.completion_rate}%` });
-    } else if (k.completion_rate >= 90) {
-      changes.push({ type: 'achieved', text: `${k.dept_name}·${k.indicator} 已达标` });
+    const status = getProgressStatus(k.completion_rate, timeProgress);
+    if (status === 'behind') {
+      // 落后于时间进度才标记为偏差
+      changes.push({ type: 'deviation', text: `${k.dept_name}·${k.indicator} 完成率${k.completion_rate}%（低于时间进度${timeProgress.toFixed(0)}%）` });
+    } else if (status === 'ahead') {
+      // 超前于时间进度
+      changes.push({ type: 'achieved', text: `${k.dept_name}·${k.indicator} 完成率${k.completion_rate}%（超前时间进度）` });
     }
+    // on_track 的不列入关键变化，避免噪音
   });
 
   return changes;

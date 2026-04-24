@@ -43,7 +43,12 @@ async function generateReport(req, res) {
     success(res, { id: report.id, ...reportData }, '周报生成成功');
   } catch (err) {
     console.error('生成周报失败:', err);
-    error(res, '生成周报失败', 1, 500);
+    // 检测 SQLITE_READONLY 错误，给出明确提示
+    if (err.original && err.original.code === 'SQLITE_READONLY') {
+      error(res, '数据库只读，请重启服务（pm2 delete + start）', 1, 500);
+    } else {
+      error(res, `生成周报失败: ${err.message || '未知错误'}`, 1, 500);
+    }
   }
 }
 
@@ -69,10 +74,6 @@ async function getReports(req, res) {
         png_url: r.png_url,
         pdf_url: r.pdf_url
       };
-      // 如果有部门过滤，标记周报内容是否属于该部门
-      if (deptFilter && r.content_json) {
-        item.has_dept_data = filterReportContentForDept(r.content_json, deptFilter).hasData;
-      }
       return item;
     }));
   } catch (err) {
@@ -207,7 +208,7 @@ module.exports = {
 /**
  * 根据部门过滤周报内容
  * dept_id: 1=拓展组, 2=运营组
- * 过滤 kpi_summary, project_progress, risk_and_warnings, next_week_focus, new_achievements 中的部门数据
+ * 过滤 kpi_summary, project_progress, risk_and_warnings, next_week_key_work, new_achievements 中的部门数据
  */
 function filterReportContentForDept(content, deptId) {
   if (!content) return { content: null, hasData: false };
@@ -236,7 +237,12 @@ function filterReportContentForDept(content, deptId) {
     };
   }
 
-  // 过滤下周焦点
+  // 过滤下周重点工作
+  if (filtered.next_week_key_work) {
+    filtered.next_week_key_work = (filtered.next_week_key_work || []).filter(p => p.dept_name === deptName);
+  }
+
+  // 兼容旧周报数据：如果有 next_week_focus 字段（旧格式），也做过滤
   if (filtered.next_week_focus) {
     const raw = filtered.next_week_focus;
     filtered.next_week_focus = {
@@ -257,9 +263,13 @@ function filterReportContentForDept(content, deptId) {
       total_updated_projects: (filtered.project_progress || []).length,
       total_risk_projects: (filtered.risk_and_warnings?.risk_projects || []).length,
       total_severe_warnings: (filtered.risk_and_warnings?.severe_warnings || []).length,
-      total_upcoming: (filtered.next_week_focus?.upcoming_projects || []).length,
+      total_next_week_key_work: (filtered.next_week_key_work || []).length,
       total_new_achievements: (filtered.new_achievements || []).length,
     };
+    // 兼容旧周报
+    if (filtered.summary.total_upcoming !== undefined) {
+      filtered.summary.total_upcoming = (filtered.next_week_focus?.upcoming_projects || []).length;
+    }
   }
 
   // 重新生成本周结论和关键变化
@@ -273,7 +283,7 @@ function filterReportContentForDept(content, deptId) {
   const hasData = (filtered.kpi_summary?.length > 0) ||
     (filtered.project_progress?.length > 0) ||
     (filtered.risk_and_warnings?.risk_projects?.length > 0) ||
-    (filtered.next_week_focus?.upcoming_projects?.length > 0) ||
+    (filtered.next_week_key_work?.length > 0) ||
     (filtered.new_achievements?.length > 0);
 
   return { content: filtered, hasData };

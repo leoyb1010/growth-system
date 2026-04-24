@@ -16,8 +16,11 @@ async function getPerformances(req, res) {
     const { dept_id } = req.query;
     const where = {};
 
-    if (dept_id) where.dept_id = parseInt(dept_id);
+    if (dept_id && req.deptFilter && parseInt(dept_id) !== req.deptFilter) {
+      return error(res, '无权查看其他部门数据', 403, 403);
+    }
     if (req.deptFilter) where.dept_id = req.deptFilter;
+    else if (dept_id) where.dept_id = parseInt(dept_id);
 
     const performances = await Performance.findAll({
       where,
@@ -103,6 +106,11 @@ async function updatePerformance(req, res) {
     const allowedFields = ['dept_id', 'business_type', 'indicator', 'unit', 'q1_target', 'q1_actual', 'q2_target', 'q2_actual', 'q3_target', 'q3_actual', 'q4_target', 'q4_actual'];
     const updateData = {};
     allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+
+    // 校验新 dept_id 是否在权限范围内（防止跨部门转移）
+    if (updateData.dept_id !== undefined && req.deptFilter && parseInt(updateData.dept_id) !== req.deptFilter) {
+      return error(res, '无权将数据转移到其他部门', 403, 403);
+    }
 
     await performance.update(updateData);
     await logAudit('performances', performance.id, 'update', getOperator(req), oldValues, performance.toJSON());
