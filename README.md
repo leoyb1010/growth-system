@@ -361,6 +361,99 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v6.0.0 — 2026-04-24 · AI 智能助手上线
+
+> 核心改动：全页面 AI 副驾驶，4 种分析模式，DeepSeek LLM 接入，Mock Fallback 保障。
+
+**AI 助手模块**
+- 后端 16 个新文件（`backend/src/ai/`）：控制器/路由/编排器/上下文服务/6 个子服务/LLM Provider/Mock Provider/3 个工具
+- 前端 10 个新文件（`components/ai/` + `hooks/` + `services/`）：悬浮按钮/助手栏/Tab 头部/洞察卡片/动作列表/聊天输入/空状态
+- 4 种分析模式：今日判断 / 风险与闭环 / 汇报与周会 / 自由问答
+- 规则+LLM 混合架构：风险/闭环用规则引擎先提炼，LLM 再润色
+- Mock Fallback：无 LLM Key 时自动降级，系统不崩
+
+**页面接入**
+- Dashboard：AI 分析按钮
+- Week：闭环检查 + 准备周会
+- Projects：AI 风险分析
+- WeeklyReports：AI 简报 + 周会议程
+
+**AI API**
+- `POST /api/ai/panel` — 获取面板数据
+- `POST /api/ai/analyze` — AI 分析
+- `POST /api/ai/chat` — 自由问答
+- `POST /api/ai/briefing` — 生成简报
+- `GET /api/ai/badge-summary` — 角标摘要
+
+**环境变量**
+- `AI_LLM_PROVIDER` / `AI_LLM_API_KEY` / `AI_LLM_MODEL` / `AI_LLM_BASE_URL`
+- 当前配置：DeepSeek V4 Flash（deepseek-v4-flash）
+
+---
+
+### v5.1.0 — 2026-04-24 · 时间进度逻辑升级
+
+> 核心改动：用时间进度替代硬阈值判断，解决季度初期正常指标被误判"落后"的问题。
+
+**时间进度计算**
+- 新建 `timeProgress.js` 工具，计算季度/年度时间进度百分比
+- 完成率 vs 时间进度 ±5% 判断：超前(>tp+5%) / 正常(±5%内) / 落后(<tp-5%)
+- 影响：后端 6 个 controller + 1 个 service + 前端 5 个页面 + 1 个工具文件，共 14 文件
+
+**附加修复**
+- auth.js 中 super_admin 未被识别为 roleLevel=0 的 bug 修复
+
+---
+
+### v5.0.0 — 2026-04-23 · 部门动态化 + 字段合并 + 草稿 + 同步选项
+
+> 核心改动：部门从硬编码升级为动态 CRUD；"阻塞中"合入"风险"；新增项目草稿功能；项目同步到月度/季度。
+
+**12 项全部完成**
+- 部门动态化：后端 CRUD API + 前端 DepartmentSelect 组件 + Dashboard 动态化
+- 字段合并：block_reason 合入 next_action，"阻塞中"状态合入"风险"
+- 每日更新追加：weekly_progress 自动追加 [MM/DD] 标记
+- 同步选项：sync_to_monthly / sync_to_achievement — 在新增/编辑项目 Modal 中勾选
+- 个人数据权限：MonthlyTask/Achievement 的 update/delete 加 creator_id 校验
+- 删除确认：7 个页面全部加 Popconfirm
+- 部门管理页面：/departments 路由，系统管理菜单新增入口
+- 权限矩阵新增：department.read/create/update/delete
+
+---
+
+### v4.4.0 — 2026-04-24 · 权限隔离加固
+
+> 核心改动：全量权限审计，修复跨部门数据泄露，9 个权限漏洞全部堵上。
+
+**P0 — dashboardController 跨部门数据泄露（根因修复）**
+- `Department.findAll()` 无条件取所有部门 → 加 `scopeDeptId` 过滤
+- 影响面：KPI 卡片/偏差检测/汇总计算/季度对比图 6 个数据点全部泄露
+
+**MEDIUM — importController 缺少 applyDataScope**
+- 导入路由缺 `applyDataScope` 中间件 → 已补上
+- `Department.findAll()` 无条件取所有部门 → 加 `scopeDeptId` 过滤
+
+**MEDIUM — weeklyReportController has_dept_data 字段泄露**
+- 列表接口返回 `has_dept_data` 暴露其他部门是否有数据 → 移除
+
+**LOW — 查询接口 dept_id 静默覆盖 → 403 拒绝**
+- project/performance/monthlyTask/achievement 4 个列表接口
+- 旧逻辑：用户传 `?dept_id=2` 被静默替换为 `req.deptFilter=1`
+- 新逻辑：冲突时返回 403 "无权查看其他部门数据"
+
+**LOW — 更新接口 dept_id 跨部门修改校验**
+- 5 个 update 接口（project/kpi/performance/monthlyTask/achievement）
+- 新 `dept_id` 不在权限范围内时返回 403 "无权将数据转移到其他部门"
+
+**其他修复（同日）**
+- 首页数据权限：dashboardController 3 处查询漏了 deptFilter（dueThisWeek/staleProjects/todayChanges）
+- 编辑项目白屏防御：handleEdit 从 `{...record}` 全展开改为字段白名单 + safeMoment() + boolean 强转
+- 项目草稿功能：localStorage 自动保存/恢复/清除
+- AI 环境变量：.env 补 DeepSeek 真通道配置
+- SQLITE_READONLY 根治：pm2 必须用 delete+start，database.js 绝对路径 + 显式写权限声明
+
+---
+
 ### v4.3.0 — 2026-04-22 · V4 上线加固收尾
 
 > 核心改动：SQLite 兼容修复、数据权限全量落地、字段白名单加固、前端 owner 自动填充。
@@ -660,6 +753,10 @@ docker-compose up -d --build
 - [x] v4.1.0 周报部门权限隔离 + 年度指标独立录入 + 入口更名
 - [x] v4.2.0 角色化仪表盘 + 项目看板 + 季度回退 + 审计覆盖 + 上线清单
 - [x] v4.3.0 V4 上线加固收尾（SQLite兼容 + 数据权限全量落地 + 字段白名单 + smoke test + export越权修复）
+- [x] v4.4.0 权限隔离加固（Department.findAll泄露 + importController中间件 + has_dept_data移除 + dept_id 403拒绝 + 跨部门修改校验）
+- [x] v5.0.0 部门动态化 + 字段合并 + 草稿 + 同步选项 + 删除确认 + 部门管理页
+- [x] v5.1.0 时间进度逻辑升级（硬阈值→时间进度对比）
+- [x] v6.0.0 AI 智能助手上线（4模式 + DeepSeek LLM + Mock Fallback + 全页面接入）
 
 ## License
 
