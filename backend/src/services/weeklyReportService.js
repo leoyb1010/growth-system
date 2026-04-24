@@ -18,6 +18,11 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   const currentQuarter = moment(weekStart).quarter();
   const quarterLabel = `Q${currentQuarter}`;
 
+  // 预加载部门映射表，避免硬编码 dept_id → dept_name
+  const allDepartments = await Department.findAll({ attributes: ['id', 'name'] });
+  const deptMap = {};
+  allDepartments.forEach(d => { deptMap[d.id] = d.name; });
+
   // 1. 本周数据摘要（对比上周）
   const kpiWhere = { quarter: quarterLabel };
   if (deptFilter) kpiWhere.dept_id = deptFilter;
@@ -28,7 +33,8 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   const kpiSummary = currentKpis.map(kpi => {
     const rate = kpi.target > 0 ? parseFloat(((kpi.actual / kpi.target) * 100).toFixed(2)) : 0;
     return {
-      dept_name: kpi.dept_id === 1 ? '拓展组' : '运营组',
+      dept_id: kpi.dept_id,
+      dept_name: deptMap[kpi.dept_id] || '未知部门',
       indicator: kpi.indicator_name,
       target: kpi.target,
       actual: kpi.actual,
@@ -50,6 +56,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 
   const projectProgress = updatedProjects.map(p => ({
     id: p.id,
+    dept_id: p.dept_id,
     dept_name: p.Department?.name || '',
     name: p.name,
     owner_name: p.owner_name,
@@ -69,6 +76,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 
   const riskList = riskProjects.map(p => ({
     id: p.id,
+    dept_id: p.dept_id,
     dept_name: p.Department?.name || '',
     name: p.name,
     owner_name: p.owner_name,
@@ -92,6 +100,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
       const rate = (totalActual / totalTarget) * 100;
       if (rate < 60) {
         severeWarnings.push({
+          dept_id: p.dept_id,
           dept_name: p.Department?.name || '',
           business_type: p.business_type,
           indicator: p.indicator,
@@ -115,6 +124,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 
   const nextWeekKeyWork = focusProjects.map(p => ({
     id: p.id,
+    dept_id: p.dept_id,
     dept_name: p.Department?.name || '',
     name: p.name,
     owner_name: p.owner_name,
@@ -137,6 +147,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 
   const followUps = followUpTasks.map(t => ({
     id: t.id,
+    dept_id: t.dept_id,
     dept_name: t.Department?.name || '',
     task: t.task,
     owner_name: t.owner_name,
@@ -156,6 +167,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
 
   const achievementList = newAchievements.map(a => ({
     id: a.id,
+    dept_id: a.dept_id,
     dept_name: a.Department?.name || '',
     project_name: a.project_name,
     owner_name: a.owner_name,
@@ -242,7 +254,7 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
     conclusions.push('本周无项目更新，请各负责人及时录入进展。');
   }
 
-  return conclusions.join(' ');
+  return conclusions.join('；');
 }
 
 /**

@@ -17,6 +17,21 @@ function WeeklyReportPage() {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyReport, setHistoryReport] = useState(null);
 
+  // 渲染含换行的文本：\n → <br/>，同时限制最大宽度并自动换行
+  const renderText = (text) => {
+    if (!text) return '-';
+    const lines = String(text).split('\n');
+    return lines.map((line, i) => (
+      <span key={i}>
+        {line}
+        {i < lines.length - 1 && <br />}
+      </span>
+    ));
+  };
+
+  // 表格单元格样式：自动换行+限制最大宽度
+  const cellStyle = { whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: 260 };
+
   useEffect(() => {
     fetchReports();
     fetchLatestReport();
@@ -50,15 +65,11 @@ function WeeklyReportPage() {
       const res = await api.post('/weekly-reports/generate', {});
       if (res.code === 0) {
         message.success('周报生成成功');
+        // 统一设置 currentReport，content 字段为完整数据
         setCurrentReport(res.data);
         fetchReports();
       } else {
         message.error(res.message || '生成周报失败');
-      }
-      if (res.code === 0) {
-        message.success('周报生成成功');
-        setCurrentReport({ id: res.data.id, content: res.data });
-        fetchReports();
       }
     } catch (err) {
       console.error('生成周报失败:', err);
@@ -185,6 +196,8 @@ function WeeklyReportPage() {
   const generateDocHtml = (content) => {
     const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
     const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
+    // 文本换行辅助：\n → <br/>
+    const textToHtml = (t) => (t || '-').replace(/\n/g, '<br/>');
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"><title>增长组周报</title>
 <style>
@@ -192,9 +205,10 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; padding: 40px;
 h1 { color: #3B5AFB; border-bottom: 3px solid #3B5AFB; padding-bottom: 10px; }
 h2 { color: #262626; border-left: 4px solid #3B5AFB; padding-left: 10px; margin-top: 30px; }
 h3 { color: #595959; }
-table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-th, td { border: 1px solid #d9d9d9; padding: 8px 12px; font-size: 13px; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; table-layout: fixed; }
+th, td { border: 1px solid #d9d9d9; padding: 8px 12px; font-size: 13px; word-break: break-word; overflow-wrap: break-word; }
 th { background: #fafafa; font-weight: 600; }
+td.text-cell { max-width: 260px; white-space: pre-wrap; }
 .risk { color: #DC2626; font-weight: 600; }
 .footer { margin-top: 30px; color: #8c8c8c; font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 10px; }
 </style></head><body>`;
@@ -210,18 +224,18 @@ th { background: #fafafa; font-weight: 600; }
     } else { html += `<p>暂无数据</p>`; }
     html += `<h2>二、重点工作进展</h2>`;
     if (project_progress?.length) {
-      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>本周进展</th><th>进度</th><th>状态</th></tr>`;
+      html += `<table><tr><th style="width:60px">部门</th><th style="width:100px">项目名称</th><th style="width:60px">负责人</th><th class="text-cell">本周进展</th><th style="width:50px">进度</th><th style="width:50px">状态</th></tr>`;
       project_progress.forEach(p => {
         const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
-        html += `<tr${rowStyle}><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td>${p.weekly_progress || '-'}</td><td>${p.progress_pct}%</td><td${p.status === '风险' ? ' class="risk"' : ''}>${p.status}</td></tr>`;
+        html += `<tr${rowStyle}><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.weekly_progress)}</td><td>${p.progress_pct}%</td><td${p.status === '风险' ? ' class="risk"' : ''}>${p.status}</td></tr>`;
       });
       html += `</table>`;
     } else { html += `<p>本周无更新项目</p>`; }
     html += `<h2>三、风险与预警</h2>`;
     if (risk_and_warnings?.risk_projects?.length) {
       html += `<h3>风险项目（${risk_and_warnings.risk_projects.length} 项）</h3>`;
-      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr>`;
-      risk_and_warnings.risk_projects.forEach(p => { html += `<tr style="background:#FEF2F2"><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td>${p.risk_desc || '-'}</td></tr>`; });
+      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th class="text-cell">风险描述</th></tr>`;
+      risk_and_warnings.risk_projects.forEach(p => { html += `<tr style="background:#FEF2F2"><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`; });
       html += `</table>`;
     }
     if (!risk_and_warnings?.risk_projects?.length && !risk_and_warnings?.severe_warnings?.length) {
@@ -229,14 +243,14 @@ th { background: #fafafa; font-weight: 600; }
     }
     html += `<h2>四、下周重点工作</h2>`;
     if (keyWorkItems.length) {
-      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr>`;
-      keyWorkItems.forEach(p => { html += `<tr><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td>${p.next_week_focus || p.due_date || '-'}</td><td>${p.progress_pct}%</td><td>${p.status || '-'}</td></tr>`; });
+      html += `<table><tr><th style="width:60px">部门</th><th style="width:100px">项目名称</th><th style="width:60px">负责人</th><th class="text-cell">下周重点工作</th><th style="width:50px">进度</th><th style="width:50px">状态</th></tr>`;
+      keyWorkItems.forEach(p => { html += `<tr><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.next_week_focus || p.due_date)}</td><td>${p.progress_pct}%</td><td>${p.status || '-'}</td></tr>`; });
       html += `</table>`;
     }
     html += `<h2>五、新增成果</h2>`;
     if (new_achievements?.length) {
-      html += `<table><tr><th>部门</th><th>项目/工作</th><th>负责人</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr>`;
-      new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.owner_name}</td><td>${a.achievement_type}</td><td>${a.quantified_result || '-'}</td><td>${a.priority}</td></tr>`; });
+      html += `<table><tr><th>部门</th><th>项目/工作</th><th>负责人</th><th>成果类型</th><th class="text-cell">量化结果</th><th>优先级</th></tr>`;
+      new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.owner_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td>${a.priority}</td></tr>`; });
       html += `</table>`;
     } else { html += `<p>本周无新增成果</p>`; }
     html += `<div class="footer">自动生成于 ${content.generated_at}</div></body></html>`;
@@ -272,7 +286,7 @@ th { background: #fafafa; font-weight: 600; }
               📋 本周结论
               <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>自动生成</Tag>
             </div>
-            {content.week_conclusion}
+            {renderText(content.week_conclusion)}
           </div>
         )}
 
@@ -345,7 +359,9 @@ th { background: #fafafa; font-weight: 600; }
               <tbody>
                 {project_progress.map((p, idx) => (
                   <tr key={idx} className={p.status === '风险' ? 'risk-row' : ''}>
-                    <td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td>{p.weekly_progress || '-'}</td><td>{p.progress_pct}%</td>
+                    <td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td>
+                    <td style={cellStyle}>{renderText(p.weekly_progress)}</td>
+                    <td>{p.progress_pct}%</td>
                     <td>{p.status === '风险' ? <span className="risk-tag">风险</span> : p.status}</td>
                   </tr>
                 ))}
@@ -366,7 +382,7 @@ th { background: #fafafa; font-weight: 600; }
                 <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr></thead>
                 <tbody>
                   {risk_and_warnings.risk_projects.map((p, idx) => (
-                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td>{p.risk_desc || '-'}</td></tr>
+                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={cellStyle}>{renderText(p.risk_desc)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -399,7 +415,7 @@ th { background: #fafafa; font-weight: 600; }
               <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
               <tbody>
                 {keyWorkItems.map((p, idx) => (
-                  <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={{ whiteSpace: 'pre-wrap', maxWidth: 200 }}>{p.next_week_focus || p.due_date || '-'}</td><td>{p.progress_pct}%</td><td>{p.status || '-'}</td></tr>
+                  <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={cellStyle}>{renderText(p.next_week_focus || p.due_date)}</td><td>{p.progress_pct}%</td><td>{p.status || '-'}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -417,7 +433,7 @@ th { background: #fafafa; font-weight: 600; }
               <tbody>
                 {new_achievements.map((a, idx) => (
                   <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.owner_name}</td><td>{a.achievement_type}</td>
-                  <td>{a.quantified_result || '-'}</td>
+                  <td style={cellStyle}>{renderText(a.quantified_result)}</td>
                   <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td></tr>
                 ))}
               </tbody>

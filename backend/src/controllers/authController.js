@@ -25,9 +25,12 @@ async function login(req, res) {
       return error(res, '用户名或密码错误', 1, 401);
     }
 
-    // V4: 检查账号状态
+    // V4: 检查账号状态（disabled 和 pending 都不允许登录）
     if (user.status === 'disabled') {
       return error(res, '账号已被禁用，请联系管理员', 1, 403);
+    }
+    if (user.status === 'pending') {
+      return error(res, '账号待审核，请联系管理员激活', 1, 403);
     }
 
     const isValid = await bcrypt.compare(password, user.password_hash);
@@ -81,6 +84,13 @@ async function getCurrentUser(req, res) {
     if (!user) {
       return error(res, '用户不存在', 1, 404);
     }
+    // 禁用或待审核用户不允许访问
+    if (user.status === 'disabled') {
+      return error(res, '账号已被禁用', 1, 403);
+    }
+    if (user.status === 'pending') {
+      return error(res, '账号待审核', 1, 403);
+    }
     // 注入 roleLevel
     const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
     const userData = user.toJSON();
@@ -132,11 +142,17 @@ async function changePassword(req, res) {
 }
 
 /**
- * 用户注册（公开，默认普通成员角色）
+ * 用户注册
  * POST /api/auth/register
+ * 默认关闭公开注册，需设置 ENABLE_PUBLIC_REGISTER=true 才开放
  */
 async function register(req, res) {
   try {
+    // 检查是否开放公开注册
+    if (process.env.ENABLE_PUBLIC_REGISTER !== 'true') {
+      return error(res, '当前系统不开放公开注册，请联系管理员创建账号', 1, 403);
+    }
+
     const { username, name, password } = req.body;
 
     if (!username || !name || !password) {
@@ -157,34 +173,23 @@ async function register(req, res) {
       name,
       role: 'dept_staff',   // 注册账号默认普通成员
       password_hash: passwordHash,
-      status: 'active',
+      status: 'pending',    // 公开注册默认待审核，不自动 active
       must_change_password: false,
-    });
-
-    // 注册成功后自动登录
-    const roleLevel = 2;
-    const token = generateToken({
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role,
-      dept_id: user.dept_id,
-      roleLevel
     });
 
     await logAudit('users', user.id, 'create', { id: user.id, name: user.name, system: true }, null, { username: user.username, role: user.role, register: true });
 
+    // 不自动登录，需管理员审核激活后才能登录
     success(res, {
-      token,
       user: {
         id: user.id,
         username: user.username,
         name: user.name,
         role: user.role,
-        roleLevel,
         dept_id: user.dept_id,
+        status: user.status,
       }
-    }, '注册成功');
+    }, '注册成功，请等待管理员审核激活');
   } catch (err) {
     console.error('注册失败:', err);
     error(res, '注册失败，请稍后重试', 1, 500);

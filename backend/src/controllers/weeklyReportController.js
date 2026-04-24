@@ -1,4 +1,5 @@
 const { WeeklyReport } = require('../models');
+const { Department } = require('../models');
 const { generateWeeklyReportData } = require('../services/weeklyReportService');
 const { sendWeeklyReportToFeishu } = require('../services/feishuService');
 const { success, error } = require('../utils/response');
@@ -99,7 +100,7 @@ async function getLatestReport(req, res) {
     // 部门过滤内容
     const deptFilter = req.deptFilter || null;
     const content = deptFilter && report.content_json
-      ? filterReportContentForDept(report.content_json, deptFilter).content
+      ? (await filterReportContentForDept(report.content_json, deptFilter)).content
       : report.content_json;
 
     success(res, {
@@ -133,7 +134,7 @@ async function getReportById(req, res) {
     // 部门过滤内容
     const deptFilter = req.deptFilter || null;
     const content = deptFilter && report.content_json
-      ? filterReportContentForDept(report.content_json, deptFilter).content
+      ? (await filterReportContentForDept(report.content_json, deptFilter)).content
       : report.content_json;
 
     success(res, {
@@ -207,53 +208,70 @@ module.exports = {
 
 /**
  * 根据部门过滤周报内容
- * dept_id: 1=拓展组, 2=运营组
+ * 优先按 dept_id 过滤（新数据），fallback dept_name（老数据兼容）
  * 过滤 kpi_summary, project_progress, risk_and_warnings, next_week_key_work, new_achievements 中的部门数据
  */
-function filterReportContentForDept(content, deptId) {
+async function filterReportContentForDept(content, deptId) {
   if (!content) return { content: null, hasData: false };
 
-  const deptNameMap = { 1: '拓展组', 2: '运营组' };
-  const deptName = deptNameMap[deptId] || '';
+  // 动态获取部门名称，不再硬编码
+  const dept = await Department.findByPk(deptId);
+  const deptName = dept ? dept.name : '';
 
   const filtered = { ...content };
 
-  // 过滤 KPI 摘要
+  // 过滤 KPI 摘要：优先 dept_id，fallback dept_name
   if (filtered.kpi_summary) {
-    filtered.kpi_summary = filtered.kpi_summary.filter(k => k.dept_name === deptName);
+    filtered.kpi_summary = filtered.kpi_summary.filter(k =>
+      k.dept_id === deptId || k.dept_name === deptName
+    );
   }
 
   // 过滤项目进展
   if (filtered.project_progress) {
-    filtered.project_progress = filtered.project_progress.filter(p => p.dept_name === deptName);
+    filtered.project_progress = filtered.project_progress.filter(p =>
+      p.dept_id === deptId || p.dept_name === deptName
+    );
   }
 
   // 过滤风险与预警
   if (filtered.risk_and_warnings) {
     const raw = filtered.risk_and_warnings;
     filtered.risk_and_warnings = {
-      risk_projects: (raw.risk_projects || []).filter(p => p.dept_name === deptName),
-      severe_warnings: (raw.severe_warnings || []).filter(w => w.dept_name === deptName),
+      risk_projects: (raw.risk_projects || []).filter(p =>
+        p.dept_id === deptId || p.dept_name === deptName
+      ),
+      severe_warnings: (raw.severe_warnings || []).filter(w =>
+        w.dept_id === deptId || w.dept_name === deptName
+      ),
     };
   }
 
   // 过滤下周重点工作
   if (filtered.next_week_key_work) {
-    filtered.next_week_key_work = (filtered.next_week_key_work || []).filter(p => p.dept_name === deptName);
+    filtered.next_week_key_work = (filtered.next_week_key_work || []).filter(p =>
+      p.dept_id === deptId || p.dept_name === deptName
+    );
   }
 
   // 兼容旧周报数据：如果有 next_week_focus 字段（旧格式），也做过滤
   if (filtered.next_week_focus) {
     const raw = filtered.next_week_focus;
     filtered.next_week_focus = {
-      upcoming_projects: (raw.upcoming_projects || []).filter(p => p.dept_name === deptName),
-      follow_up_items: (raw.follow_up_items || []).filter(t => t.dept_name === deptName),
+      upcoming_projects: (raw.upcoming_projects || []).filter(p =>
+        p.dept_id === deptId || p.dept_name === deptName
+      ),
+      follow_up_items: (raw.follow_up_items || []).filter(t =>
+        t.dept_id === deptId || t.dept_name === deptName
+      ),
     };
   }
 
   // 过滤新增成果
   if (filtered.new_achievements) {
-    filtered.new_achievements = filtered.new_achievements.filter(a => a.dept_name === deptName);
+    filtered.new_achievements = filtered.new_achievements.filter(a =>
+      a.dept_id === deptId || a.dept_name === deptName
+    );
   }
 
   // 更新摘要
@@ -277,7 +295,9 @@ function filterReportContentForDept(content, deptId) {
     filtered.week_conclusion = regenerateConclusion(filtered);
   }
   if (filtered.key_changes) {
-    filtered.key_changes = (filtered.key_changes || []).filter(c => c.text.includes(deptName));
+    filtered.key_changes = (filtered.key_changes || []).filter(c =>
+      c.text.includes(deptName) || (deptId && c.text.includes(`部门${deptId}`))
+    );
   }
 
   const hasData = (filtered.kpi_summary?.length > 0) ||
@@ -314,5 +334,5 @@ function regenerateConclusion(data) {
   const riskCount = (data.risk_and_warnings?.risk_projects || []).length;
   if (riskCount > 0) parts.push(`当前有${riskCount}个风险项目需关注。`);
 
-  return parts.join(' ');
+  return parts.join('；');
 }

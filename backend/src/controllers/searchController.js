@@ -3,6 +3,58 @@ const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 
 /**
+ * 构建搜索条件下的数据范围过滤
+ * - all: 不加过滤
+ * - department: dept_id = user.dept_id
+ * - self: dept_id = user.dept_id AND (owner_user_id/creator_id = user.id OR owner_name = user.name)
+ */
+function buildScopeWhere(access, resourceType) {
+  if (!access) return {};
+
+  const { dataScopeType, dataScopeValue, deptId } = access;
+  const where = {};
+
+  switch (dataScopeType) {
+    case 'all':
+      // 不加任何过滤
+      break;
+    case 'department':
+      where.dept_id = deptId;
+      break;
+    case 'self': {
+      where.dept_id = deptId;
+      const userId = dataScopeValue;
+      const userName = access.username;
+
+      if (resourceType === 'project') {
+        // 项目有 owner_user_id 和 creator_id
+        where[Op.or] = [
+          { owner_user_id: userId },
+          { creator_id: userId },
+          { owner_name: userName }
+        ];
+      } else if (resourceType === 'monthly_task') {
+        where[Op.or] = [
+          { creator_id: userId },
+          { owner_name: userName }
+        ];
+      } else if (resourceType === 'achievement') {
+        where[Op.or] = [
+          { creator_id: userId },
+          { owner_name: userName }
+        ];
+      }
+      // kpi 没有 owner 字段，self 只看本部门
+      break;
+    }
+    default:
+      where.dept_id = deptId;
+  }
+
+  return where;
+}
+
+/**
  * 全局搜索
  * GET /api/search?q=keyword
  * 跨项目、指标、月度工作、季度成果搜索
@@ -17,12 +69,16 @@ async function globalSearch(req, res) {
     // SQLite 不支持 ILIKE，使用 LIKE（SQLite 对 ASCII 默认大小写不敏感）
     const likeQuery = { [Op.like]: `%${keyword}%` };
 
-    const deptWhere = req.deptFilter ? { dept_id: req.deptFilter } : {};
+    // 使用 access 权限上下文构建数据范围
+    const projectScope = buildScopeWhere(req.access, 'project');
+    const kpiScope = buildScopeWhere(req.access, 'kpi');
+    const monthlyTaskScope = buildScopeWhere(req.access, 'monthly_task');
+    const achievementScope = buildScopeWhere(req.access, 'achievement');
 
     // 1. 搜索重点工作
     const projects = await Project.findAll({
       where: {
-        ...deptWhere,
+        ...projectScope,
         [Op.or]: [
           { name: likeQuery },
           { owner_name: likeQuery },
@@ -38,7 +94,7 @@ async function globalSearch(req, res) {
     // 2. 搜索核心指标
     const kpis = await Kpi.findAll({
       where: {
-        ...deptWhere,
+        ...kpiScope,
         [Op.or]: [
           { indicator_name: likeQuery },
           { unit: likeQuery }
@@ -52,7 +108,7 @@ async function globalSearch(req, res) {
     // 3. 搜索月度工作
     const monthlyTasks = await MonthlyTask.findAll({
       where: {
-        ...deptWhere,
+        ...monthlyTaskScope,
         [Op.or]: [
           { task: likeQuery },
           { owner_name: likeQuery },
@@ -68,7 +124,7 @@ async function globalSearch(req, res) {
     // 4. 搜索季度成果
     const achievements = await Achievement.findAll({
       where: {
-        ...deptWhere,
+        ...achievementScope,
         [Op.or]: [
           { project_name: likeQuery },
           { owner_name: likeQuery },
