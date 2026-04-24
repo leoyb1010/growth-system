@@ -109,6 +109,24 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
+    // ⚠️ 关键自检：验证数据库写入权限（检测 SQLITE_READONLY 问题）
+    try {
+      const dialect = process.env.DB_DIALECT || 'postgres';
+      if (dialect === 'sqlite') {
+        await sequelize.query('PRAGMA journal_mode=WAL');
+        const [results] = await sequelize.query('PRAGMA journal_mode');
+        console.log(`[DB] SQLite journal_mode: ${results[0]?.journal_mode || 'unknown'}`);
+      }
+    } catch (dbWriteErr) {
+      if (dbWriteErr.original && dbWriteErr.original.code === 'SQLITE_READONLY') {
+        console.error('❌❌❌ 致命错误：数据库只读（SQLITE_READONLY）！');
+        console.error('❌ 这通常是因为 pm2 restart 没有释放旧连接。');
+        console.error('❌ 解决方法：pm2 delete growth-system && pm2 start src/app.js --name growth-system');
+        process.exit(1);
+      }
+      console.warn('[DB] 写入自检警告（非致命）:', dbWriteErr.message);
+    }
+
     // 同步模型（开发环境自动建表，生产环境建议用迁移）
     const dialect = process.env.DB_DIALECT || 'postgres';
     if (process.env.NODE_ENV !== 'production') {

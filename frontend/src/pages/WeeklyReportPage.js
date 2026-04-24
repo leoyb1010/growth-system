@@ -143,7 +143,9 @@ function WeeklyReportPage() {
   };
 
   const generateMarkdown = (content) => {
-    const { kpi_summary, project_progress, risk_and_warnings, next_week_focus, new_achievements } = content;
+    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
+    // 兼容旧周报：next_week_key_work 优先，fallback 到 next_week_focus.upcoming_projects
+    const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
     let md = `# 增长组业务周报\n\n`;
     md += `**周期**：${content.week_start} 至 ${content.week_end}\n\n---\n\n`;
     md += `## 一、本周数据摘要\n\n`;
@@ -165,10 +167,10 @@ function WeeklyReportPage() {
     if (!risk_and_warnings?.risk_projects?.length && !risk_and_warnings?.severe_warnings?.length) {
       md += `✅ 本周无风险项目或严重预警指标\n\n`;
     }
-    md += `## 四、下周焦点\n\n`;
-    if (next_week_focus?.upcoming_projects?.length) {
-      md += `| 部门 | 项目名称 | 负责人 | 到期日 | 当前进度 |\n|------|----------|--------|--------|----------|\n`;
-      next_week_focus.upcoming_projects.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.owner_name} | ${p.due_date} | ${p.progress_pct}% |\n`; });
+    md += `## 四、下周重点工作\n\n`;
+    if (keyWorkItems.length) {
+      md += `| 部门 | 项目名称 | 负责人 | 下周重点工作 | 进度 | 状态 |\n|------|----------|--------|-------------|------|------|\n`;
+      keyWorkItems.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.owner_name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
       md += `\n`;
     }
     md += `## 五、新增成果\n\n`;
@@ -181,7 +183,8 @@ function WeeklyReportPage() {
   };
 
   const generateDocHtml = (content) => {
-    const { kpi_summary, project_progress, risk_and_warnings, next_week_focus, new_achievements } = content;
+    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
+    const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
     let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"><title>增长组周报</title>
 <style>
@@ -224,10 +227,10 @@ th { background: #fafafa; font-weight: 600; }
     if (!risk_and_warnings?.risk_projects?.length && !risk_and_warnings?.severe_warnings?.length) {
       html += `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
     }
-    html += `<h2>四、下周焦点</h2>`;
-    if (next_week_focus?.upcoming_projects?.length) {
-      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>到期日</th><th>当前进度</th></tr>`;
-      next_week_focus.upcoming_projects.forEach(p => { html += `<tr><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td>${p.due_date}</td><td>${p.progress_pct}%</td></tr>`; });
+    html += `<h2>四、下周重点工作</h2>`;
+    if (keyWorkItems.length) {
+      html += `<table><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr>`;
+      keyWorkItems.forEach(p => { html += `<tr><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td>${p.next_week_focus || p.due_date || '-'}</td><td>${p.progress_pct}%</td><td>${p.status || '-'}</td></tr>`; });
       html += `</table>`;
     }
     html += `<h2>五、新增成果</h2>`;
@@ -244,10 +247,12 @@ th { background: #fafafa; font-weight: 600; }
 
   const renderReportContent = (content, compact = false) => {
     if (!content) return <Empty description="暂无周报数据" />;
-    const { kpi_summary, project_progress, risk_and_warnings, next_week_focus, new_achievements } = content;
+    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
+    // 兼容旧周报：next_week_key_work 优先，fallback 到 next_week_focus.upcoming_projects
+    const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
     const fontSize = compact ? 12 : 13;
     const riskCount = (risk_and_warnings?.risk_projects?.length || 0) + (risk_and_warnings?.severe_warnings?.length || 0);
-    const nextWeekCount = (next_week_focus?.upcoming_projects?.length || 0);
+    const nextWeekCount = keyWorkItems.length;
     const achievementCount = new_achievements?.length || 0;
 
     return (
@@ -308,7 +313,7 @@ th { background: #fafafa; font-weight: 600; }
             <Card className="surface-card" bodyStyle={{ padding: 16 }}>
               <div className="metric-label">下周重点</div>
               <div className="metric-value" style={{ fontSize: compact ? 22 : 28 }}>{nextWeekCount}</div>
-              <div className="subtle-text" style={{ fontSize: 11 }}>预计完成项</div>
+              <div className="subtle-text" style={{ fontSize: 11 }}>已填写重点工作</div>
             </Card>
           </Col>
         </Row>
@@ -386,34 +391,20 @@ th { background: #fafafa; font-weight: 600; }
           )}
         </div>
 
-        {/* 下周焦点 */}
+        {/* 下周重点工作 */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、下周焦点</div>
-          {next_week_focus?.upcoming_projects?.length > 0 && (
-            <>
-              <h4 style={{ fontSize: compact ? 13 : 14 }}>预计下周完成项目（{next_week_focus.upcoming_projects.length} 项）</h4>
-              <table style={{ fontSize }}>
-                <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>到期日</th><th>当前进度</th></tr></thead>
-                <tbody>
-                  {next_week_focus.upcoming_projects.map((p, idx) => (
-                    <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td>{p.due_date}</td><td>{p.progress_pct}%</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-          {next_week_focus?.follow_up_items?.length > 0 && (
-            <>
-              <h4 style={{ marginTop: 16, fontSize: compact ? 13 : 14 }}>下月跟进事项（{next_week_focus.follow_up_items.length} 项）</h4>
-              <table style={{ fontSize }}>
-                <thead><tr><th>部门</th><th>工作事项</th><th>负责人</th><th>下月跟进计划</th></tr></thead>
-                <tbody>
-                  {next_week_focus.follow_up_items.map((t, idx) => (
-                    <tr key={idx}><td>{t.dept_name}</td><td>{t.task}</td><td>{t.owner_name}</td><td>{t.next_month_plan}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、下周重点工作</div>
+          {keyWorkItems.length > 0 ? (
+            <table style={{ fontSize }}>
+              <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
+              <tbody>
+                {keyWorkItems.map((p, idx) => (
+                  <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={{ whiteSpace: 'pre-wrap', maxWidth: 200 }}>{p.next_week_focus || p.due_date || '-'}</td><td>{p.progress_pct}%</td><td>{p.status || '-'}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="subtle-text">暂无项目填写下周重点工作</p>
           )}
         </div>
 

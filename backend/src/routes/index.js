@@ -104,7 +104,7 @@ router.put('/weekly-reports/:id/html', ...auth, requirePermission('weekly_report
 router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================
-router.post('/import/excel', ...auth, requirePermission('import.excel'), upload.single('file'), importController.importExcel);
+router.post('/import/excel', ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), importController.importExcel);
 router.get('/export/:module', ...auth, requirePermission('export.data'), applyDataScope('export'), exportController.exportModule);
 
 // ==================== 季度归档 ====================

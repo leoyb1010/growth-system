@@ -114,6 +114,11 @@ async function updateKpi(req, res) {
     const updateData = {};
     allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
 
+    // 校验新 dept_id 是否在权限范围内（防止跨部门转移）
+    if (updateData.dept_id !== undefined && req.deptFilter && parseInt(updateData.dept_id) !== req.deptFilter) {
+      return error(res, '无权将数据转移到其他部门', 403, 403);
+    }
+
     const oldValues = kpi.toJSON();
     await kpi.update(updateData);
     await logAudit('kpis', kpi.id, 'update', getOperator(req), oldValues, kpi.toJSON());
