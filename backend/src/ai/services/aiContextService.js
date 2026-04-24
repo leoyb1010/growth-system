@@ -201,11 +201,12 @@ async function computeDerivedSignals(pageData, currentObject) {
 
   pageData.projects.forEach(p => {
     // staleDays
-    const lastUpdate = p.updated_at && moment(p.updated_at).isValid() ? moment(p.updated_at) : null;
+    const safeMoment = (v) => (v ? moment(v) : null);
+    const lastUpdate = p.updated_at && safeMoment(p.updated_at)?.isValid() ? safeMoment(p.updated_at) : null;
     const staleDays = lastUpdate ? now.diff(lastUpdate, 'days') : 999;
 
     // dueInDays
-    const dueDate = p.due_date && moment(p.due_date).isValid() ? moment(p.due_date) : null;
+    const dueDate = p.due_date && safeMoment(p.due_date)?.isValid() ? safeMoment(p.due_date) : null;
     const dueInDays = dueDate ? dueDate.diff(now, 'days') : null;
 
     // progressRisk
