@@ -117,7 +117,7 @@ async function handleChat(params) {
   try {
     const dataSummary = promptBuilder.formatDataSummary(context);
     const role = mapRole(currentUser.role);
-    const { systemPrompt, userPrompt } = promptBuilder.buildPrompt({
+    const { systemPrompt, userPrompt, warnings } = promptBuilder.buildPrompt({
       mode: 'free_ask',
       page: currentPage,
       role,
@@ -125,14 +125,26 @@ async function handleChat(params) {
       userQuery: query
     });
 
+    // 记录安全警告（如果有）
+    if (warnings && warnings.length > 0) {
+      console.warn('[AI 安全] Prompt注入检测:', warnings.join('; '));
+    }
+
     const llmOutput = await llmProvider.call(systemPrompt, userPrompt);
 
-    return formatChatResponse({
+    const result = formatChatResponse({
       answer: llmOutput,
       sources: ['AI 分析'],
       suggestedFollowUps: generateSuggestedFollowUps(context),
       isMock: false
     });
+
+    // 如果有安全警告，附加到响应中供前端展示
+    if (warnings && warnings.length > 0) {
+      result.warnings = warnings;
+    }
+
+    return result;
   } catch (err) {
     console.error('AI 自由问答 LLM 调用失败:', err.message);
     const answer = mockProvider.mockChatAnswer(query, context);
