@@ -116,6 +116,13 @@ async function startServer() {
         await sequelize.query('PRAGMA journal_mode=WAL');
         const [results] = await sequelize.query('PRAGMA journal_mode');
         console.log(`[DB] SQLite journal_mode: ${results[0]?.journal_mode || 'unknown'}`);
+        // 性能+安全加固：NORMAL 模式在 WAL 下安全，比 FULL 快 10-50 倍
+        await sequelize.query('PRAGMA synchronous=NORMAL');
+        // 并发等待：5 秒内重试而不是立即报 SQLITE_BUSY
+        await sequelize.query('PRAGMA busy_timeout=5000');
+        // 额外优化：WAL 自动检查点设为 1000 页（默认 1000，显式设置便于维护）
+        await sequelize.query('PRAGMA wal_autocheckpoint=1000');
+        console.log('[DB] SQLite PRAGMA加固完成: synchronous=NORMAL, busy_timeout=5000ms');
       }
     } catch (dbWriteErr) {
       if (dbWriteErr.original && dbWriteErr.original.code === 'SQLITE_READONLY') {
