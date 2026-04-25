@@ -20,10 +20,11 @@
 ## 技术栈
 
 - **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
-- **后端**：Node.js + Express 4 + Sequelize ORM
-- **数据库**：PostgreSQL 14+ / SQLite（本地开发）
-- **认证**：JWT + bcrypt
-- **部署**：Docker + Docker Compose / 本地单端口部署
+- **后端**：Node.js + Express 4 + Sequelize ORM + DeepSeek LLM
+- **数据库**：PostgreSQL 14+ / SQLite（本地开发 + 生产）
+- **认证**：JWT + bcrypt + token_version 校验
+- **AI**：DeepSeek Chat + 规则引擎混合架构 + SSE 流式输出
+- **部署**：Docker + Docker Compose / 本地 Mac + Cloudflare Tunnel
 
 ## 快速开始
 
@@ -125,33 +126,44 @@ psql -U growth -d growth_system -f backend/init.sql
 ```
 growth-system/
 ├── start.sh                    # 一键启动脚本（DB_DIALECT=sqlite + 前后端同端口）[v3.2]
+├── start-prod.sh               # 生产启动脚本（pm2 + 环境变量）[v6.1]
 ├── docker-compose.yml          # Docker 编排配置
 ├── backend/                    # 后端服务
 │   ├── Dockerfile
 │   ├── package.json
 │   ├── growth_system.sqlite   # SQLite 数据库（本地开发）[v3.2]
 │   ├── init.sql               # 数据库初始化脚本
+│   ├── backup.sh              # 自动备份脚本 [v6.1]
 │   ├── config/
 │   │   └── database.js        # 数据库配置（支持 PostgreSQL / SQLite 切换）
 │   └── src/
 │       ├── app.js             # 应用入口（含前端静态托管 + SPA回退）[v3.2]
 │       ├── routes/            # 路由配置
-│       ├── models/            # Sequelize 数据模型
+│       │   └── fileRoutes.js  # 文件鉴权下载路由 [v6.1]
+│       ├── models/            # Sequelize 数据模型（5表 paranoid 软删除）[v6.1]
 │       ├── controllers/       # 业务控制器
 │       ├── services/          # 业务服务（周报生成、定时任务）
-│       ├── middleware/        # 中间件（认证、权限）
-│       └── utils/             # 工具函数
+│       ├── middleware/        # 中间件（认证、权限、限流）
+│       ├── utils/             # 工具函数
+│       └── ai/                # AI 助手模块 [v6.0]
+│           ├── controllers/   # AI 控制器（含 SSE streamChat）[v6.1]
+│           ├── services/      # LLM Provider / 编排器 / 上下文服务
+│           ├── routes/        # AI 路由
+│           └── utils/         # promptSecurity / aiOutputParser / aiFormatters [v6.1]
 ├── frontend/                   # 前端应用
 │   ├── Dockerfile
 │   ├── package.json
 │   ├── nginx.conf             # Nginx 配置
 │   └── src/
-│       ├── App.js             # 路由配置
+│       ├── App.js             # 路由配置（React.lazy 懒加载）[v6.1]
 │       ├── index.js           # 入口文件
-│       ├── hooks/             # 自定义 Hooks（useAuth）
+│       ├── index.css          # Design Token CSS 变量体系 [v6.1]
+│       ├── hooks/             # 自定义 Hooks（useAuth / useSubmitGuard / useAIStream）[v6.1]
 │       ├── utils/             # 工具函数
 │       │   └── constants.js   # 统一状态色/进度色/样式常量 [v3.0]
 │       ├── components/        # 公共组件
+│       │   ├── ErrorBoundary.js  # 错误边界（全局+每页）[v6.1]
+│       │   └── AsyncState.js     # 统一异步状态组件 [v6.1]
 │       └── pages/             # 页面组件
 │           ├── DashboardPage.js      # 管理首页（今日提醒+本周关注+重点推进+长期未更新）[v3.2重构]
 │           ├── KpiPage.js            # 核心指标（含业务线业绩表）[v3.0增强]
@@ -281,6 +293,18 @@ growth-system/
 - `GET /api/dashboard/week-focus` - 本周关注点（规则驱动）[v3.2]
 - `GET /api/dashboard/week-summary` - 本周摘要统计 [v3.2]
 
+### AI 助手
+- `POST /api/ai/panel` — 获取面板数据
+- `POST /api/ai/analyze` — AI 分析
+- `POST /api/ai/chat` — 自由问答
+- `POST /api/ai/chat-stream` — 流式自由问答（SSE）
+- `POST /api/ai/briefing` — 生成简报
+- `GET /api/ai/badge-summary` — 角标摘要
+
+### 文件下载（鉴权）
+- `GET /api/files/exports/:filename` — 下载导出文件（需 export.data 权限）
+- `GET /api/files/weekly-reports/:filename` — 下载周报文件（需 weekly_report.read 权限）
+
 ### 周报
 - `POST /api/weekly-reports/generate` - 生成周报
 - `GET /api/weekly-reports` - 周报列表
@@ -360,6 +384,38 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v6.1.0 — 2026-04-25 · 安全加固 + 体验升级
+
+> 核心改动：3 波 18 项安全与体验升级，覆盖认证防护、数据安全、AI 输出标准化、前端性能优化。
+
+**Wave 1 — 安全加固（4 项）**
+- SQLite PRAGMA 加固：WAL + synchronous=NORMAL + busy_timeout=5000 + wal_autocheckpoint
+- 自动备份脚本 backup.sh + crontab（每日 2:00 / 每周日 3:00，7 天 daily + 4 周 weekly）
+- 限流细化：登录 5 次/分 + AI 20 次/分 + 导入 10 次/分
+- AI Prompt 注入防护：promptSecurity.js（13 条规则）+ 用户输入隔离 + 系统指令加固
+
+**Wave 2 — 认证与数据安全（8 项）**
+- User Model 加 token_version：修改密码递增，旧 token 自动失效
+- authenticate 中间件：DB 失败返回 503（不降级）+ token_version 校验 + pending 状态拦截
+- import 事务包裹：sequelize.transaction 保证导入原子性
+- 导出文件鉴权：`/uploads` 和 `/weekly-reports` 不再静态暴露，改为 `/api/files/` 鉴权下载
+- 前端 ErrorBoundary：全局 + 每页包裹，单页崩溃不影响其他页面
+- 软删除：5 个业务表 paranoid + Department status 字段 + User 软删除=disabled
+- getRecordHistory 权限补丁：需 audit.read 权限
+
+**Wave 3 — 体验升级（6 项）**
+- Design Token 补全：8 级字号 / 间距 / Z-index / 动画 + 语义色 light 变体
+- 代码分割：React.lazy + Suspense 懒加载 15 个页面，首屏按需加载
+- useSubmitGuard hook：防重复提交，支持 cooldown 冷却期
+- AI 输出标准化：aiOutputParser.js（JSON 提取 + 纯文本解析 + 置信度 + Markdown 清理）
+- AsyncState 组件：统一 loading/error/empty/data 四种状态
+- AI 流式输出 SSE：后端 callStream + streamChat 路由 + 前端 useAIStream hook
+
+**SQLite 新增列**
+- `users.token_version` / `departments.status` / `kpis/projects/performances/monthly_tasks/achievements.deleted_at`
+
+---
 
 ### v6.0.0 — 2026-04-24 · AI 智能助手上线
 
@@ -757,6 +813,7 @@ docker-compose up -d --build
 - [x] v5.0.0 部门动态化 + 字段合并 + 草稿 + 同步选项 + 删除确认 + 部门管理页
 - [x] v5.1.0 时间进度逻辑升级（硬阈值→时间进度对比）
 - [x] v6.0.0 AI 智能助手上线（4模式 + DeepSeek LLM + Mock Fallback + 全页面接入）
+- [x] v6.1.0 安全加固 + 体验升级（3波18项：认证防护 + 数据安全 + AI标准化 + 前端性能）
 
 ## License
 
