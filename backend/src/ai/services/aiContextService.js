@@ -22,26 +22,38 @@ const { checkClosureCompleteness, comprehensiveClosureCheck } = require('../util
 async function assembleContext(options) {
   const { currentPage, currentObject = {}, currentUser = {} } = options;
 
-  // 构建数据范围过滤
-  const scopeWhere = buildScopeWhere(currentUser);
+  try {
+    // 构建数据范围过滤
+    const scopeWhere = buildScopeWhere(currentUser);
 
-  // 根据页面拉取不同数据
-  const pageData = await fetchPageData(currentPage, currentObject, scopeWhere, currentUser);
+    // 根据页面拉取不同数据
+    const pageData = await fetchPageData(currentPage, currentObject, scopeWhere, currentUser);
 
-  // 计算衍生信号
-  const derivedSignals = await computeDerivedSignals(pageData, currentObject);
+    // 计算衍生信号
+    const derivedSignals = await computeDerivedSignals(pageData, currentObject);
 
-  return {
-    pageData,
-    derivedSignals,
-    currentPage,
-    currentObject,
-    currentUser: {
-      id: currentUser.id,
-      role: currentUser.role,
-      deptId: currentUser.deptId
-    }
-  };
+    return {
+      pageData,
+      derivedSignals,
+      currentPage,
+      currentObject,
+      currentUser: {
+        id: currentUser.id,
+        role: currentUser.role,
+        deptId: currentUser.deptId
+      }
+    };
+  } catch (err) {
+    console.error('[AI] assembleContext 失败，降级为空上下文:', err.message);
+    // 降级：返回空上下文，让 AI 服务用 Mock 结果
+    return {
+      pageData: { projects: [], kpis: [], updateLogs: [] },
+      derivedSignals: { projectSignals: [], kpiSignals: [], closureGaps: [], ownerLoads: {}, quarterTimeProgress: 0 },
+      currentPage,
+      currentObject,
+      currentUser: { id: currentUser.id, role: currentUser.role, deptId: currentUser.deptId }
+    };
+  }
 }
 
 /**
@@ -201,7 +213,17 @@ async function computeDerivedSignals(pageData, currentObject) {
 
   pageData.projects.forEach(p => {
     // staleDays
-    const safeMoment = (v) => (v ? moment(v) : null);
+    const safeMoment = (v) => {
+      if (!v) return null;
+      try {
+        // 处理带毫秒+时区的格式如 "2026-04-24 03:22:49.625 +00:00"
+        const normalized = String(v).replace(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})\.(\d+)\s*(\+\d{2}:\d{2})/, '$1T$2.$3$4');
+        const m = moment(normalized);
+        return m.isValid() ? m : null;
+      } catch (e) {
+        return null;
+      }
+    };
     const lastUpdate = p.updated_at && safeMoment(p.updated_at)?.isValid() ? safeMoment(p.updated_at) : null;
     const staleDays = lastUpdate ? now.diff(lastUpdate, 'days') : 999;
 
