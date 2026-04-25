@@ -110,9 +110,10 @@ async function deleteUser(req, res) {
     }
 
     const oldValues = user.toJSON();
-    await user.destroy();
-    await logAudit('users', id, 'delete', { id: req.user.id, name: req.user.name || req.user.username }, oldValues, null);
-    success(res, null, '用户删除成功');
+    // 软删除：改为禁用而非物理删除，保留数据完整性
+    await user.update({ status: 'disabled', token_version: (user.token_version || 0) + 1 });
+    await logAudit('users', id, 'delete', { id: req.user.id, name: req.user.name || req.user.username }, oldValues, { soft_delete: true });
+    success(res, null, '用户已禁用（软删除）');
   } catch (err) {
     console.error('删除用户失败:', err);
     error(res, '删除用户失败', 1, 500);
