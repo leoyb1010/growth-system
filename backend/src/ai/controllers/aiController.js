@@ -157,10 +157,91 @@ async function getBadgeSummary(req, res) {
   }
 }
 
+/**
+ * 流式自由问答（SSE）
+ * POST /api/ai/chat-stream
+ */
+async function streamChat(req, res) {
+  const { query, currentPage } = req.body;
+
+  if (!query || typeof query !== 'string') {
+    return error(res, '请输入问题');
+  }
+
+  // 设置 SSE 响应头
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // nginx 兼容
+
+  const { sanitizeUserInput } = require('../utils/promptSecurity');
+  const { safe: safeQuery, isSuspicious } = sanitizeUserInput(query);
+
+  // 如果检测到注入，发送警告后继续
+  if (isSuspicious) {
+    res.write(`data: ${JSON.stringify({ type: 'warning', message: '检测到疑似指令注入，已自动过滤' })}\n\n`);
+  }
+
+  try {
+    const aiOrchestrator = require('../services/aiOrchestrator');
+    const llmProvider = require('../services/aiLLMProvider');
+    const promptBuilder = require('../services/aiPromptBuilder');
+    const aiContextService = require('../services/aiContextService');
+
+    // 如果 LLM 不可用，降级为普通响应
+    if (!llmProvider.isAvailable()) {
+      const mockProvider = require('../services/aiMockProvider');
+      const context = await aiContextService.assembleContext({
+        currentPage: currentPage || 'dashboard',
+        currentObject: {},
+        currentUser: req.access || { userId: req.user.id }
+      });
+      const answer = mockProvider.mockChatAnswer(safeQuery, context);
+      res.write(`data: ${JSON.stringify({ type: 'content', text: answer })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done', isMock: true })}\n\n`);
+      res.end();
+      return;
+    }
+
+    // 组装上下文和 prompt
+    const context = await aiContextService.assembleContext({
+      currentPage: currentPage || 'dashboard',
+      currentObject: {},
+      currentUser: req.access || { userId: req.user.id }
+    });
+
+    const dataSummary = promptBuilder.formatDataSummary(context);
+    const role = (req.user?.role === 'admin' || req.user?.role === 'super_admin') ? 'super_admin'
+      : (req.user?.role === 'dept' || req.user?.role === 'dept_manager') ? 'department_manager'
+      : 'department_member';
+
+    const { systemPrompt, userPrompt } = promptBuilder.buildPrompt({
+      mode: 'free_ask',
+      page: currentPage || 'dashboard',
+      role,
+      dataSummary,
+      userQuery: safeQuery
+    });
+
+    // 流式调用 LLM
+    await llmProvider.callStream(systemPrompt, userPrompt, {}, (chunk) => {
+      res.write(`data: ${JSON.stringify({ type: 'content', text: chunk })}\n\n`);
+    });
+
+    res.write(`data: ${JSON.stringify({ type: 'done', isMock: false })}\n\n`);
+    res.end();
+  } catch (err) {
+    console.error('AI Stream Chat 错误:', err);
+    res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI 服务暂时不可用' })}\n\n`);
+    res.end();
+  }
+}
+
 module.exports = {
   getPanel,
   analyze,
   chat,
   generateBriefing,
-  getBadgeSummary
+  getBadgeSummary,
+  streamChat
 };

@@ -29,4 +29,7 @@ router.post('/briefing', ...auth, aiPermission, aiController.generateBriefing);
 // GET /api/ai/badge-summary - 角标数据
 router.get('/badge-summary', ...auth, aiPermission, aiController.getBadgeSummary);
 
+// POST /api/ai/chat-stream - 流式自由问答（SSE）
+router.post('/chat-stream', ...auth, aiPermission, aiController.streamChat);
+
 module.exports = router;
