@@ -4,7 +4,8 @@ const { DataTypes } = require('sequelize');
 // 部门表
 const Department = sequelize.define('Department', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  name: { type: DataTypes.STRING(50), allowNull: false, unique: true }
+  name: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' }, // active / deleted
 }, {
   tableName: 'departments',
   timestamps: false
@@ -49,7 +50,9 @@ const Kpi = sequelize.define('Kpi', {
   tableName: 'kpis',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  paranoid: true,
+  deletedAt: 'deleted_at'
 });
 
 // B表：重点工作追踪
@@ -85,7 +88,9 @@ const Project = sequelize.define('Project', {
   tableName: 'projects',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  paranoid: true,
+  deletedAt: 'deleted_at'
 });
 
 // C表：业务线业绩追踪
@@ -112,7 +117,9 @@ const Performance = sequelize.define('Performance', {
   tableName: 'performances',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  paranoid: true,
+  deletedAt: 'deleted_at'
 });
 
 // D表：月度重点工作
@@ -138,7 +145,9 @@ const MonthlyTask = sequelize.define('MonthlyTask', {
   tableName: 'monthly_tasks',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  paranoid: true,
+  deletedAt: 'deleted_at'
 });
 
 // E表：季度成果沉淀
@@ -164,7 +173,9 @@ const Achievement = sequelize.define('Achievement', {
   tableName: 'achievements',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  paranoid: true,
+  deletedAt: 'deleted_at'
 });
 
 // 周报表

@@ -8,6 +8,7 @@ const { error, success } = require('../utils/response');
 async function getDepartments(req, res) {
   try {
     const departments = await Department.findAll({
+      where: { status: 'active' },
       order: [['id', 'ASC']],
       include: [{
         model: User,
@@ -137,7 +138,8 @@ async function deleteDepartment(req, res) {
       return error(res, `该部门下有 ${totalBiz} 条业务数据（指标${kpiCount}/项目${projectCount}/业绩${perfCount}/月度${taskCount}/成果${achCount}），无法删除`, 400, 400);
     }
 
-    await department.destroy();
+    // 软删除：标记为 deleted 而非物理删除
+    await department.update({ status: 'deleted' });
     return success(res, null, '部门删除成功');
   } catch (err) {
     console.error('删除部门失败:', err);
