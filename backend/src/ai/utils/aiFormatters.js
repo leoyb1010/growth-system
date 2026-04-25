@@ -58,6 +58,7 @@ function formatChatResponse(data) {
     answer: data.answer || '',
     sources: data.sources || [],
     suggestedFollowUps: data.suggestedFollowUps || [],
+    confidence: data.confidence || '中', // 高/中/低
     isMock: data.isMock || false
   };
 }
