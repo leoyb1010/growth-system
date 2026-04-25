@@ -1,17 +1,70 @@
 :root {
+  /* === 颜色 === */
   --app-bg: #f5f7fb;
   --card-bg: #ffffff;
   --text-1: #111827;
   --text-2: #6b7280;
+  --text-3: #9ca3af;
   --border-soft: #e5e7eb;
+  --border-strong: #d1d5db;
+  --color-primary: #3B5AFB;
+  --color-primary-light: #eef2ff;
+  --color-success: #16A34A;
+  --color-success-light: #f0fdf4;
+  --color-warning: #F59E0B;
+  --color-warning-light: #fffbeb;
+  --color-error: #DC2626;
+  --color-error-light: #fef2f2;
+  --color-info: #3B82F6;
+  --color-info-light: #eff6ff;
+
+  /* === 阴影 === */
   --shadow-soft: 0 6px 24px rgba(15, 23, 42, 0.06);
   --shadow-hover: 0 10px 30px rgba(15, 23, 42, 0.10);
+  --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
+  --shadow-inline: 0 1px 3px rgba(15, 23, 42, 0.08);
+
+  /* === 圆角 === */
   --radius-card: 18px;
   --radius-control: 10px;
-  --color-primary: #3B5AFB;
-  --color-success: #16A34A;
-  --color-warning: #F59E0B;
-  --color-error: #DC2626;
+  --radius-tag: 6px;
+  --radius-full: 9999px;
+
+  /* === 字号 === */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 24px;
+  --fs-2xl: 30px;
+  --fs-3xl: 36px;
+
+  /* === 间距 === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  /* === Z-index === */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-notification: 1080;
+
+  /* === 动画 === */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html,
