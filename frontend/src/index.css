@@ -155,6 +155,129 @@ body {
   box-shadow: var(--shadow-hover);
 }
 
+/* ===== 动效体系 ===== */
+
+/* 页面入场动画 */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-page {
+  animation: pageEnter var(--duration-slow) var(--ease-default) both;
+}
+
+/* 卡片入场（错开延迟，由 JS 添加 style） */
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.surface-card,
+.soft-section {
+  animation: cardEnter var(--duration-normal) var(--ease-default) both;
+}
+
+/* 卡片交互反馈 */
+.surface-card {
+  transition: box-shadow var(--duration-fast) var(--ease-default),
+              transform var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+}
+
+.surface-card:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(59, 90, 251, 0.15);
+}
+
+.surface-card:active {
+  transform: scale(0.995);
+}
+
+/* 骨架屏脉冲 */
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.skeleton-pulse {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+/* SSE 流式光标闪烁 */
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  animation: blinkCursor 0.8s step-end infinite;
+  color: var(--color-primary);
+  font-weight: 400;
+}
+
+/* 按钮/操作区微交互 */
+.ant-btn {
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.ant-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.ant-btn:not(:disabled):active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* 标签 hover 反馈 */
+.ant-tag-clickable,
+.ant-tag[style*="cursor: pointer"] {
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.ant-tag-clickable:hover,
+.ant-tag[style*="cursor: pointer"]:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-inline);
+}
+
+/* 淡入工具类 */
+.fade-in {
+  animation: pageEnter var(--duration-slow) var(--ease-default) both;
+}
+
+.fade-in-fast {
+  animation: pageEnter var(--duration-fast) var(--ease-default) both;
+}
+
+/* 滑入（从右，用于 Drawer 内容） */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight var(--duration-normal) var(--ease-default) both;
+}
+
 /* ===== AntD 全局微调 ===== */
 
 .ant-card {
