@@ -26,9 +26,12 @@ export function useAIAssistant() {
       if (res.code === 0) {
         setData(res.data);
         setActiveMode(mode);
+      } else {
+        setData({ headline: res.message || '加载失败，请重试', cards: [], actions: [], mode: 'error' });
       }
     } catch (err) {
       console.error('AI Panel 加载失败:', err);
+      setData({ headline: '网络请求失败，请重试', cards: [], actions: [], mode: 'error' });
     } finally {
       setLoading(false);
     }
@@ -40,9 +43,13 @@ export function useAIAssistant() {
       const res = await fetchAIAnalyze({ actionKey, currentPage, currentObject });
       if (res.code === 0) {
         setData(res.data);
+      } else {
+        // 业务错误：显示错误状态而非静默丢弃
+        setData({ headline: res.message || '分析失败，请稍后重试', cards: [], actions: [], mode: 'error' });
       }
     } catch (err) {
       console.error('AI 分析失败:', err);
+      setData({ headline: '网络请求失败，请检查网络后重试', cards: [], actions: [], mode: 'error' });
     } finally {
       setLoading(false);
     }
@@ -58,10 +65,13 @@ export function useAIAssistant() {
         const assistantMsg = { role: 'assistant', content: res.data.answer, sources: res.data.sources, suggestedFollowUps: res.data.suggestedFollowUps, isMock: res.data.isMock };
         setChatHistory(prev => [...prev, assistantMsg]);
         return res.data;
+      } else {
+        // 业务错误：告诉用户具体原因
+        setChatHistory(prev => [...prev, { role: 'assistant', content: res.message || 'AI 分析失败，请稍后重试', isError: true }]);
       }
     } catch (err) {
       console.error('AI 问答失败:', err);
-      setChatHistory(prev => [...prev, { role: 'assistant', content: '分析失败，请稍后重试', isError: true }]);
+      setChatHistory(prev => [...prev, { role: 'assistant', content: '网络请求超时或失败，请稍后重试', isError: true }]);
     } finally {
       setLoading(false);
     }
