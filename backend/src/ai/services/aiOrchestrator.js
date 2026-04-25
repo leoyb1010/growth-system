@@ -14,6 +14,7 @@ const llmProvider = require('./aiLLMProvider');
 const mockProvider = require('./aiMockProvider');
 const promptBuilder = require('./aiPromptBuilder');
 const { formatAIResponse, formatChatResponse, formatBriefingResponse } = require('../utils/aiFormatters');
+const { parseChatOutput, cleanLLMOutput } = require('../utils/aiOutputParser');
 
 const VALID_MODES = ['today_judgment', 'risk_closure', 'briefing_meeting', 'free_ask'];
 const VALID_PAGES = ['dashboard', 'week', 'kpis', 'projects', 'weekly_reports', 'project_detail'];
@@ -132,10 +133,14 @@ async function handleChat(params) {
 
     const llmOutput = await llmProvider.call(systemPrompt, userPrompt);
 
+    // 使用解析器结构化 LLM 输出
+    const parsed = parseChatOutput(llmOutput);
+
     const result = formatChatResponse({
-      answer: llmOutput,
-      sources: ['AI 分析'],
-      suggestedFollowUps: generateSuggestedFollowUps(context),
+      answer: cleanLLMOutput(parsed.answer || llmOutput),
+      sources: parsed.sources.length > 0 ? parsed.sources : ['AI 分析'],
+      suggestedFollowUps: parsed.suggestedFollowUps || generateSuggestedFollowUps(context),
+      confidence: parsed.confidence,
       isMock: false
     });
 
