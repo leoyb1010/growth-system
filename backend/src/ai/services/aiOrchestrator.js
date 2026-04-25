@@ -222,15 +222,16 @@ function handleStaleProjects(context) {
 
 function handleBehindProjects(context) {
   const behindProjects = (context.derivedSignals.projectSignals || []).filter(s => s.progressRisk === 'behind');
+  const { getRiskLabel } = require('../utils/riskRules');
   return formatAIResponse({
     headline: `${behindProjects.length} 个项目进度落后`,
     mode: 'risk_closure',
     cards: behindProjects.map(s => ({
       type: 'danger',
       title: s.name,
-      description: s.riskSources.map(r => r.desc).join('；'),
+      description: s.riskSources.map(r => `- ${r.desc}`).join('\n'),
       icon: '📊',
-      tags: ['落后'],
+      tags: [...new Set(s.riskSources.map(r => getRiskLabel(r.type)))].slice(0, 3),
       meta: { projectId: s.projectId }
     })),
     actions: [{ key: 'view_risk', label: '查看风险', type: 'primary' }]

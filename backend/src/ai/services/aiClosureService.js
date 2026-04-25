@@ -35,7 +35,7 @@ async function check(context) {
     cards.push({
       type: 'warning',
       title: `未闭环：${item.project}`,
-      description: item.items.map(i => i.promises?.join('；') || i.desc || '').join('；'),
+      description: item.items.map(i => `- ${i.promises?.join('、') || i.desc || ''}`).join('\n'),
       icon: '🔄',
       tags: ['未闭环'],
       meta: { projectId: item.projectId }
@@ -46,7 +46,7 @@ async function check(context) {
     cards.push({
       type: 'danger',
       title: `重复拖延：${item.project}`,
-      description: item.items.map(i => i.desc || i.action).join('；'),
+      description: item.items.map(i => `- ${i.desc || i.action}`).join('\n'),
       icon: '🔁',
       tags: ['拖延'],
       meta: { projectId: item.projectId }
@@ -57,7 +57,7 @@ async function check(context) {
     cards.push({
       type: 'info',
       title: `闭环缺口：${g.project}`,
-      description: g.gaps.map(gap => gap.desc).join('；'),
+      description: g.gaps.map(gap => `- ${gap.desc}`).join('\n'),
       icon: '📋',
       tags: ['缺口'],
       meta: { projectId: g.projectId }

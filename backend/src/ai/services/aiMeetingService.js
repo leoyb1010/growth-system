@@ -27,7 +27,7 @@ async function generateAgenda(context) {
         },
         {
           title: '2. 进度落后项目',
-          content: behindSignals.length > 0 ? behindSignals.map(s => `- ${s.name}：${s.riskSources.map(r => r.desc).join('；')}`).join('\n') : '无进度落后项目'
+          content: behindSignals.length > 0 ? behindSignals.map(s => `- **${s.name}**：${s.riskSources.map(r => r.desc).join('；')}`).join('\n') : '无进度落后项目'
         },
         {
           title: '3. 高优先级项目推进',
