@@ -1,3 +1,5 @@
+const { getRiskLabel } = require('../utils/riskRules');
+
 /**
  * Mock Provider - 无 LLM Key 时的 Fallback
  * 基于规则生成结构化输出，保证系统可用
@@ -37,7 +39,7 @@ function mockTodayJudgment(context) {
     cards.push({
       type: 'warning',
       title: '待更新项目',
-      description: `${staleProjects.slice(0, 3).map(s => `${s.name}（${s.staleDays}天未更新）`).join('；')}`,
+      description: staleProjects.slice(0, 3).map(s => `- **${s.name}**（${s.staleDays}天未更新）`).join('\n'),
       icon: '📋',
       tags: ['待更新'],
       actions: [{ key: 'view_stale', label: '查看待更新', type: 'default' }]
@@ -48,7 +50,7 @@ function mockTodayJudgment(context) {
     cards.push({
       type: 'warning',
       title: '进度落后',
-      description: `${behindProjects.slice(0, 3).map(s => s.name).join('、')}进度落后于时间进度`,
+      description: behindProjects.slice(0, 3).map(s => `- **${s.name}** 进度落后于时间进度`).join('\n'),
       icon: '📊',
       tags: ['落后'],
       actions: [{ key: 'view_behind', label: '查看落后项目', type: 'default' }]
@@ -85,22 +87,28 @@ function mockRiskClosure(context) {
 
   if (riskProjects.length > 0) {
     riskProjects.slice(0, 5).forEach(s => {
+      // 每个风险源单独一行，用 - 开头
+      const descLines = s.riskSources.map(r => `- ${r.desc}`).join('\n');
+      // tags 用人类可读标签，最多3个
+      const readableTags = [...new Set(s.riskSources.map(r => getRiskLabel(r.type)))].slice(0, 3);
       cards.push({
         type: s.riskLevel === 'high' ? 'danger' : 'warning',
         title: s.name,
-        description: s.riskSources.map(r => r.desc).join('；'),
+        description: descLines,
         icon: s.riskLevel === 'high' ? '🔴' : '🟡',
-        tags: s.riskSources.map(r => r.type),
+        tags: readableTags,
         meta: { projectId: s.projectId }
       });
     });
   }
 
   if (closureGaps.length > 0) {
+    // 闭环缺口：每个项目单独一行
+    const gapLines = closureGaps.slice(0, 3).map(g => `- **${g.project}**：${g.gaps.map(gap => gap.desc).join('、')}`).join('\n');
     cards.push({
       type: 'info',
       title: '闭环缺口',
-      description: closureGaps.slice(0, 3).map(g => `${g.project}：${g.gaps.map(gap => gap.desc).join('、')}`).join('；'),
+      description: gapLines,
       icon: '🔄',
       tags: ['闭环'],
       actions: [{ key: 'view_closure', label: '查看闭环详情', type: 'default' }]

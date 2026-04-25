@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tag, Button, Space } from 'antd';
+import AIMarkdownContent from './AIMarkdownContent';
 
 const TYPE_STYLE_MAP = {
   danger: { bg: '#fff1f0', border: '#ffa39e', tag: 'error' },
@@ -26,13 +27,13 @@ export default function AIInsightCard({ card, onAction }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         {card.icon && <span style={{ fontSize: 16 }}>{card.icon}</span>}
         <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{card.title}</span>
-        {card.tags?.map((tag, i) => (
+        {card.tags?.slice(0, 3).map((tag, i) => (
           <Tag key={i} color={style.tag} style={{ fontSize: 11, margin: 0 }}>{tag}</Tag>
         ))}
       </div>
       {card.description && (
-        <div style={{ color: '#595959', fontSize: 13, lineHeight: 1.6, marginBottom: card.actions?.length ? 8 : 0 }}>
-          {card.description}
+        <div style={{ marginBottom: card.actions?.length ? 8 : 0 }}>
+          <AIMarkdownContent content={card.description} compact />
         </div>
       )}
       {card.actions?.length > 0 && (

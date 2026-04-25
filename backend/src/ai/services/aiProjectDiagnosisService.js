@@ -90,7 +90,7 @@ function buildDiagnosisCards(project, diagnosis) {
     cards.push({
       type: 'danger',
       title: '风险等级：高',
-      description: diagnosis.riskSources.map(r => r.desc).join('；'),
+      description: diagnosis.riskSources.map(r => `- ${r.desc}`).join('\n'),
       icon: '🔴',
       tags: ['高风险']
     });
@@ -98,7 +98,7 @@ function buildDiagnosisCards(project, diagnosis) {
     cards.push({
       type: 'warning',
       title: '风险等级：中',
-      description: diagnosis.riskSources.map(r => r.desc).join('；'),
+      description: diagnosis.riskSources.map(r => `- ${r.desc}`).join('\n'),
       icon: '🟡',
       tags: ['需关注']
     });

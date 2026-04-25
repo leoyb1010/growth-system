@@ -5,6 +5,28 @@
 
 const RISK_KEYWORDS = ['等待', '延期', '协调', '未确认', '资源不足', '卡住', '阻塞', '停滞', '无法推进', '待定', '不确定', '风险'];
 
+// type → 人类可读标签
+const RISK_TYPE_LABELS = {
+  overdue: '已逾期',
+  due_soon: '即将到期',
+  due_approaching: '到期临近',
+  stale_high: '长期未更新',
+  stale_medium: '未更新',
+  status_risk: '状态异常',
+  progress_behind: '进度落后',
+  progress_warning: '进度偏慢',
+  textual_risk: '文本风险',
+  priority_mismatch: '优先级错配',
+  decision_gap: '缺决策人',
+};
+
+/**
+ * 将风险源 type 转为人类可读标签
+ */
+function getRiskLabel(type) {
+  return RISK_TYPE_LABELS[type] || type;
+}
+
 /**
  * 计算项目风险信号
  * @param {Object} project - 项目对象
@@ -102,5 +124,7 @@ module.exports = {
   evaluateProjectRisk,
   detectRiskKeywords,
   analyzeOwnerLoad,
+  getRiskLabel,
+  RISK_TYPE_LABELS,
   RISK_KEYWORDS
 };
