@@ -115,7 +115,7 @@ async function authenticate(req, res, next) {
   // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
   try {
     const dbUser = await User.findByPk(decoded.id, {
-      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status'],
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version'],
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 
@@ -125,6 +125,17 @@ async function authenticate(req, res, next) {
 
     if (dbUser.status === 'disabled') {
       return error(res, '账号已被禁用，请联系管理员', 403, 403);
+    }
+
+    if (dbUser.status === 'pending') {
+      return error(res, '账号待审核，请联系管理员激活', 403, 403);
+    }
+
+    // token_version 校验：如果数据库中的版本号高于 token 中的，说明密码已被修改或管理员强制重登录
+    const tokenVersion = decoded.token_version || 0;
+    const dbTokenVersion = dbUser.token_version || 0;
+    if (dbTokenVersion > tokenVersion) {
+      return error(res, '登录凭证已过期，请重新登录', 401, 401);
     }
 
     // 使用数据库中的最新角色信息，不完全信任 token 内的 role
@@ -142,11 +153,9 @@ async function authenticate(req, res, next) {
     next();
   } catch (err) {
     console.error('认证中间件数据库查询失败:', err);
-    // 数据库查询失败时降级：仍用 token 中的信息，但打警告
-    const role = decoded.role || 'dept_staff';
-    const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
-    req.user = { ...decoded, role, roleLevel };
-    next();
+    // 安全修复：DB 查询失败不再降级到 token 数据，返回 503
+    // 降级会让被禁用用户的旧 token 继续生效，安全风险过高
+    return error(res, '服务暂时不可用，请稍后重试', 503, 503);
   }
 }
 
