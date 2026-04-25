@@ -50,7 +50,8 @@ async function login(req, res) {
       name: user.name,
       role: user.role,
       dept_id: user.dept_id,
-      roleLevel
+      roleLevel,
+      token_version: user.token_version || 0
     });
 
     success(res, {
@@ -131,7 +132,8 @@ async function changePassword(req, res) {
 
     const newHash = await bcrypt.hash(new_password, 10);
     const oldValues = user.toJSON();
-    await user.update({ password_hash: newHash });
+    // 修改密码后递增 token_version，强制其他设备重新登录
+    await user.update({ password_hash: newHash, token_version: (user.token_version || 0) + 1 });
     await logAudit('users', user.id, 'update', { id: currentUser.id, name: currentUser.name || currentUser.username }, oldValues, { change_password: true });
 
     success(res, null, '密码修改成功');
