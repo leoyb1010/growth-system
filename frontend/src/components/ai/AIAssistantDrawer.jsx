@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Drawer, Typography, Divider, Tag, Button, Space, message } from 'antd';
 import { CloseOutlined, ReloadOutlined, CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import AITabHeader from './AITabHeader';
@@ -6,7 +6,9 @@ import AIInsightCard from './AIInsightCard';
 import AIActionList from './AIActionList';
 import AIChatInput from './AIChatInput';
 import AIEmptyState from './AIEmptyState';
+import AIMarkdownContent from './AIMarkdownContent';
 import useAIContext from '../../hooks/useAIContext';
+import useAIStream from '../../hooks/useAIStream';
 
 const { Text, Paragraph } = Typography;
 
@@ -28,6 +30,21 @@ export default function AIAssistantDrawer({
   const { currentPage, currentObject } = useAIContext();
   const [chatInput, setChatInput] = useState('');
   const [rawExpanded, setRawExpanded] = useState(false);
+  const { streamChat, content: streamContent, isStreaming, error: streamError } = useAIStream();
+  const chatEndRef = useRef(null);
+
+  // 流式完成后，把 SSE 内容推入 chatHistory
+  useEffect(() => {
+    if (!isStreaming && streamContent) {
+      // 流式结束，通知父组件将内容加入 chatHistory
+      onChat?.(null, currentPage, currentObject, false, streamContent);
+    }
+  }, [isStreaming, streamContent]);
+
+  // 自动滚动到底部
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, streamContent, isStreaming]);
 
   // 打开时自动加载（仅非 free_ask 模式）
   useEffect(() => {
@@ -52,10 +69,14 @@ export default function AIAssistantDrawer({
     onAction?.(action.key, currentPage, currentObject);
   }, [activeMode, currentPage, currentObject, onAction, onModeChange]);
 
-  // 自由问答
-  const handleChat = useCallback((query) => {
-    onChat?.(query, currentPage, currentObject);
-  }, [currentPage, currentObject, onChat]);
+  // 自由问答 — SSE 流式
+  const handleChat = useCallback(async (query) => {
+    if (isStreaming) return;
+    // 先添加用户消息到 chatHistory
+    onChat?.(query, currentPage, currentObject, true); // true = 只添加用户消息
+    // 启动 SSE 流式
+    await streamChat(query, currentPage);
+  }, [currentPage, currentObject, isStreaming, streamChat, onChat]);
 
   // 复制内容
   const handleCopy = useCallback((text) => {
@@ -151,12 +172,8 @@ export default function AIAssistantDrawer({
                       background: '#fafafa',
                       borderRadius: 6,
                       padding: '8px 12px',
-                      fontSize: 13,
-                      lineHeight: 1.7,
-                      color: '#595959',
-                      whiteSpace: 'pre-wrap',
                     }}>
-                      {section.content}
+                      <AIMarkdownContent content={section.content} />
                     </div>
                   </div>
                 ))}
@@ -165,10 +182,6 @@ export default function AIAssistantDrawer({
                     background: '#fafafa',
                     borderRadius: 6,
                     padding: '10px 12px',
-                    fontSize: 13,
-                    lineHeight: 1.7,
-                    color: '#595959',
-                    whiteSpace: 'pre-wrap',
                     position: 'relative',
                   }}>
                     <Button
@@ -178,7 +191,7 @@ export default function AIAssistantDrawer({
                       onClick={() => handleCopy(data.content)}
                       style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}
                     />
-                    {data.content}
+                    <AIMarkdownContent content={data.content} />
                   </div>
                 )}
               </div>
@@ -209,10 +222,6 @@ export default function AIAssistantDrawer({
                     background: '#fafafa',
                     borderRadius: 6,
                     padding: '10px 12px',
-                    fontSize: 12,
-                    lineHeight: 1.7,
-                    color: '#8c8c8c',
-                    whiteSpace: 'pre-wrap',
                     position: 'relative',
                   }}>
                     <Button
@@ -222,7 +231,7 @@ export default function AIAssistantDrawer({
                       onClick={() => handleCopy(data.rawAnalysis)}
                       style={{ position: 'absolute', top: 4, right: 4, fontSize: 11 }}
                     />
-                    {data.rawAnalysis}
+                    <AIMarkdownContent content={data.rawAnalysis} style={{ fontSize: 12, color: '#8c8c8c' }} />
                   </div>
                 )}
               </>
@@ -233,7 +242,7 @@ export default function AIAssistantDrawer({
         {/* 自由问答模式 */}
         {activeMode === 'free_ask' && (
           <div>
-            {chatHistory.length === 0 && (
+            {chatHistory.length === 0 && !isStreaming && (
               <div style={{ textAlign: 'center', padding: '20px 0', color: '#8c8c8c' }}>
                 <span style={{ fontSize: 32 }}>💬</span>
                 <div style={{ marginTop: 8, fontSize: 13 }}>输入问题，AI 会基于当前页面数据回答</div>
@@ -251,13 +260,14 @@ export default function AIAssistantDrawer({
                   color: msg.role === 'user' ? '#fff' : '#262626',
                   padding: '8px 12px',
                   borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
                 }}>
-                  {msg.content}
+                  {msg.role === 'user' ? (
+                    <span style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                  ) : (
+                    <AIMarkdownContent content={msg.content} compact />
+                  )}
                   {msg.isMock && <Tag color="default" style={{ marginLeft: 4, fontSize: 10 }}>规则</Tag>}
-                  {msg.suggestedFollowUps && (
+                  {msg.suggestedFollowUps && !isStreaming && (
                     <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {msg.suggestedFollowUps.map((q, j) => (
                         <Tag key={j} color="blue" style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => handleChat(q)}>
@@ -269,11 +279,53 @@ export default function AIAssistantDrawer({
                 </div>
               </div>
             ))}
-            {loading && chatHistory.length > 0 && (
+            {/* SSE 流式输出中的 assistant 消息 */}
+            {isStreaming && (
+              <div style={{
+                marginBottom: 10,
+                display: 'flex',
+                justifyContent: 'flex-start',
+              }}>
+                <div style={{
+                  maxWidth: '85%',
+                  background: '#f0f5ff',
+                  color: '#262626',
+                  padding: '8px 12px',
+                  borderRadius: '12px 12px 12px 2px',
+                }}>
+                  {streamContent ? (
+                    <AIMarkdownContent content={streamContent} compact />
+                  ) : (
+                    <span style={{ fontSize: 13, color: '#8c8c8c' }}>AI 正在思考<span className="streaming-cursor">▍</span></span>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* 流式错误 */}
+            {streamError && (
+              <div style={{
+                marginBottom: 10,
+                display: 'flex',
+                justifyContent: 'flex-start',
+              }}>
+                <div style={{
+                  maxWidth: '85%',
+                  background: '#fff1f0',
+                  color: '#a8071a',
+                  padding: '8px 12px',
+                  borderRadius: '12px 12px 12px 2px',
+                  fontSize: 13,
+                }}>
+                  {streamError}
+                </div>
+              </div>
+            )}
+            {loading && chatHistory.length > 0 && !isStreaming && (
               <div style={{ textAlign: 'center', padding: 8, color: '#8c8c8c', fontSize: 12 }}>
                 AI 正在思考...
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
         )}
       </div>

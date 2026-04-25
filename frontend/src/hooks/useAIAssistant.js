@@ -55,7 +55,31 @@ export function useAIAssistant() {
     }
   }, []);
 
-  const sendChat = useCallback(async (query, currentPage, currentObject) => {
+  /**
+   * 发送聊天消息
+   * @param {string|null} query - 用户问题，null 时表示流式完成后的回调
+   * @param {string} currentPage
+   * @param {object} currentObject
+   * @param {boolean} userOnly - true=仅添加用户消息（SSE模式由Drawer自行管理流式）
+   * @param {string} streamResult - SSE 流式完成后的完整回复内容
+   */
+  const sendChat = useCallback(async (query, currentPage, currentObject, userOnly = false, streamResult = null) => {
+    // SSE 流式完成回调：将流式结果推入 chatHistory
+    if (streamResult) {
+      setChatHistory(prev => [...prev, { role: 'assistant', content: streamResult }]);
+      setLoading(false);
+      return;
+    }
+
+    // 仅添加用户消息（SSE 模式由 Drawer 的 handleChat 发起）
+    if (userOnly) {
+      const userMsg = { role: 'user', content: query };
+      setChatHistory(prev => [...prev, userMsg]);
+      setLoading(true);
+      return;
+    }
+
+    // 原有同步模式（非 SSE 降级路径）
     setLoading(true);
     const userMsg = { role: 'user', content: query };
     setChatHistory(prev => [...prev, userMsg]);
@@ -66,7 +90,6 @@ export function useAIAssistant() {
         setChatHistory(prev => [...prev, assistantMsg]);
         return res.data;
       } else {
-        // 业务错误：告诉用户具体原因
         setChatHistory(prev => [...prev, { role: 'assistant', content: res.message || 'AI 分析失败，请稍后重试', isError: true }]);
       }
     } catch (err) {

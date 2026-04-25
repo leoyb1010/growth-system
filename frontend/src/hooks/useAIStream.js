@@ -4,13 +4,13 @@ import { useState, useCallback, useRef } from 'react';
  * AI 流式输出 Hook
  * 使用 SSE (Server-Sent Events) 接收流式 AI 响应
  *
- * @returns {{ streamChat: Function, content: string, isStreaming: boolean, error: string|null }}
+ * @returns {{ streamChat: Function, content: string, isStreaming: boolean, error: string|null, abort: Function }}
  */
 function useAIStream() {
   const [content, setContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
-  const abortRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const streamChat = useCallback(async (query, currentPage = 'dashboard') => {
     // 重置状态
@@ -19,6 +19,8 @@ function useAIStream() {
     setIsStreaming(true);
 
     const token = localStorage.getItem('token');
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const response = await fetch('/api/ai/chat-stream', {
@@ -28,6 +30,7 @@ function useAIStream() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ query, currentPage }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -61,35 +64,43 @@ function useAIStream() {
                 setContent(prev => prev + event.text);
                 break;
               case 'warning':
-                // 可以在这里显示警告提示
                 console.warn('[AI Stream Warning]', event.message);
                 break;
               case 'done':
                 setIsStreaming(false);
                 break;
               case 'error':
-                setError(event.message);
+                setError(event.message || 'AI 流式输出出错');
                 setIsStreaming(false);
                 break;
               default:
                 break;
             }
           } catch (e) {
-            // 忽略解析错误
+            // 忽略 JSON 解析错误
           }
         }
       }
+
+      // 流式正常结束
+      setIsStreaming(false);
     } catch (err) {
+      if (err.name === 'AbortError') {
+        // 用户主动取消
+        setIsStreaming(false);
+        return;
+      }
       setError(err.message || '流式请求失败');
       setIsStreaming(false);
     }
   }, []);
 
   const abort = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-      setIsStreaming(false);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+    setIsStreaming(false);
   }, []);
 
   return { streamChat, content, isStreaming, error, abort };
