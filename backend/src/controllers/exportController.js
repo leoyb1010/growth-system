@@ -162,7 +162,7 @@ async function exportModule(req, res) {
     xlsx.writeFile(wb, filePath);
 
     success(res, {
-      download_url: `/uploads/exports/${fileName}`,
+      download_url: `/api/files/exports/${fileName}`,
       file_name: fileName,
       record_count: data.length
     }, '导出成功');

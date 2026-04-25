@@ -20,6 +20,7 @@ const archiveController = require('../controllers/archiveController');
 const auditLogController = require('../controllers/auditLogController');
 const searchController = require('../controllers/searchController');
 const aiRoutes = require('../ai/routes/aiRoutes');
+const fileRoutes = require('./fileRoutes');
 
 const router = express.Router();
 
@@ -125,6 +126,9 @@ router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('
 
 // ==================== AI 助手 ====================
 router.use('/ai', aiLimiter || [], aiRoutes);
+
+// ==================== 文件下载（鉴权） ====================
+router.use('/files', fileRoutes);
 
   return router;
 };

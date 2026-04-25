@@ -57,9 +57,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 静态文件（导出文件、周报文件）
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use('/weekly-reports', express.static(path.join(__dirname, '../weekly-reports')));
+// 静态文件（导出文件、周报文件）—— 已移除直接静态服务，改为 API 鉴权下载
+// 旧方式：app.use('/uploads', express.static(...)) — 任何人知道URL就能下载
+// 新方式：通过 /api/files/exports/:filename 和 /api/files/weekly-reports/:filename 鉴权后下载
 
 // API 路由（传入精细化限流器）
 app.use('/api', routes({
