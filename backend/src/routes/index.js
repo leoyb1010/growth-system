@@ -23,6 +23,9 @@ const aiRoutes = require('../ai/routes/aiRoutes');
 
 const router = express.Router();
 
+// 接收精细化限流器
+module.exports = function({ loginLimiter, aiLimiter, importLimiter } = {}) {
+
 // 文件上传配置
 const upload = multer({
   dest: path.join(__dirname, '../../uploads/temp/'),
@@ -33,7 +36,7 @@ const upload = multer({
 const auth = [authenticate, injectAccessContext];
 
 // ==================== 认证路由 ====================
-router.post('/auth/login', authController.login);
+router.post('/auth/login', loginLimiter || [], authController.login);
 router.post('/auth/register', authController.register);                         // 用户注册（公开）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
@@ -104,7 +107,7 @@ router.put('/weekly-reports/:id/html', ...auth, requirePermission('weekly_report
 router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================
-router.post('/import/excel', ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), importController.importExcel);
+router.post('/import/excel', importLimiter || [], ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), importController.importExcel);
 router.get('/export/:module', ...auth, requirePermission('export.data'), applyDataScope('export'), exportController.exportModule);
 
 // ==================== 季度归档 ====================
@@ -121,6 +124,7 @@ router.get('/audit-logs/:table_name/:record_id', ...auth, auditLogController.get
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
 
 // ==================== AI 助手 ====================
-router.use('/ai', aiRoutes);
+router.use('/ai', aiLimiter || [], aiRoutes);
 
-module.exports = router;
+  return router;
+};

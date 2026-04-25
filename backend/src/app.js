@@ -18,13 +18,34 @@ app.use(helmet());
 // 信任 Cloudflare Tunnel 代理，使限流器能正确识别真实 IP
 app.set('trust proxy', 1);
 
-// 限流
+// 限流 - 全局默认
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
   max: 1000, // 每个IP最多1000请求
   message: { code: 429, data: null, message: '请求过于频繁，请稍后再试' }
 });
 app.use(limiter);
+
+// 限流 - 登录接口：防暴力破解
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1分钟
+  max: 5, // 最多5次登录尝试
+  message: { code: 429, data: null, message: '登录尝试过于频繁，请1分钟后再试' }
+});
+
+// 限流 - AI 接口：防滥用（LLM调用有成本）
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1分钟
+  max: 20, // 最多20次AI请求
+  message: { code: 429, data: null, message: 'AI请求过于频繁，请稍后再试' }
+});
+
+// 限流 - 导入接口：防批量冲击
+const importLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1分钟
+  max: 10, // 最多10次导入
+  message: { code: 429, data: null, message: '导入操作过于频繁，请稍后再试' }
+});
 
 // CORS（同源模式无需跨域，仅开发环境需要）
 app.use(cors({
@@ -40,8 +61,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/weekly-reports', express.static(path.join(__dirname, '../weekly-reports')));
 
-// API 路由
-app.use('/api', routes);
+// API 路由（传入精细化限流器）
+app.use('/api', routes({
+  loginLimiter,
+  aiLimiter,
+  importLimiter
+}));
 
 // 健康检查
 app.get('/health', (req, res) => {
