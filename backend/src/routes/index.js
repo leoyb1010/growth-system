@@ -119,7 +119,7 @@ router.get('/archives/check', ...auth, archiveController.checkArchiveStatus);
 
 // ==================== 审计日志 ====================
 router.get('/audit-logs', ...auth, requirePermission('audit.read'), auditLogController.getAuditLogs);
-router.get('/audit-logs/:table_name/:record_id', ...auth, auditLogController.getRecordHistory);
+router.get('/audit-logs/:table_name/:record_id', ...auth, requirePermission('audit.read'), auditLogController.getRecordHistory);
 
 // ==================== 全局搜索 ====================
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
