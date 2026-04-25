@@ -20,34 +20,37 @@ import DepartmentPage from './pages/DepartmentPage';
 import AuditLogPage from './pages/AuditLogPage';
 import ArchivePage from './pages/ArchivePage';
 import PrivateRoute from './components/PrivateRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<DashboardPage />} />
-            <Route path="today" element={<TodayPage />} />
-            <Route path="week" element={<WeekPage />} />
-            <Route path="kpis" element={<KpiPage />} />
-            <Route path="projects" element={<ProjectPage />} />
-            <Route path="performances" element={<PerformancePage />} />
-            <Route path="monthly-tasks" element={<MonthlyTaskPage />} />
-            <Route path="achievements" element={<AchievementPage />} />
-            <Route path="settlement" element={<SettlementPage />} />
-            <Route path="weekly-reports" element={<WeeklyReportPage />} />
-            <Route path="data-entry" element={<DataEntryPage />} />
-            <Route path="users" element={<UserPage />} />
-            <Route path="departments" element={<DepartmentPage />} />
-            <Route path="audit-logs" element={<AuditLogPage />} />
-            <Route path="archives" element={<ArchivePage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+      <ErrorBoundary>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+              <Route path="today" element={<ErrorBoundary><TodayPage /></ErrorBoundary>} />
+              <Route path="week" element={<ErrorBoundary><WeekPage /></ErrorBoundary>} />
+              <Route path="kpis" element={<ErrorBoundary><KpiPage /></ErrorBoundary>} />
+              <Route path="projects" element={<ErrorBoundary><ProjectPage /></ErrorBoundary>} />
+              <Route path="performances" element={<ErrorBoundary><PerformancePage /></ErrorBoundary>} />
+              <Route path="monthly-tasks" element={<ErrorBoundary><MonthlyTaskPage /></ErrorBoundary>} />
+              <Route path="achievements" element={<ErrorBoundary><AchievementPage /></ErrorBoundary>} />
+              <Route path="settlement" element={<ErrorBoundary><SettlementPage /></ErrorBoundary>} />
+              <Route path="weekly-reports" element={<ErrorBoundary><WeeklyReportPage /></ErrorBoundary>} />
+              <Route path="data-entry" element={<ErrorBoundary><DataEntryPage /></ErrorBoundary>} />
+              <Route path="users" element={<ErrorBoundary><UserPage /></ErrorBoundary>} />
+              <Route path="departments" element={<ErrorBoundary><DepartmentPage /></ErrorBoundary>} />
+              <Route path="audit-logs" element={<ErrorBoundary><AuditLogPage /></ErrorBoundary>} />
+              <Route path="archives" element={<ErrorBoundary><ArchivePage /></ErrorBoundary>} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }
