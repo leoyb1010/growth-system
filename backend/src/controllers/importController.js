@@ -1,5 +1,5 @@
 const xlsx = require('xlsx');
-const { Kpi, Project, Performance, MonthlyTask, Achievement, Department } = require('../models');
+const { sequelize, Kpi, Project, Performance, MonthlyTask, Achievement, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const fs = require('fs');
 
@@ -16,7 +16,6 @@ async function importExcel(req, res) {
 
     const workbook = xlsx.readFile(req.file.path);
     const sheetNames = workbook.SheetNames;
-    const results = { sheets: [], errors: [], skipped: [] };
 
     // 辅助函数：宽松的 sheet 名称匹配
     function matchSheet(sheetLower, keywords) {
@@ -33,42 +32,48 @@ async function importExcel(req, res) {
     const deptMap = {};
     departments.forEach(d => { deptMap[d.name] = d.id; });
 
-    for (const sheetName of sheetNames) {
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+    // 使用事务包裹整个导入过程，确保原子性（全部成功或全部回滚）
+    const importResults = await sequelize.transaction(async (t) => {
+      const results = { sheets: [], errors: [], skipped: [] };
 
-      if (jsonData.length < 2) continue;
+      for (const sheetName of sheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-      const headers = jsonData[0];
-      const rows = jsonData.slice(1);
+        if (jsonData.length < 2) continue;
 
-      try {
-        // 根据 Sheet 名称或表头特征判断对应模块（更宽松的匹配）
-        const sheetLower = sheetName.toLowerCase();
-        const headersLower = headers.map(h => String(h).toLowerCase());
+        const headers = jsonData[0];
+        const rows = jsonData.slice(1);
 
-        if (matchSheet(sheetLower, ['核心指标','a','kpi','指标']) || matchHeader(headersLower, ['指标名','指标','indicator','gmv'])) {
-          await importKpis(rows, headers, deptMap, results);
-        } else if (matchSheet(sheetLower, ['重点工作','b','项目','project']) || matchHeader(headersLower, ['项目类型','项目名称','项目'])) {
-          await importProjects(rows, headers, deptMap, results);
-        } else if (matchSheet(sheetLower, ['业绩','c','业绩追踪','performance']) || matchHeader(headersLower, ['业务类型','业务线','业绩'])) {
-          await importPerformances(rows, headers, deptMap, results);
-        } else if (matchSheet(sheetLower, ['月度','d','月度工作','monthly']) || matchHeader(headersLower, ['工作类别','月度','month'])) {
-          await importMonthlyTasks(rows, headers, deptMap, results);
-        } else if (matchSheet(sheetLower, ['成果','e','季度成果','achievement']) || matchHeader(headersLower, ['成果类型','成果','achievement'])) {
-          await importAchievements(rows, headers, deptMap, results);
-        } else {
-          results.skipped.push({ sheet: sheetName, reason: '未识别到对应模块' });
+        try {
+          const sheetLower = sheetName.toLowerCase();
+          const headersLower = headers.map(h => String(h).toLowerCase());
+
+          if (matchSheet(sheetLower, ['核心指标','a','kpi','指标']) || matchHeader(headersLower, ['指标名','指标','indicator','gmv'])) {
+            await importKpis(rows, headers, deptMap, results, t);
+          } else if (matchSheet(sheetLower, ['重点工作','b','项目','project']) || matchHeader(headersLower, ['项目类型','项目名称','项目'])) {
+            await importProjects(rows, headers, deptMap, results, t);
+          } else if (matchSheet(sheetLower, ['业绩','c','业绩追踪','performance']) || matchHeader(headersLower, ['业务类型','业务线','业绩'])) {
+            await importPerformances(rows, headers, deptMap, results, t);
+          } else if (matchSheet(sheetLower, ['月度','d','月度工作','monthly']) || matchHeader(headersLower, ['工作类别','月度','month'])) {
+            await importMonthlyTasks(rows, headers, deptMap, results, t);
+          } else if (matchSheet(sheetLower, ['成果','e','季度成果','achievement']) || matchHeader(headersLower, ['成果类型','成果','achievement'])) {
+            await importAchievements(rows, headers, deptMap, results, t);
+          } else {
+            results.skipped.push({ sheet: sheetName, reason: '未识别到对应模块' });
+          }
+        } catch (sheetErr) {
+          results.errors.push({ sheet: sheetName, error: sheetErr.message });
         }
-      } catch (sheetErr) {
-        results.errors.push({ sheet: sheetName, error: sheetErr.message });
       }
-    }
+
+      return results;
+    });
 
     // 删除临时文件
     fs.unlinkSync(req.file.path);
 
-    success(res, results, '导入完成');
+    success(res, importResults, '导入完成');
   } catch (err) {
     console.error('导入 Excel 失败:', err);
     error(res, '导入失败: ' + err.message, 1, 500);
@@ -78,7 +83,7 @@ async function importExcel(req, res) {
 /**
  * 导入 A 表：核心指标
  */
-async function importKpis(rows, headers, deptMap, results) {
+async function importKpis(rows, headers, deptMap, results, transaction) {
   let count = 0;
   for (const row of rows) {
     if (!row[0]) continue;
@@ -94,7 +99,7 @@ async function importKpis(rows, headers, deptMap, results) {
       target: parseFloat(row[4]) || 0,
       actual: parseFloat(row[5]) || 0,
       unit: row[6] || '万元'
-    });
+    }, { transaction });
     count++;
   }
   results.sheets.push({ name: '核心指标', imported: count });
@@ -103,7 +108,7 @@ async function importKpis(rows, headers, deptMap, results) {
 /**
  * 导入 B 表：重点工作
  */
-async function importProjects(rows, headers, deptMap, results) {
+async function importProjects(rows, headers, deptMap, results, transaction) {
   let count = 0;
   for (const row of rows) {
     if (!row[0]) continue;
@@ -123,7 +128,7 @@ async function importProjects(rows, headers, deptMap, results) {
       risk_desc: row[8] || '',
       due_date: row[9] || null,
       quarter: row[10] || 'Q1'
-    });
+    }, { transaction });
     count++;
   }
   results.sheets.push({ name: '重点工作', imported: count });
@@ -132,7 +137,7 @@ async function importProjects(rows, headers, deptMap, results) {
 /**
  * 导入 C 表：业务线业绩
  */
-async function importPerformances(rows, headers, deptMap, results) {
+async function importPerformances(rows, headers, deptMap, results, transaction) {
   let count = 0;
   for (const row of rows) {
     if (!row[0]) continue;
@@ -153,7 +158,7 @@ async function importPerformances(rows, headers, deptMap, results) {
       q3_actual: parseFloat(row[9]) || 0,
       q4_target: parseFloat(row[10]) || 0,
       q4_actual: parseFloat(row[11]) || 0
-    });
+    }, { transaction });
     count++;
   }
   results.sheets.push({ name: '业务线业绩', imported: count });
@@ -162,7 +167,7 @@ async function importPerformances(rows, headers, deptMap, results) {
 /**
  * 导入 D 表：月度工作
  */
-async function importMonthlyTasks(rows, headers, deptMap, results) {
+async function importMonthlyTasks(rows, headers, deptMap, results, transaction) {
   let count = 0;
   for (const row of rows) {
     if (!row[0]) continue;
@@ -184,7 +189,7 @@ async function importMonthlyTasks(rows, headers, deptMap, results) {
       highlights: row[10] || '',
       next_month_plan: row[11] || '',
       quarter: row[12] || 'Q1'
-    });
+    }, { transaction });
     count++;
   }
   results.sheets.push({ name: '月度工作', imported: count });
@@ -193,7 +198,7 @@ async function importMonthlyTasks(rows, headers, deptMap, results) {
 /**
  * 导入 E 表：季度成果
  */
-async function importAchievements(rows, headers, deptMap, results) {
+async function importAchievements(rows, headers, deptMap, results, transaction) {
   let count = 0;
   for (const row of rows) {
     if (!row[0]) continue;
@@ -215,7 +220,7 @@ async function importAchievements(rows, headers, deptMap, results) {
       archive_owner: row[10] || '',
       completed_at: row[11] || null,
       priority: ['高', '中', '低'].includes(row[12]) ? row[12] : '中'
-    });
+    }, { transaction });
     count++;
   }
   results.sheets.push({ name: '季度成果', imported: count });
