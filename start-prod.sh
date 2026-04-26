@@ -60,6 +60,11 @@ if command -v pm2 &> /dev/null; then
   echo "使用 pm2 启动..."
   cd backend
   # pm2 delete + start 避免 restart 导致的 SQLITE_READONLY 问题
+  # ⚠️ 必须显式 export AI 环境变量，pm2 start 只继承当前 shell 环境
+  export AI_LLM_PROVIDER="${AI_LLM_PROVIDER}"
+  export AI_LLM_API_KEY="${AI_LLM_API_KEY}"
+  export AI_LLM_MODEL="${AI_LLM_MODEL}"
+  export AI_LLM_BASE_URL="${AI_LLM_BASE_URL}"
   pm2 delete growth-system 2>/dev/null || true
   pm2 start src/app.js --name growth-system || true
   pm2 save
