@@ -1,0 +1,81 @@
+{
+  "latestVersion": "6.2.0",
+  "releases": [
+    {
+      "version": "6.2.0",
+      "date": "2026-04-26",
+      "title": "SQLITE_READONLY 自愈 + 驾驶舱优化",
+      "changes": [
+        {
+          "type": "fix",
+          "module": "数据安全",
+          "desc": "修复 pm2 restart 导致 SQLite 只读、用户创建数据静默丢失的致命问题，现在启动时自动检测、运行时自动恢复、前端实时告警"
+        },
+        {
+          "type": "improve",
+          "module": "管理驾驶舱",
+          "desc": "管理者部门不再出现在 GMV 卡片区，驾驶舱只展示业务组（拓展组、运营组）KPI，部门总 GMV = 业务组之和"
+        },
+        {
+          "type": "improve",
+          "module": "周报",
+          "desc": "周报新增编辑模式，可直接修改结论、管理评语、关键变化等字段"
+        },
+        {
+          "type": "feature",
+          "module": "健康检查",
+          "desc": "/health 端点新增 db_writable 状态字段，可外部监控数据库写入状态"
+        },
+        {
+          "type": "feature",
+          "module": "系统品牌",
+          "desc": "系统更名为 LeoBMS，版本号与 GitHub 同步显示在左上角"
+        }
+      ]
+    },
+    {
+      "version": "6.1.0",
+      "date": "2026-04-25",
+      "title": "安全加固 + 体验升级",
+      "changes": [
+        {
+          "type": "fix",
+          "module": "安全",
+          "desc": "SQLite PRAGMA 加固 + 自动备份脚本 + 限流细化 + AI Prompt 注入防护"
+        },
+        {
+          "type": "fix",
+          "module": "认证",
+          "desc": "token_version 校验 + DB 失败不降级 + pending 状态拦截 + 导出文件鉴权"
+        },
+        {
+          "type": "improve",
+          "module": "前端",
+          "desc": "全局 ErrorBoundary + React.lazy 懒加载 + 防重复提交 + AI 输出标准化"
+        },
+        {
+          "type": "feature",
+          "module": "AI",
+          "desc": "SSE 流式输出：后端 streamChat + 前端 useAIStream hook"
+        }
+      ]
+    },
+    {
+      "version": "6.0.0",
+      "date": "2026-04-24",
+      "title": "AI 智能助手上线",
+      "changes": [
+        {
+          "type": "feature",
+          "module": "AI 助手",
+          "desc": "全页面 AI 副驾驶，4 种分析模式（今日判断/风险闭环/汇报周会/自由问答），DeepSeek LLM 接入"
+        },
+        {
+          "type": "feature",
+          "module": "AI 助手",
+          "desc": "规则+LLM 混合架构，无 LLM Key 时自动 Mock 降级不崩"
+        }
+      ]
+    }
+  ]
+}

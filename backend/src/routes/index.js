@@ -36,6 +36,21 @@ const upload = multer({
 // 公共中间件链：所有需认证的接口统一注入访问上下文
 const auth = [authenticate, injectAccessContext];
 
+// ==================== 更新日志（无需认证） ====================
+router.get('/changelog', (req, res) => {
+  try {
+    const fs = require('fs');
+    const changelogPath = path.join(__dirname, '../../data/changelog.json');
+    if (!fs.existsSync(changelogPath)) {
+      return res.json({ code: 0, data: { latestVersion: '0.0.0', releases: [] }, message: 'ok' });
+    }
+    const data = JSON.parse(fs.readFileSync(changelogPath, 'utf8'));
+    res.json({ code: 0, data, message: 'ok' });
+  } catch (err) {
+    res.json({ code: 0, data: { latestVersion: '0.0.0', releases: [] }, message: 'ok' });
+  }
+});
+
 // ==================== 认证路由 ====================
 router.post('/auth/login', loginLimiter || [], authController.login);
 router.post('/auth/register', authController.register);                         // 用户注册（公开）

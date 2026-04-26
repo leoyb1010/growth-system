@@ -1,4 +1,4 @@
-# 增长组业务管理系统
+# LeoBMS — 增长部门管理系统
 
 > 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
 
@@ -133,6 +133,8 @@ growth-system/
 │   ├── package.json
 │   ├── growth_system.sqlite   # SQLite 数据库（本地开发）[v3.2]
 │   ├── init.sql               # 数据库初始化脚本
+│   ├── data/                  # 静态数据 [v6.2]
+│   │   └── changelog.json     # 版本更新日志 [v6.2]
 │   ├── backup.sh              # 自动备份脚本 [v6.1]
 │   ├── config/
 │   │   └── database.js        # 数据库配置（支持 PostgreSQL / SQLite 切换）
@@ -318,6 +320,9 @@ growth-system/
 ### 健康检查
 - `GET /health` - 服务健康状态（含 `db_writable` 数据库写入状态）[v6.2]
 
+### 更新日志
+- `GET /api/changelog` - 获取系统更新日志（无需认证）[v6.2]
+
 ### 导入导出
 - `POST /api/import/excel` - 导入 Excel（multipart/form-data）
 - `GET /api/export/:module` - 导出模块数据（module: kpis/projects/performances/monthly-tasks/achievements）
@@ -412,6 +417,12 @@ docker-compose up -d --build
 - 周报编辑模式增强：week_conclusion / management_comment / key_changes / 表格文本字段均可编辑
 - 新增 `PUT /api/weekly-reports/:id/content` 接口，合并更新 content_json
 - management_comment 新增字段，用于补充管理评语/复盘结论
+
+**系统品牌与更新日志**
+- 系统更名为 **LeoBMS**，左上角显示 `LeoBMS-(v6.2.0)`，版本号与 GitHub 同步
+- 新增登录后更新日志弹窗：所有用户登录后自动弹出最新版本更新内容，关闭后不再重复（localStorage 标记）
+- 新增 `GET /api/changelog` API，返回 `data/changelog.json` 的版本更新内容（无需认证）
+- 版本号统一：前后端 `package.json` 版本号同步更新为 6.2.0
 
 **新增文件**
 - `backend/src/middleware/dbHealthCheck.js`
