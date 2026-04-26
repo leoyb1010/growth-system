@@ -87,7 +87,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   const totalProfitRate = totalProfitTarget > 0 ? Math.round((totalProfitActual / totalProfitTarget) * 100) : 0;
 
   const kpiSummaryGrouped = {
-    time_progress: Math.round(getQuarterTimeProgress(currentQuarter, currentYear)),
+    time_progress: Math.round(getQuarterTimeProgress(quarterLabel, currentYear)),
     row1: [
       { label: '部门 GMV', rate: totalGmvRate, target: totalGmvTarget, actual: totalGmvActual, unit: '万元', indicator: 'GMV' },
       { label: '部门利润', rate: totalProfitRate, target: totalProfitTarget, actual: totalProfitActual, unit: '万元', indicator: '利润' },
