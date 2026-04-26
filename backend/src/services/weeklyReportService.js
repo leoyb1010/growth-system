@@ -38,6 +38,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   const lastWeekEnd = moment(weekEnd).subtract(7, 'days').format('YYYY-MM-DD');
 
   const currentQuarter = moment(weekStart).quarter();
+  const currentYear = moment(weekStart).year();
   const quarterLabel = `Q${currentQuarter}`;
 
   // 预加载部门映射表，避免硬编码 dept_id → dept_name
@@ -86,6 +87,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   const totalProfitRate = totalProfitTarget > 0 ? Math.round((totalProfitActual / totalProfitTarget) * 100) : 0;
 
   const kpiSummaryGrouped = {
+    time_progress: Math.round(getQuarterTimeProgress(currentQuarter, currentYear)),
     row1: [
       { label: '部门 GMV', rate: totalGmvRate, target: totalGmvTarget, actual: totalGmvActual, unit: '万元', indicator: 'GMV' },
       { label: '部门利润', rate: totalProfitRate, target: totalProfitTarget, actual: totalProfitActual, unit: '万元', indicator: '利润' },
@@ -106,6 +108,10 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     order: [['updated_at', 'DESC']]
   });
 
+  // 按部门排序：袁博(3) → 拓展(1) → 运营(2)
+  const deptOrder = { 3: 0, 1: 1, 2: 2 };
+  const sortByDept = (a, b) => (deptOrder[a.dept_id] ?? 99) - (deptOrder[b.dept_id] ?? 99);
+
   const projectProgress = updatedProjects.map(p => ({
     id: p.id,
     dept_id: p.dept_id,
@@ -116,7 +122,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     progress_pct: p.progress_pct,
     status: p.status,
     updated_at: moment(p.updated_at).format('YYYY-MM-DD HH:mm')
-  }));
+  })).sort(sortByDept);
 
   // 3. 风险与预警
   const riskWhere = { status: '风险' };
@@ -135,7 +141,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     owner_name: p.owner_name,
     risk_desc: p.risk_desc,
     progress_pct: p.progress_pct
-  }));
+  })).sort(sortByDept);
 
   // 严重预警指标
   const perfWhere = {};
@@ -186,7 +192,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     next_week_focus: p.next_week_focus,
     progress_pct: p.progress_pct,
     status: p.status
-  }));
+  })).sort(sortByDept);
 
   // D表下月跟进非空事项
   const currentMonth = moment(weekStart).format('YYYY-MM');
