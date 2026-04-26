@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const { sequelize, Department, User } = require('./models');
 const routes = require('./routes');
 const { initCronJobs } = require('./services/cronService');
+const { dbWriteGuard, dbReadOnlyGuard, checkDbWritable, periodicCheck } = require('./middleware/dbHealthCheck');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// DB 写入守卫：写操作前检查 SQLITE_READONLY 状态
+app.use(dbWriteGuard);
+
 // 静态文件（导出文件、周报文件）—— 已移除直接静态服务，改为 API 鉴权下载
 // 旧方式：app.use('/uploads', express.static(...)) — 任何人知道URL就能下载
 // 新方式：通过 /api/files/exports/:filename 和 /api/files/weekly-reports/:filename 鉴权后下载
@@ -68,9 +72,23 @@ app.use('/api', routes({
   importLimiter
 }));
 
-// 健康检查
-app.get('/health', (req, res) => {
-  res.json({ code: 0, data: { status: 'ok', time: new Date().toISOString() }, message: '服务正常' });
+// 健康检查（含 DB 写入状态）
+app.get('/health', async (req, res) => {
+  const { isDbReadOnly, checkDbWritable } = require('./middleware/dbHealthCheck');
+  let dbWritable = true;
+  try {
+    dbWritable = !isDbReadOnly();
+  } catch (e) { /* ignore */ }
+
+  res.json({
+    code: 0,
+    data: {
+      status: dbWritable ? 'ok' : 'degraded',
+      db_writable: dbWritable,
+      time: new Date().toISOString()
+    },
+    message: dbWritable ? '服务正常' : '数据库只读，写入功能不可用'
+  });
 });
 
 // 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
@@ -90,6 +108,9 @@ app.get('*', (req, res, next) => {
 });
 
 // 错误处理
+// 第一层：SQLITE_READONLY 专用拦截（在通用 500 之前）
+app.use(dbReadOnlyGuard);
+// 第二层：通用错误兜底
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);
   res.status(500).json({
@@ -148,12 +169,22 @@ async function startServer() {
         // 额外优化：WAL 自动检查点设为 1000 页（默认 1000，显式设置便于维护）
         await sequelize.query('PRAGMA wal_autocheckpoint=1000');
         console.log('[DB] SQLite PRAGMA加固完成: synchronous=NORMAL, busy_timeout=5000ms');
+
+        // 主动写入测试（比 PRAGMA 更可靠地检测 SQLITE_READONLY）
+        const writable = await checkDbWritable();
+        if (!writable) {
+          console.error('❌❌❌ 致命错误：数据库只读（SQLITE_READONLY）！');
+          console.error('❌ 这通常是因为 pm2 restart 没有释放旧连接。');
+          console.error('❌ 解决方法：pm2 delete growth-system && cd backend && DB_DIALECT=sqlite NODE_ENV=development pm2 start src/app.js --name growth-system');
+          process.exit(1);
+        }
+        console.log('[DB] ✅ SQLite 写入测试通过');
       }
     } catch (dbWriteErr) {
       if (dbWriteErr.original && dbWriteErr.original.code === 'SQLITE_READONLY') {
         console.error('❌❌❌ 致命错误：数据库只读（SQLITE_READONLY）！');
         console.error('❌ 这通常是因为 pm2 restart 没有释放旧连接。');
-        console.error('❌ 解决方法：pm2 delete growth-system && pm2 start src/app.js --name growth-system');
+        console.error('❌ 解决方法：pm2 delete growth-system && cd backend && DB_DIALECT=sqlite NODE_ENV=development pm2 start src/app.js --name growth-system');
         process.exit(1);
       }
       console.warn('[DB] 写入自检警告（非致命）:', dbWriteErr.message);

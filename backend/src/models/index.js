@@ -6,6 +6,7 @@ const Department = sequelize.define('Department', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(50), allowNull: false, unique: true },
   status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' }, // active / deleted
+  type: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'team' }, // team / manager
 }, {
   tableName: 'departments',
   timestamps: false

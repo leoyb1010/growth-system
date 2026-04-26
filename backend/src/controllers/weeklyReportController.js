@@ -27,7 +27,8 @@ async function generateReport(req, res) {
 
     // 传入部门过滤：admin 看全部，其他只看本部门
     const deptFilter = req.deptFilter || null;
-    const reportData = await generateWeeklyReportData(start, end, deptFilter);
+    const isAdmin = !deptFilter; // admin 无 deptFilter，dept_manager/dept_staff 有
+    const reportData = await generateWeeklyReportData(start, end, deptFilter, isAdmin);
 
     // 保存到数据库
     const report = await WeeklyReport.create({

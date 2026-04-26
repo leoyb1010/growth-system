@@ -31,6 +31,13 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    // SQLITE_READONLY 专用提示：数据库只读时给用户明确的告警
+    if (error.response?.data?.error_type === 'DB_READONLY') {
+      // 触发全局事件，让 App 层显示告警条
+      window.dispatchEvent(new CustomEvent('db-readonly', {
+        detail: { message: error.response.data.message }
+      }));
+    }
     return Promise.reject(error.response?.data?.message || '请求失败');
   }
 );

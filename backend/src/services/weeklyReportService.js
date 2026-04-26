@@ -9,7 +9,7 @@ const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProg
  * @param {Date} weekStart - 本周开始日期
  * @param {Date} weekEnd - 本周结束日期
  */
-async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
+async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, isAdmin = true) {
   const weekStartStr = moment(weekStart).format('YYYY-MM-DD');
   const weekEndStr = moment(weekEnd).format('YYYY-MM-DD');
   const lastWeekStart = moment(weekStart).subtract(7, 'days').format('YYYY-MM-DD');
@@ -19,13 +19,18 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   const quarterLabel = `Q${currentQuarter}`;
 
   // 预加载部门映射表，避免硬编码 dept_id → dept_name
-  const allDepartments = await Department.findAll({ attributes: ['id', 'name'] });
+  const allDepartments = await Department.findAll({ attributes: ['id', 'name', 'type'] });
   const deptMap = {};
   allDepartments.forEach(d => { deptMap[d.id] = d.name; });
+
+  // 袁博组权限隔离：非 admin 排除 type=manager 的部门数据
+  const managerDeptIds = allDepartments.filter(d => d.type === 'manager').map(d => d.id);
+  const excludeDeptIds = isAdmin ? [] : managerDeptIds;
 
   // 1. 本周数据摘要（对比上周）
   const kpiWhere = { quarter: quarterLabel };
   if (deptFilter) kpiWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) kpiWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const currentKpis = await Kpi.findAll({
     where: kpiWhere
   });
@@ -48,6 +53,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
     updated_at: { [Op.between]: [weekStart, weekEnd] }
   };
   if (deptFilter) projectWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) projectWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const updatedProjects = await Project.findAll({
     where: projectWhere,
     include: [{ model: Department, attributes: ['name'] }],
@@ -69,6 +75,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   // 3. 风险与预警
   const riskWhere = { status: '风险' };
   if (deptFilter) riskWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) riskWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const riskProjects = await Project.findAll({
     where: riskWhere,
     include: [{ model: Department, attributes: ['name'] }]
@@ -87,6 +94,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
   // 严重预警指标
   const perfWhere = {};
   if (deptFilter) perfWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) perfWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const performances = await Performance.findAll({
     where: perfWhere,
     include: [{ model: Department, attributes: ['name'] }]
@@ -116,6 +124,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
     next_week_focus: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
   };
   if (deptFilter) focusWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) focusWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const focusProjects = await Project.findAll({
     where: focusWhere,
     include: [{ model: Department, attributes: ['name'] }],
@@ -140,6 +149,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
     next_month_plan: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
   };
   if (deptFilter) taskWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) taskWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const followUpTasks = await MonthlyTask.findAll({
     where: taskWhere,
     include: [{ model: Department, attributes: ['name'] }]
@@ -159,6 +169,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null) {
     created_at: { [Op.between]: [weekStart, weekEnd] }
   };
   if (deptFilter) achievementWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) achievementWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const newAchievements = await Achievement.findAll({
     where: achievementWhere,
     include: [{ model: Department, attributes: ['name'] }],

@@ -7,8 +7,16 @@ const { error, success } = require('../utils/response');
  */
 async function getDepartments(req, res) {
   try {
+    const where = { status: 'active' };
+
+    // 袁博组权限隔离：非 admin 不返回 type=manager 的部门
+    const isAdmin = req.access?.role === 'super_admin';
+    if (!isAdmin) {
+      where.type = { [require('sequelize').Op.ne]: 'manager' };
+    }
+
     const departments = await Department.findAll({
-      where: { status: 'active' },
+      where,
       order: [['id', 'ASC']],
       include: [{
         model: User,

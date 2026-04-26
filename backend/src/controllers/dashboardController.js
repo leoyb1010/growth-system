@@ -79,9 +79,10 @@ async function getDashboard(req, res) {
     }
 
     // 动态按部门分组 KPI，支持任意数量部门（受 deptFilter 约束）
-    const departments = scopeDeptId
-      ? await Department.findAll({ where: { id: scopeDeptId }, order: [['id', 'ASC']] })
-      : await Department.findAll({ order: [['id', 'ASC']] });
+    // ⚠️ 排除 type='manager' 的管理者部门：管理者不需要在驾驶舱显示独立的 GMV 卡片
+    const deptWhere = { type: 'team' };
+    if (scopeDeptId) deptWhere.id = scopeDeptId;
+    const departments = await Department.findAll({ where: deptWhere, order: [['id', 'ASC']] });
     const deptKpiMap = {};
     departments.forEach(d => { deptKpiMap[d.id] = { name: d.name, gmv: null, profit: null }; });
     
