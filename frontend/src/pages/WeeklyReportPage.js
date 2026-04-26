@@ -60,8 +60,7 @@ function WeeklyReportPage() {
   // 固定列宽样式（解决3-4个字就换行的问题）
   const colStyles = {
     dept: { width: 80, minWidth: 80, whiteSpace: 'nowrap' },
-    name: { width: 160, minWidth: 120 },
-    owner: { width: 70, minWidth: 70, whiteSpace: 'nowrap' },
+    name: { width: 180, minWidth: 120 },
     text: cellStyle,
     progress: { width: 60, minWidth: 60, textAlign: 'center' },
     status: { width: 70, minWidth: 70, textAlign: 'center' },
@@ -252,14 +251,13 @@ function WeeklyReportPage() {
       <table style={{ fontSize: 13, tableLayout: 'fixed', width: '100%' }}>
         <colgroup>
           <col style={{ width: 80 }} />
-          <col style={{ width: 160 }} />
-          <col style={{ width: 70 }} />
+          <col style={{ width: 180 }} />
           <col />
           <col style={{ width: 60 }} />
           <col style={{ width: 70 }} />
         </colgroup>
         <thead><tr>
-          <th>部门</th><th>项目名称</th><th>负责人</th><th>{columns.textTitle}</th><th>进度</th><th>状态</th>
+          <th>部门</th><th>项目名称</th><th>{columns.textTitle}</th><th>进度</th><th>状态</th>
         </tr></thead>
         <tbody>
           {rows.map((p, idx) => (
@@ -268,7 +266,6 @@ function WeeklyReportPage() {
                 <td rowSpan={p.deptRowSpan} style={colStyles.dept}>{p.dept_name}</td>
               ) : null}
               <td style={colStyles.name}>{p.name}</td>
-              <td style={colStyles.owner}>{p.owner_name}</td>
               <td style={colStyles.text}>
                 <EditableCell value={p[columns.textField]} path={[...editPathPrefix, idx, columns.textField]} />
               </td>
@@ -290,7 +287,7 @@ function WeeklyReportPage() {
     return rows.map(p => {
       const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
       const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${p.dept_name}</td>` : '';
-      return `<tr${rowStyle}>${deptCell}<td style="width:160px">${p.name}</td><td style="width:70px;white-space:nowrap">${p.owner_name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${p.status === '风险' ? '<span style="background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">风险</span>' : (p.status || '-')}</td></tr>`;
+      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${p.name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${p.status === '风险' ? '<span style="background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">风险</span>' : (p.status || '-')}</td></tr>`;
     }).join('');
   };
 
@@ -305,6 +302,8 @@ function WeeklyReportPage() {
     md += `## 一、本周数据摘要\n\n`;
     if (kpi_summary?.length) {
       const grouped = content.kpi_summary_grouped;
+      const tp = grouped?.time_progress;
+      if (tp != null) md += `> 季度时间进度：${tp}%\n\n`;
       if (grouped) {
         if (grouped.row1?.length) {
           md += `### 部门级指标\n\n| 指标 | 完成率 | 目标 | 实际 | 单位 |\n|------|--------|------|------|------|\n`;
@@ -328,14 +327,14 @@ function WeeklyReportPage() {
     } else { md += `暂无数据\n`; }
     md += `\n## 二、重点工作进展\n\n`;
     if (project_progress?.length) {
-      md += `| 部门 | 项目名称 | 负责人 | 本周进展 | 进度 | 状态 |\n|------|----------|--------|----------|------|------|\n`;
-      project_progress.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.owner_name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
+      md += `| 部门 | 项目名称 | 本周进展 | 进度 | 状态 |\n|------|----------|----------|------|------|\n`;
+      project_progress.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
     } else { md += `本周无更新项目\n`; }
     md += `\n## 三、风险与预警\n\n`;
     const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
     if (riskProjects.length) {
-      md += `### 风险项目\n\n| 部门 | 项目名称 | 负责人 | 风险描述 |\n|------|----------|--------|----------|\n`;
-      riskProjects.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.owner_name} | ${p.risk_desc || '-'} |\n`; });
+      md += `### 风险项目\n\n| 部门 | 项目名称 | 风险描述 |\n|------|----------|----------|\n`;
+      riskProjects.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.risk_desc || '-'} |\n`; });
       md += `\n`;
     }
     if (!riskProjects.length && !(risk_and_warnings?.severe_warnings?.length)) {
@@ -343,14 +342,14 @@ function WeeklyReportPage() {
     }
     md += `## 四、下周重点工作\n\n`;
     if (keyWorkItems.length) {
-      md += `| 部门 | 项目名称 | 负责人 | 下周重点工作 | 进度 | 状态 |\n|------|----------|--------|-------------|------|------|\n`;
-      keyWorkItems.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.owner_name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
+      md += `| 部门 | 项目名称 | 下周重点工作 | 进度 | 状态 |\n|------|----------|-------------|------|------|\n`;
+      keyWorkItems.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
       md += `\n`;
     }
     md += `## 五、新增成果\n\n`;
     if (new_achievements?.length) {
-      md += `| 部门 | 项目/工作 | 负责人 | 成果类型 | 量化结果 | 优先级 |\n|------|----------|--------|----------|----------|--------|\n`;
-      new_achievements.forEach(a => { md += `| ${a.dept_name} | ${a.project_name} | ${a.owner_name} | ${a.achievement_type} | ${a.quantified_result || '-'} | ${a.priority} |\n`; });
+      md += `| 部门 | 项目/工作 | 成果类型 | 量化结果 | 优先级 |\n|------|----------|----------|----------|--------|\n`;
+      new_achievements.forEach(a => { md += `| ${a.dept_name} | ${a.project_name} | ${a.achievement_type} | ${a.quantified_result || '-'} | ${a.priority} |\n`; });
     } else { md += `本周无新增成果\n`; }
     md += `\n---\n\n自动生成于 ${content.generated_at}\n`;
     return md;
@@ -386,6 +385,8 @@ td.text-cell { white-space: pre-wrap; }
     html += `<h2>一、本周数据摘要</h2>`;
     if (kpi_summary?.length) {
       const grouped = content.kpi_summary_grouped;
+      const tp = grouped?.time_progress;
+      if (tp != null) html += `<p style="color:#8c8c8c;font-size:12px">季度时间进度：${tp}%</p>`;
       if (grouped) {
         if (grouped.row1?.length) {
           html += `<h3>部门级指标</h3><table><tr><th>指标</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
@@ -423,8 +424,8 @@ td.text-cell { white-space: pre-wrap; }
 
     html += `<h2>二、重点工作进展</h2>`;
     if (project_progress?.length) {
-      html += `<table><colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
-      html += `<thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
+      html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
+      html += `<thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
       html += buildMergedHtmlRows(project_progress, p => textToHtml(p.weekly_progress));
       html += `</tbody></table>`;
     } else { html += `<p>本周无更新项目</p>`; }
@@ -432,8 +433,8 @@ td.text-cell { white-space: pre-wrap; }
     html += `<h2>三、风险与预警</h2>`;
     if (riskProjects.length) {
       html += `<h3>风险项目（${riskProjects.length} 项）</h3>`;
-      html += `<table><thead><tr><th style="width:80px">部门</th><th style="width:160px">项目名称</th><th style="width:70px">负责人</th><th>风险描述</th></tr></thead><tbody>`;
-      riskProjects.forEach(p => { html += `<tr style="background:#FEF2F2"><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`; });
+      html += `<table><thead><tr><th style="width:80px">部门</th><th style="width:180px">项目名称</th><th>风险描述</th></tr></thead><tbody>`;
+      riskProjects.forEach(p => { html += `<tr style="background:#FEF2F2"><td>${p.dept_name}</td><td>${p.name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`; });
       html += `</tbody></table>`;
     }
     if (severeWarnings.length) {
@@ -448,16 +449,16 @@ td.text-cell { white-space: pre-wrap; }
 
     html += `<h2>四、下周重点工作</h2>`;
     if (keyWorkItems.length) {
-      html += `<table><colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
-      html += `<thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
+      html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
+      html += `<thead><tr><th>部门</th><th>项目名称</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
       html += buildMergedHtmlRows(keyWorkItems, p => textToHtml(p.next_week_focus || p.due_date));
       html += `</tbody></table>`;
     } else { html += `<p>暂无项目填写下周重点工作</p>`; }
 
     html += `<h2>五、新增成果</h2>`;
     if (new_achievements?.length) {
-      html += `<table><tr><th>部门</th><th>项目/工作</th><th>负责人</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr>`;
-      new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.owner_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td>${a.priority}</td></tr>`; });
+      html += `<table><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr>`;
+      new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td>${a.priority}</td></tr>`; });
       html += `</table>`;
     } else { html += `<p>本周无新增成果</p>`; }
 
@@ -577,6 +578,7 @@ td.text-cell { white-space: pre-wrap; }
           <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>一、本周数据摘要</div>
           {(() => {
             const grouped = data.kpi_summary_grouped;
+            const tp = grouped?.time_progress;
             // 有分组数据用分层渲染，无分组用旧逻辑兜底
             if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
               return (
@@ -592,6 +594,7 @@ td.text-cell { white-space: pre-wrap; }
                             <div style={{ fontSize: 30, fontWeight: 700, color, margin: '6px 0' }}>{k.rate}%</div>
                             <div style={{ fontSize: 12, color: '#9CA3AF' }}>
                               目标 {k.target}{k.unit} · 完成 {k.actual}{k.unit}
+                              {tp != null && <span style={{ marginLeft: 8, color: '#B0B0B0' }}>时间进度 {tp}%</span>}
                             </div>
                           </Card>
                         );
@@ -607,7 +610,9 @@ td.text-cell { white-space: pre-wrap; }
                           <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
                             <div style={{ fontSize: 12, color: '#6B7280' }}>{k.label}</div>
                             <div style={{ fontSize: 24, fontWeight: 700, color, margin: '4px 0' }}>{k.completion_rate}%</div>
-                            <div style={{ fontSize: 11, color: '#9CA3AF' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}</div>
+                            <div style={{ fontSize: 11, color: '#9CA3AF' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
+                              {tp != null && <span style={{ marginLeft: 6, color: '#B0B0B0' }}>时间 {tp}%</span>}
+                            </div>
                           </Card>
                         );
                       })}
@@ -622,7 +627,9 @@ td.text-cell { white-space: pre-wrap; }
                           <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 10 }}>
                             <div style={{ fontSize: 11, color: '#8c8c8c' }}>{k.label}</div>
                             <div style={{ fontSize: 20, fontWeight: 700, color, margin: '2px 0' }}>{k.completion_rate}%</div>
-                            <div style={{ fontSize: 10, color: '#bfbfbf' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}</div>
+                            <div style={{ fontSize: 10, color: '#bfbfbf' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
+                              {tp != null && <span style={{ marginLeft: 4, color: '#C0C0C0' }}>时间 {tp}%</span>}
+                            </div>
                           </Card>
                         );
                       })}
@@ -669,14 +676,13 @@ td.text-cell { white-space: pre-wrap; }
               <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
                 <colgroup>
                   <col style={{ width: 80 }} />
-                  <col style={{ width: 160 }} />
-                  <col style={{ width: 70 }} />
+                  <col style={{ width: 180 }} />
                   <col />
                 </colgroup>
-                <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr></thead>
+                <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
                 <tbody>
                   {riskProjects.map((p, idx) => (
-                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td>
+                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td>
                       <td style={cellStyle}><EditableCell value={p.risk_desc} path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']} /></td>
                     </tr>
                   ))}
@@ -720,16 +726,15 @@ td.text-cell { white-space: pre-wrap; }
             <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
               <colgroup>
                 <col style={{ width: 80 }} />
-                <col style={{ width: 160 }} />
-                <col style={{ width: 70 }} />
+                <col style={{ width: 180 }} />
                 <col style={{ width: 80 }} />
                 <col />
                 <col style={{ width: 60 }} />
               </colgroup>
-              <thead><tr><th>部门</th><th>项目/工作</th><th>负责人</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
+              <thead><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
               <tbody>
                 {new_achievements.map((a, idx) => (
-                  <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.owner_name}</td><td>{a.achievement_type}</td>
+                  <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.achievement_type}</td>
                     <td style={cellStyle}><EditableCell value={a.quantified_result} path={['new_achievements', idx, 'quantified_result']} /></td>
                     <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td>
                   </tr>

@@ -113,7 +113,7 @@ function buildReportHtml(content) {
       const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
       const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${p.dept_name}</td>` : '';
       const statusHtml = p.status === '风险' ? '<span class="risk-tag">风险</span>' : (p.status || '-');
-      return `<tr${rowStyle}>${deptCell}<td style="width:160px">${p.name}</td><td style="width:70px;white-space:nowrap">${p.owner_name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
+      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${p.name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
     }).join('');
   }
 
@@ -156,7 +156,12 @@ function buildReportHtml(content) {
   // KPI 摘要卡片 — 分层渲染
   let kpiCardsHtml = '';
   const grouped = kpi_summary && content.kpi_summary_grouped;
+  const tp = grouped?.time_progress;
   if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
+    // 时间进度提示
+    if (tp != null) {
+      kpiCardsHtml += `<div style="font-size:12px;color:#8c8c8c;margin-bottom:10px">季度时间进度：${tp}%</div>`;
+    }
     // Row1: 部门级 GMV + 利润（大卡片）
     if (grouped.row1?.length) {
       kpiCardsHtml += `<div style="display:flex;gap:16px;margin-bottom:14px">`;
@@ -165,7 +170,7 @@ function buildReportHtml(content) {
         kpiCardsHtml += `<div style="flex:1;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:18px;text-align:center">
           <div style="font-size:13px;color:#6B7280;font-weight:600">${k.label}</div>
           <div style="font-size:32px;font-weight:700;color:${color};margin:6px 0">${k.rate}%</div>
-          <div style="font-size:12px;color:#9CA3AF">目标 ${k.target}${k.unit} · 完成 ${k.actual}${k.unit}</div>
+          <div style="font-size:12px;color:#9CA3AF">目标 ${k.target}${k.unit} · 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:8px;color:#B0B0B0">时间进度 ${tp}%</span>` : ''}</div>
         </div>`;
       });
       kpiCardsHtml += `</div>`;
@@ -178,7 +183,7 @@ function buildReportHtml(content) {
         kpiCardsHtml += `<div class="kpi-card">
           <div class="kpi-dept">${k.label}</div>
           <div class="kpi-rate" style="color:${color}">${k.completion_rate}%</div>
-          <div class="kpi-detail">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}</div>
+          <div class="kpi-detail">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:6px;color:#B0B0B0">时间 ${tp}%</span>` : ''}</div>
         </div>`;
       });
       kpiCardsHtml += `</div>`;
@@ -191,7 +196,7 @@ function buildReportHtml(content) {
         kpiCardsHtml += `<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;padding:10px">
           <div style="font-size:11px;color:#8c8c8c">${k.label}</div>
           <div style="font-size:20px;font-weight:700;color:${color};margin:2px 0">${k.completion_rate}%</div>
-          <div style="font-size:10px;color:#bfbfbf">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}</div>
+          <div style="font-size:10px;color:#bfbfbf">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:4px;color:#C0C0C0">时间 ${tp}%</span>` : ''}</div>
         </div>`;
       });
       kpiCardsHtml += `</div>`;
@@ -215,8 +220,8 @@ function buildReportHtml(content) {
   let progressHtml = '';
   if (project_progress?.length) {
     progressHtml = `<table>
-      <colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
-      <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead>
+      <colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
+      <thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead>
       <tbody>${buildMergedRows(project_progress, p => textToHtml(p.weekly_progress))}</tbody></table>`;
   } else {
     progressHtml = `<p class="no-data">本周无更新项目</p>`;
@@ -226,10 +231,10 @@ function buildReportHtml(content) {
   let riskHtml = '';
   if (riskProjects.length) {
     riskHtml += `<h4 style="color:#DC2626;font-size:14px;margin-bottom:8px">风险项目（${riskProjects.length} 项）</h4>
-      <table><colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/></colgroup>
-      <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr></thead>
+      <table><colgroup><col style="width:80px"/><col style="width:180px"/><col/></colgroup>
+      <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
       <tbody>${riskProjects.map(p =>
-        `<tr class="risk-row"><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`
+        `<tr class="risk-row"><td>${p.dept_name}</td><td>${p.name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`
       ).join('')}</tbody></table>`;
   }
   if (severeWarnings.length) {
@@ -247,8 +252,8 @@ function buildReportHtml(content) {
   let nextWeekHtml = '';
   if (keyWorkItems.length) {
     nextWeekHtml = `<table>
-      <colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
-      <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
+      <colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
+      <thead><tr><th>部门</th><th>项目名称</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
       <tbody>${buildMergedRows(keyWorkItems, p => textToHtml(p.next_week_focus || p.due_date))}</tbody></table>`;
   } else {
     nextWeekHtml = `<p class="no-data">暂无项目填写下周重点工作</p>`;
@@ -258,11 +263,11 @@ function buildReportHtml(content) {
   let achieveHtml = '';
   if (new_achievements?.length) {
     achieveHtml = `<table>
-      <colgroup><col style="width:70px"/><col style="width:140px"/><col style="width:70px"/><col style="width:80px"/><col/><col style="width:60px"/></colgroup>
-      <thead><tr><th>部门</th><th>项目/工作</th><th>负责人</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
+      <colgroup><col style="width:70px"/><col style="width:160px"/><col style="width:80px"/><col/><col style="width:60px"/></colgroup>
+      <thead><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
       <tbody>${new_achievements.map(a => {
         const priColor = a.priority === '高' ? '#DC2626' : a.priority === '中' ? '#F59E0B' : '#6B7280';
-        return `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.owner_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td style="color:${priColor};font-weight:600">${a.priority}</td></tr>`;
+        return `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td style="color:${priColor};font-weight:600">${a.priority}</td></tr>`;
       }).join('')}</tbody></table>`;
   } else {
     achieveHtml = `<p class="no-data">本周无新增成果</p>`;
