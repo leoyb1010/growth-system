@@ -304,8 +304,27 @@ function WeeklyReportPage() {
     md += `---\n\n`;
     md += `## 一、本周数据摘要\n\n`;
     if (kpi_summary?.length) {
-      md += `| 部门 | 指标 | 完成率 | 目标 | 实际 | 单位 |\n|------|------|--------|------|------|------|\n`;
-      kpi_summary.forEach(k => { md += `| ${k.dept_name} | ${k.indicator} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
+      const grouped = content.kpi_summary_grouped;
+      if (grouped) {
+        if (grouped.row1?.length) {
+          md += `### 部门级指标\n\n| 指标 | 完成率 | 目标 | 实际 | 单位 |\n|------|--------|------|------|------|\n`;
+          grouped.row1.forEach(k => { md += `| ${k.label} | ${k.rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
+          md += `\n`;
+        }
+        if (grouped.row2?.length) {
+          md += `### 各组 GMV\n\n| 部门 | 完成率 | 目标 | 实际 | 单位 |\n|------|--------|------|------|------|\n`;
+          grouped.row2.forEach(k => { md += `| ${k.label} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
+          md += `\n`;
+        }
+        if (grouped.row3?.length) {
+          md += `### 其他业务指标\n\n| 部门·指标 | 完成率 | 目标 | 实际 | 单位 |\n|-----------|--------|------|------|------|\n`;
+          grouped.row3.forEach(k => { md += `| ${k.label} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
+          md += `\n`;
+        }
+      } else {
+        md += `| 部门 | 指标 | 完成率 | 目标 | 实际 | 单位 |\n|------|------|--------|------|------|------|\n`;
+        kpi_summary.forEach(k => { md += `| ${k.dept_name} | ${k.indicator} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
+      }
     } else { md += `暂无数据\n`; }
     md += `\n## 二、重点工作进展\n\n`;
     if (project_progress?.length) {
@@ -366,12 +385,40 @@ td.text-cell { white-space: pre-wrap; }
     }
     html += `<h2>一、本周数据摘要</h2>`;
     if (kpi_summary?.length) {
-      html += `<table><tr><th>部门</th><th>指标</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
-      kpi_summary.forEach(k => {
-        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-        html += `<tr><td>${k.dept_name}</td><td>${k.indicator}</td><td style="color:${color};font-weight:600">${k.completion_rate}%</td><td>${k.target}</td><td>${k.actual}</td><td>${k.unit}</td></tr>`;
-      });
-      html += `</table>`;
+      const grouped = content.kpi_summary_grouped;
+      if (grouped) {
+        if (grouped.row1?.length) {
+          html += `<h3>部门级指标</h3><table><tr><th>指标</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
+          grouped.row1.forEach(k => {
+            const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
+            html += `<tr><td>${k.label}</td><td style="color:${color};font-weight:600">${k.rate}%</td><td>${k.target}</td><td>${k.actual}</td><td>${k.unit}</td></tr>`;
+          });
+          html += `</table>`;
+        }
+        if (grouped.row2?.length) {
+          html += `<h3>各组 GMV</h3><table><tr><th>部门</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
+          grouped.row2.forEach(k => {
+            const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+            html += `<tr><td>${k.label}</td><td style="color:${color};font-weight:600">${k.completion_rate}%</td><td>${k.target}</td><td>${k.actual}</td><td>${k.unit}</td></tr>`;
+          });
+          html += `</table>`;
+        }
+        if (grouped.row3?.length) {
+          html += `<h3>其他业务指标</h3><table><tr><th>部门·指标</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
+          grouped.row3.forEach(k => {
+            const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+            html += `<tr><td>${k.label}</td><td style="color:${color};font-weight:600">${k.completion_rate}%</td><td>${k.target}</td><td>${k.actual}</td><td>${k.unit}</td></tr>`;
+          });
+          html += `</table>`;
+        }
+      } else {
+        html += `<table><tr><th>部门</th><th>指标</th><th>完成率</th><th>目标</th><th>实际</th><th>单位</th></tr>`;
+        kpi_summary.forEach(k => {
+          const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+          html += `<tr><td>${k.dept_name}</td><td>${k.indicator}</td><td style="color:${color};font-weight:600">${k.completion_rate}%</td><td>${k.target}</td><td>${k.actual}</td><td>${k.unit}</td></tr>`;
+        });
+        html += `</table>`;
+      }
     } else { html += `<p>暂无数据</p>`; }
 
     html += `<h2>二、重点工作进展</h2>`;
@@ -525,22 +572,82 @@ td.text-cell { white-space: pre-wrap; }
           </Col>
         </Row>
 
-        {/* 数据摘要 — 分组卡片 */}
+        {/* 数据摘要 — 分层卡片 */}
         <div className="section">
           <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>一、本周数据摘要</div>
-          <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
-            {kpi_summary.map((kpi, idx) => (
-              <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
-                <div style={{ fontSize: 12, color: '#6B7280' }}>{kpi.dept_name} · {kpi.indicator}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: kpi.completion_rate >= 90 ? '#16A34A' : kpi.completion_rate >= 60 ? '#F59E0B' : '#DC2626', margin: '4px 0' }}>
-                  {kpi.completion_rate}%
-                </div>
-                <div style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  目标 {kpi.target}{kpi.unit} / 完成 {kpi.actual}{kpi.unit}
-                </div>
-              </Card>
-            ))}
-          </div>
+          {(() => {
+            const grouped = data.kpi_summary_grouped;
+            // 有分组数据用分层渲染，无分组用旧逻辑兜底
+            if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
+              return (
+                <>
+                  {/* Row1: 部门级 GMV + 利润（大卡片） */}
+                  {grouped.row1?.length > 0 && (
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                      {grouped.row1.map((k, idx) => {
+                        const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
+                        return (
+                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 18, flex: 1 }} style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>{k.label}</div>
+                            <div style={{ fontSize: 30, fontWeight: 700, color, margin: '6px 0' }}>{k.rate}%</div>
+                            <div style={{ fontSize: 12, color: '#9CA3AF' }}>
+                              目标 {k.target}{k.unit} · 完成 {k.actual}{k.unit}
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Row2: 各组 GMV（中卡片） */}
+                  {grouped.row2?.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 12 }}>
+                      {grouped.row2.map((k, idx) => {
+                        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+                        return (
+                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
+                            <div style={{ fontSize: 12, color: '#6B7280' }}>{k.label}</div>
+                            <div style={{ fontSize: 24, fontWeight: 700, color, margin: '4px 0' }}>{k.completion_rate}%</div>
+                            <div style={{ fontSize: 11, color: '#9CA3AF' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}</div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Row3: 其他业务指标（紧凑卡片） */}
+                  {grouped.row3?.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                      {grouped.row3.map((k, idx) => {
+                        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+                        return (
+                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 10 }}>
+                            <div style={{ fontSize: 11, color: '#8c8c8c' }}>{k.label}</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color, margin: '2px 0' }}>{k.completion_rate}%</div>
+                            <div style={{ fontSize: 10, color: '#bfbfbf' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}</div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            }
+            // 兜底：旧周报无分组数据，用原逻辑
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
+                {kpi_summary.map((kpi, idx) => (
+                  <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
+                    <div style={{ fontSize: 12, color: '#6B7280' }}>{kpi.dept_name} · {kpi.indicator}</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: kpi.completion_rate >= 90 ? '#16A34A' : kpi.completion_rate >= 60 ? '#F59E0B' : '#DC2626', margin: '4px 0' }}>
+                      {kpi.completion_rate}%
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>
+                      目标 {kpi.target}{kpi.unit} / 完成 {kpi.actual}{kpi.unit}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 重点工作进展（同组合并） */}

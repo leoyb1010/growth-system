@@ -153,9 +153,51 @@ function buildReportHtml(content) {
     .no-data { color: #9CA3AF; font-size: 13px; }
   `;
 
-  // KPI 摘要卡片
+  // KPI 摘要卡片 — 分层渲染
   let kpiCardsHtml = '';
-  if (kpi_summary?.length) {
+  const grouped = kpi_summary && content.kpi_summary_grouped;
+  if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
+    // Row1: 部门级 GMV + 利润（大卡片）
+    if (grouped.row1?.length) {
+      kpiCardsHtml += `<div style="display:flex;gap:16px;margin-bottom:14px">`;
+      grouped.row1.forEach(k => {
+        const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
+        kpiCardsHtml += `<div style="flex:1;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:13px;color:#6B7280;font-weight:600">${k.label}</div>
+          <div style="font-size:32px;font-weight:700;color:${color};margin:6px 0">${k.rate}%</div>
+          <div style="font-size:12px;color:#9CA3AF">目标 ${k.target}${k.unit} · 完成 ${k.actual}${k.unit}</div>
+        </div>`;
+      });
+      kpiCardsHtml += `</div>`;
+    }
+    // Row2: 各组 GMV（中卡片）
+    if (grouped.row2?.length) {
+      kpiCardsHtml += `<div class="kpi-grid">`;
+      grouped.row2.forEach(k => {
+        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+        kpiCardsHtml += `<div class="kpi-card">
+          <div class="kpi-dept">${k.label}</div>
+          <div class="kpi-rate" style="color:${color}">${k.completion_rate}%</div>
+          <div class="kpi-detail">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}</div>
+        </div>`;
+      });
+      kpiCardsHtml += `</div>`;
+    }
+    // Row3: 其他业务指标（紧凑卡片）
+    if (grouped.row3?.length) {
+      kpiCardsHtml += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px">`;
+      grouped.row3.forEach(k => {
+        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+        kpiCardsHtml += `<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;padding:10px">
+          <div style="font-size:11px;color:#8c8c8c">${k.label}</div>
+          <div style="font-size:20px;font-weight:700;color:${color};margin:2px 0">${k.completion_rate}%</div>
+          <div style="font-size:10px;color:#bfbfbf">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}</div>
+        </div>`;
+      });
+      kpiCardsHtml += `</div>`;
+    }
+  } else if (kpi_summary?.length) {
+    // 兜底：旧数据无分组
     kpiCardsHtml = `<div class="kpi-grid">` +
       kpi_summary.map(k => {
         const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
