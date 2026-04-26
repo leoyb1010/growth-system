@@ -157,7 +157,7 @@ function KpiPage() {
         formatter: (params) => {
           let s = `${params[0].axisValue}<br/>`;
           params.forEach(p => {
-            s += `${p.marker}${p.seriesName}: ${Number(p.value).toLocaleString()} ${unit}<br/>`;
+            s += `${p.marker}${p.seriesName}: ${Number(p.value).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${unit}<br/>`;
           });
           return s;
         },
@@ -301,8 +301,8 @@ function KpiPage() {
                     </div>
                     <Progress percent={Math.min(totalRate, 100)} strokeColor={statusColor} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 12 }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
-                      <span>全年目标 {Number(item.totalTarget).toLocaleString()} {item.unit}</span>
-                      <span>全年完成 {Number(item.totalActual).toLocaleString()} {item.unit}</span>
+                      <span>全年目标 {Number(item.totalTarget).toLocaleString(undefined, { maximumFractionDigits: 0 })} {item.unit}</span>
+                      <span>全年完成 {Number(item.totalActual).toLocaleString(undefined, { maximumFractionDigits: 0 })} {item.unit}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
@@ -396,12 +396,12 @@ function KpiPage() {
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
                           <span style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }}>目标</span>
-                          <span style={{ fontSize: 15, fontWeight: 600, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(item.target).toLocaleString()}</span>
+                          <span style={{ fontSize: 15, fontWeight: 600, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(item.target).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                           <span style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }}>{item.unit}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                           <span style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }}>实际</span>
-                          <span style={{ fontSize: 15, fontWeight: 600, color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(item.actual).toLocaleString()}</span>
+                          <span style={{ fontSize: 15, fontWeight: 600, color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{Number(item.actual).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                           <span style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }}>{item.unit}</span>
                         </div>
                       </div>
@@ -476,7 +476,7 @@ function KpiPage() {
                       {item.Department?.name}·{item.indicator_name}
                     </div>
                     <div style={{ fontSize: 10, color: '#8c8c8c' }}>
-                      {Number(item.actual).toLocaleString()}/{Number(item.target).toLocaleString()}
+                      {Number(item.actual).toLocaleString(undefined, { maximumFractionDigits: 0 })}/{Number(item.target).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                   </Card>
                 </Col>
@@ -516,9 +516,9 @@ function KpiPage() {
               <Descriptions.Item label="部门">{detailRecord.Department?.name}</Descriptions.Item>
               <Descriptions.Item label="指标">{detailRecord.indicator_name}</Descriptions.Item>
               <Descriptions.Item label="季度">{detailRecord.quarter}</Descriptions.Item>
-              <Descriptions.Item label="目标值">{Number(detailRecord.target).toLocaleString()} {detailRecord.unit}</Descriptions.Item>
-              <Descriptions.Item label="完成值">{Number(detailRecord.actual).toLocaleString()} {detailRecord.unit}</Descriptions.Item>
-              <Descriptions.Item label="差距">{(parseFloat(detailRecord.actual) - parseFloat(detailRecord.target)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailRecord.unit}</Descriptions.Item>
+              <Descriptions.Item label="目标值">{Number(detailRecord.target).toLocaleString(undefined, { maximumFractionDigits: 0 })} {detailRecord.unit}</Descriptions.Item>
+              <Descriptions.Item label="完成值">{Number(detailRecord.actual).toLocaleString(undefined, { maximumFractionDigits: 0 })} {detailRecord.unit}</Descriptions.Item>
+              <Descriptions.Item label="差距">{(parseFloat(detailRecord.actual) - parseFloat(detailRecord.target)).toLocaleString(undefined, { maximumFractionDigits: 0 })} {detailRecord.unit}</Descriptions.Item>
               <Descriptions.Item label="完成率">
                 <span style={{ color: getCompletionColor(detailRecord.completion_rate), fontWeight: 600 }}>{detailRecord.completion_rate}%</span>
               </Descriptions.Item>

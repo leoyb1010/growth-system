@@ -116,20 +116,20 @@ function DashboardPage() {
   const kpiCards = [
     {
       title: '部门 GMV', value: `${data.kpi_cards?.total_gmv_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
       status: data.kpi_cards?.total_gmv_status || 'error',
       icon: <TeamOutlined style={{ fontSize: 20, color: '#3B5AFB' }} />,
     },
     {
       title: '部门利润', value: `${data.kpi_cards?.total_profit_rate || 0}%`, suffix: '完成率',
-      hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString()} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      hint: `目标 ${(data.kpi_cards?.total_profit_target || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${(data.kpi_cards?.total_profit_actual || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
       status: data.kpi_cards?.total_profit_status || 'error',
       icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
     // 动态渲染各部门 GMV 卡片
     ...(data.kpi_cards?.dept_cards || []).map((dept, idx) => ({
       title: `${dept.dept_name} GMV`, value: `${dept.gmv_rate}%`, suffix: '完成率',
-      hint: `目标 ${dept.gmv_target.toLocaleString()} 万 · 实际 ${dept.gmv_actual.toLocaleString()} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+      hint: `目标 ${dept.gmv_target.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${dept.gmv_actual.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
       status: dept.gmv_status || 'error',
       icon: idx % 2 === 0 ? <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} /> : <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
     })),
