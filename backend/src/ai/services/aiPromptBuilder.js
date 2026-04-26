@@ -177,8 +177,11 @@ function formatDataSummary(context) {
   if (kpis.length > 0) {
     lines.push(`=== KPI 指标（共${kpis.length}个）===`);
     kpis.slice(0, 10).forEach(k => {
-      const rate = k.target > 0 ? ((k.actual / k.target) * 100).toFixed(1) : 'N/A';
-      lines.push(`- ${k.indicator_name} | 目标:${k.target} | 实际:${k.actual} | 完成率:${rate}%`);
+      const rate = k.target > 0 ? Math.round((k.actual / k.target) * 100) : 'N/A';
+      const unit = k.unit === '百分比' ? '%' : (k.unit || '');
+      const target = ['万元','元','百分比','%','个','人','次','万'].includes(k.unit) ? Math.round(Number(k.target)) : parseFloat(Number(k.target).toFixed(2));
+      const actual = ['万元','元','百分比','%','个','人','次','万'].includes(k.unit) ? Math.round(Number(k.actual)) : parseFloat(Number(k.actual).toFixed(2));
+      lines.push(`- ${k.indicator_name} | 目标:${target}${unit} | 实际:${actual}${unit} | 完成率:${rate}%`);
     });
     lines.push('');
   }

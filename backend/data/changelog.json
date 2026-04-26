@@ -1,6 +1,38 @@
 {
-  "latestVersion": "6.2.0",
+  "latestVersion": "6.3.0",
   "releases": [
+    {
+      "version": "6.3.0",
+      "date": "2026-04-26",
+      "title": "周报数据摘要分层 + 数值格式化",
+      "changes": [
+        {
+          "type": "feature",
+          "module": "周报",
+          "desc": "数据摘要三行分层：第一行部门 GMV+利润（大卡片），第二行各组 GMV（中卡片），第三行其他业务指标（紧凑卡片），主次分明"
+        },
+        {
+          "type": "fix",
+          "module": "周报",
+          "desc": "万元/元/百分比等数值全部取整显示，不再出现小数点后多余位数（如 286.038 → 286）"
+        },
+        {
+          "type": "fix",
+          "module": "周报",
+          "desc": "单位\"百分比\"改为\"%\"显示，不再出现\"5百分比\"这种汉字混排"
+        },
+        {
+          "type": "improve",
+          "module": "驾驶舱",
+          "desc": "GMV/KPI 卡片数值去除小数点，显示更清爽"
+        },
+        {
+          "type": "improve",
+          "module": "AI",
+          "desc": "AI 分析 prompt 中数值同步格式化，减少 LLM 输出噪音"
+        }
+      ]
+    },
     {
       "version": "6.2.0",
       "date": "2026-04-26",

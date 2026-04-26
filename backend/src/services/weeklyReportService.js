@@ -4,6 +4,28 @@ const { Op } = require('sequelize');
 const { sendWeeklyReportToFeishu } = require('./feishuService');
 const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 
+// ===== 数值格式化工具 =====
+
+/**
+ * 按单位类型格式化数值（仅影响展示，不改变数据库值）
+ * - 万元/元/百分比/个/人/次 → 取整
+ * - 其他 → 保留2位小数
+ */
+function fmtNum(value, unit) {
+  const n = parseFloat(value) || 0;
+  const intUnits = ['万元', '元', '百分比', '%', '个', '人', '次', '万'];
+  if (intUnits.includes(unit)) return Math.round(n);
+  return parseFloat(n.toFixed(2));
+}
+
+/**
+ * 清洗单位显示：百分比 → %
+ */
+function displayUnit(unit) {
+  if (unit === '百分比') return '%';
+  return unit || '';
+}
+
 /**
  * 生成周报数据
  * @param {Date} weekStart - 本周开始日期
@@ -36,17 +58,41 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   });
 
   const kpiSummary = currentKpis.map(kpi => {
-    const rate = kpi.target > 0 ? parseFloat(((kpi.actual / kpi.target) * 100).toFixed(2)) : 0;
+    const rate = kpi.target > 0 ? parseFloat(((kpi.actual / kpi.target) * 100).toFixed(0)) : 0;
+    const dUnit = displayUnit(kpi.unit);
     return {
       dept_id: kpi.dept_id,
       dept_name: deptMap[kpi.dept_id] || '未知部门',
       indicator: kpi.indicator_name,
-      target: kpi.target,
-      actual: kpi.actual,
+      target: fmtNum(kpi.target, kpi.unit),
+      actual: fmtNum(kpi.actual, kpi.unit),
       completion_rate: rate,
-      unit: kpi.unit
+      unit: dUnit
     };
   });
+
+  // KPI 分层分组：Row1 部门级 GMV+利润，Row2 各组 GMV，Row3 其他业务指标
+  const gmvKpis = kpiSummary.filter(k => k.indicator === 'GMV');
+  const profitKpis = kpiSummary.filter(k => ['利润', '净利润'].includes(k.indicator));
+  const otherKpis = kpiSummary.filter(k => !['GMV', '利润', '净利润'].includes(k.indicator));
+
+  // 计算部门汇总 GMV 和利润
+  const totalGmvTarget = gmvKpis.reduce((s, k) => s + (k.target || 0), 0);
+  const totalGmvActual = gmvKpis.reduce((s, k) => s + (k.actual || 0), 0);
+  const totalGmvRate = totalGmvTarget > 0 ? Math.round((totalGmvActual / totalGmvTarget) * 100) : 0;
+
+  const totalProfitTarget = profitKpis.reduce((s, k) => s + (k.target || 0), 0);
+  const totalProfitActual = profitKpis.reduce((s, k) => s + (k.actual || 0), 0);
+  const totalProfitRate = totalProfitTarget > 0 ? Math.round((totalProfitActual / totalProfitTarget) * 100) : 0;
+
+  const kpiSummaryGrouped = {
+    row1: [
+      { label: '部门 GMV', rate: totalGmvRate, target: totalGmvTarget, actual: totalGmvActual, unit: '万元', indicator: 'GMV' },
+      { label: '部门利润', rate: totalProfitRate, target: totalProfitTarget, actual: totalProfitActual, unit: '万元', indicator: '利润' },
+    ].filter(item => item.target > 0 || item.actual > 0),
+    row2: gmvKpis.map(k => ({ label: `${k.dept_name} GMV`, ...k })),
+    row3: otherKpis.map(k => ({ label: `${k.dept_name} · ${k.indicator}`, ...k })),
+  };
 
   // 2. 重点工作进展（本周有更新的项目）
   const projectWhere = {
@@ -112,8 +158,8 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
           dept_name: p.Department?.name || '',
           business_type: p.business_type,
           indicator: p.indicator,
-          completion_rate: parseFloat(rate.toFixed(2)),
-          gap: parseFloat((totalTarget - totalActual).toFixed(2))
+          completion_rate: Math.round(rate),
+          gap: Math.round(totalTarget - totalActual)
         });
       }
     }
@@ -204,6 +250,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
       total_new_achievements: newAchievements.length
     },
     kpi_summary: kpiSummary,
+    kpi_summary_grouped: kpiSummaryGrouped,
     project_progress: projectProgress,
     risk_and_warnings: {
       risk_projects: riskList,

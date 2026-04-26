@@ -395,6 +395,29 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v6.3.0 — 2026-04-26 · 周报数据摘要分层 + 数值格式化
+
+> 核心改动：周报数据摘要从平铺混乱改为三行分层（部门级→各组GMV→其他指标），万元/百分比等数值取整显示，"百分比"汉字改为%符号。
+
+**周报数据摘要三行分层**
+- Row1：部门 GMV + 部门利润（2张大卡片，字号大，主色调，管理核心指标一眼看到）
+- Row2：各组 GMV（拓展组 GMV、运营组 GMV，中卡片，蓝紫色系）
+- Row3：其他业务指标（客诉率、新签单量、高意向客户等，紧凑小卡片，灰色底）
+- 后端新增 `kpi_summary_grouped` 分组结构，保留原 `kpi_summary` 平铺数组做向下兼容
+- 前端/PNG/Word/MD 导出同步分层渲染，旧周报数据自动 fallback 到平铺模式
+
+**数值格式化**
+- 后端新增 `fmtNum(value, unit)` 工具函数：万元/元/百分比/个/人/次 → 取整，其他 → 保留2位
+- 后端新增 `displayUnit(unit)` 清洗：`百分比` → `%`
+- KPI 完成率从 `.toFixed(2)` 改为 `.toFixed(0)`（管理周报不需要小数）
+- 严重预警的 completion_rate 和 gap 也改为取整
+- 驾驶舱 DashboardPage / KpiPage 数值同步去除小数点
+
+**AI Prompt 同步**
+- `aiPromptBuilder.js` 中 KPI 数值格式化同步，减少 LLM 输出噪音
+
+---
+
 ### v6.2.0 — 2026-04-26 · SQLITE_READONLY 自愈 + 驾驶舱管理者部门过滤
 
 > 核心改动：根治 pm2 restart 导致 SQLite 只读、用户数据静默丢失的致命问题；驾驶舱过滤管理者部门，只展示业务组 KPI。
@@ -859,6 +882,7 @@ docker-compose up -d --build
 - [x] v6.0.0 AI 智能助手上线（4模式 + DeepSeek LLM + Mock Fallback + 全页面接入）
 - [x] v6.1.0 安全加固 + 体验升级（3波18项：认证防护 + 数据安全 + AI标准化 + 前端性能）
 - [x] v6.2.0 SQLITE_READONLY 自愈 + 驾驶舱管理者部门过滤（三重防护 + 前端告警 + dept type 过滤）
+- [x] v6.3.0 周报数据摘要分层 + 数值格式化（三行分层 + fmtNum + displayUnit + 百分比→%）
 
 ## License
 
