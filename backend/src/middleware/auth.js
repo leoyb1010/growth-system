@@ -91,6 +91,10 @@ async function injectAccessContext(req, res, next) {
   // 向后兼容：同时设 req.deptFilter
   req.deptFilter = scopeConfig.type === 'all' ? null : user.dept_id;
 
+  // 袁博组（type=manager）权限隔离：仅 admin 可见
+  // dept_manager / dept_staff 的 deptFilter 如果命中 manager 组，不暴露
+  req.managerDeptIds = []; // 运行时填充，供 controller 使用
+
   next();
 }
 

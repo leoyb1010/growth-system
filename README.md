@@ -20,7 +20,7 @@
 ## 技术栈
 
 - **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
-- **后端**：Node.js + Express 4 + Sequelize ORM + DeepSeek LLM
+- **后端**：Node.js + Express 4 + Sequelize ORM + DeepSeek LLM + SQLITE_READONLY 自愈
 - **数据库**：PostgreSQL 14+ / SQLite（本地开发 + 生产）
 - **认证**：JWT + bcrypt + token_version 校验
 - **AI**：DeepSeek Chat + 规则引擎混合架构 + SSE 流式输出
@@ -143,7 +143,7 @@ growth-system/
 │       ├── models/            # Sequelize 数据模型（5表 paranoid 软删除）[v6.1]
 │       ├── controllers/       # 业务控制器
 │       ├── services/          # 业务服务（周报生成、定时任务）
-│       ├── middleware/        # 中间件（认证、权限、限流）
+│       ├── middleware/        # 中间件（认证、权限、限流、DB 健康检测）
 │       ├── utils/             # 工具函数
 │       └── ai/                # AI 助手模块 [v6.0]
 │           ├── controllers/   # AI 控制器（含 SSE streamChat）[v6.1]
@@ -310,8 +310,13 @@ growth-system/
 - `GET /api/weekly-reports` - 周报列表
 - `GET /api/weekly-reports/latest` - 最新周报
 - `GET /api/weekly-reports/:id` - 周报详情
+- `GET /api/weekly-reports/:id/png` - 周报 PNG 截图 [v6.2]
+- `PUT /api/weekly-reports/:id/content` - 更新周报内容（合并 content_json）[v6.2]
 - `PUT /api/weekly-reports/:id/html` - 保存 HTML 内容
 - `PUT /api/weekly-reports/:id/files` - 保存文件链接
+
+### 健康检查
+- `GET /health` - 服务健康状态（含 `db_writable` 数据库写入状态）[v6.2]
 
 ### 导入导出
 - `POST /api/import/excel` - 导入 Excel（multipart/form-data）
@@ -331,7 +336,7 @@ growth-system/
 
 | 表名 | 说明 |
 |------|------|
-| departments | 部门表（拓展组、运营组） |
+| departments | 部门表（拓展组、运营组、管理者） |
 | users | 用户表（管理员/部门账号） |
 | kpis | A表：核心指标 |
 | projects | B表：重点工作追踪（支持今日更新 quick-update） |
@@ -384,6 +389,34 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v6.2.0 — 2026-04-26 · SQLITE_READONLY 自愈 + 驾驶舱管理者部门过滤
+
+> 核心改动：根治 pm2 restart 导致 SQLite 只读、用户数据静默丢失的致命问题；驾驶舱过滤管理者部门，只展示业务组 KPI。
+
+**SQLITE_READONLY 三重防护**
+- **启动自检**：`checkDbWritable()` 在服务启动时执行临时表写入测试，检测到只读直接 `process.exit(1)`，不启动一个坏的服务
+- **运行时守卫**：新增 `dbHealthCheck.js` 中间件
+  - `dbWriteGuard`：写操作前检查 DB 只读状态，只读时返回 503 + `error_type: DB_READONLY`
+  - `dbReadOnlyGuard`：全局错误拦截器，捕获 SQLITE_READONLY 自动尝试重连（`close → 等待 → authenticate → 验证写入`）
+  - `periodicCheck`：每 30 秒后台检测写入状态，发现只读自动触发重连
+- **前端全局告警**：API 拦截器检测 `error_type=DB_READONLY` → 顶部红色 Alert 固定条，30 秒自动消失
+- **Health 端点增强**：`GET /health` 新增 `db_writable` 字段，可外部监控数据库写入状态
+
+**驾驶舱管理者部门过滤**
+- dashboardController 的 `Department.findAll()` 增加 `where: { type: 'team' }` 条件
+- 管理者部门（type='manager'）不再出现在 dept_cards 中，不展示独立的"袁博 GMV"卡片
+- 部门总 GMV 仅汇总业务组（拓展组 + 运营组），管理者视角的"部门目标 = 下属业务组之和"
+
+**周报与权限改进**
+- 周报编辑模式增强：week_conclusion / management_comment / key_changes / 表格文本字段均可编辑
+- 新增 `PUT /api/weekly-reports/:id/content` 接口，合并更新 content_json
+- management_comment 新增字段，用于补充管理评语/复盘结论
+
+**新增文件**
+- `backend/src/middleware/dbHealthCheck.js`
+
+---
 
 ### v6.1.0 — 2026-04-25 · 安全加固 + 体验升级
 
@@ -814,6 +847,7 @@ docker-compose up -d --build
 - [x] v5.1.0 时间进度逻辑升级（硬阈值→时间进度对比）
 - [x] v6.0.0 AI 智能助手上线（4模式 + DeepSeek LLM + Mock Fallback + 全页面接入）
 - [x] v6.1.0 安全加固 + 体验升级（3波18项：认证防护 + 数据安全 + AI标准化 + 前端性能）
+- [x] v6.2.0 SQLITE_READONLY 自愈 + 驾驶舱管理者部门过滤（三重防护 + 前端告警 + dept type 过滤）
 
 ## License
 

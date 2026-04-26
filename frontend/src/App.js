@@ -1,5 +1,6 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Alert } from 'antd';
 import { AuthProvider } from './hooks/useAuth';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -35,8 +36,33 @@ const PageLoading = () => (
 );
 
 function App() {
+  const [dbReadOnly, setDbReadOnly] = useState(false);
+  const [dbReadonlyMsg, setDbReadonlyMsg] = useState('');
+
+  useEffect(() => {
+    const handler = (e) => {
+      setDbReadOnly(true);
+      setDbReadonlyMsg(e.detail?.message || '数据库暂时无法写入，系统正在自动恢复中');
+      // 30秒后自动清除（可能已恢复）
+      setTimeout(() => setDbReadOnly(false), 30000);
+    };
+    window.addEventListener('db-readonly', handler);
+    return () => window.removeEventListener('db-readonly', handler);
+  }, []);
+
   return (
     <AuthProvider>
+      {dbReadOnly && (
+        <Alert
+          message="⚠️ 数据库写入异常"
+          description={dbReadonlyMsg}
+          type="error"
+          showIcon
+          closable
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10000, borderRadius: 0 }}
+          onClose={() => setDbReadOnly(false)}
+        />
+      )}
       <ErrorBoundary>
         <Router>
           <Routes>

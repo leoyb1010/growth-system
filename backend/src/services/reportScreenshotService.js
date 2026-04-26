@@ -80,11 +80,42 @@ function buildReportHtml(content) {
     week_start, week_end, generated_at
   } = content;
 
-  const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
-  const riskCount = (risk_and_warnings?.risk_projects?.length || 0) + (risk_and_warnings?.severe_warnings?.length || 0);
-  const achievementCount = new_achievements?.length || 0;
+  const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
+  const riskCount = (Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects.length : 0) + (Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings.length : 0);
+  const achievementCount = Array.isArray(new_achievements) ? new_achievements.length : 0;
+  const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
+  const severeWarnings = Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings : [];
+
+  // 兼容旧周报：management_comment 合并到 week_conclusion
+  const fullConclusion = [week_conclusion, management_comment ? '✍️ ' + management_comment : ''].filter(Boolean).join('\n\n');
 
   const textToHtml = (t) => (t || '-').replace(/\n/g, '<br/>');
+
+  // 同组合并 HTML 行辅助
+  const deptGroups = {};
+  const itemOrder = [];
+  function addRowSpanInfo(items) {
+    if (!items || items.length === 0) return [];
+    const result = items.map(item => ({ ...item, deptRowSpan: 0 }));
+    let i = 0;
+    while (i < result.length) {
+      const dept = result[i].dept_name;
+      let j = i;
+      while (j < result.length && result[j].dept_name === dept) j++;
+      result[i].deptRowSpan = j - i;
+      i = j;
+    }
+    return result;
+  }
+  function buildMergedRows(items, textFn) {
+    const rows = addRowSpanInfo(items);
+    return rows.map(p => {
+      const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
+      const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${p.dept_name}</td>` : '';
+      const statusHtml = p.status === '风险' ? '<span class="risk-tag">风险</span>' : (p.status || '-');
+      return `<tr${rowStyle}>${deptCell}<td style="width:160px">${p.name}</td><td style="width:70px;white-space:nowrap">${p.owner_name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
+    }).join('');
+  }
 
   // 通用样式
   const baseStyle = `
@@ -112,8 +143,6 @@ function buildReportHtml(content) {
     .conclusion-box { background: #F0F4FF; border: 1px solid #C7D7FE; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; font-size: 14px; color: #1E40AF; line-height: 1.8; }
     .conclusion-title { font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
     .auto-tag { background: #DBEAFE; color: #1E40AF; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
-    .comment-box { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; font-size: 14px; color: #9A3412; line-height: 1.8; }
-    .comment-title { font-weight: 700; margin-bottom: 6px; }
     .change-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .kpi-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px; }
@@ -140,51 +169,45 @@ function buildReportHtml(content) {
     kpiCardsHtml = `<p class="no-data">暂无数据</p>`;
   }
 
-  // 项目进展表格
+  // 项目进展表格（同组合并）
   let progressHtml = '';
   if (project_progress?.length) {
     progressHtml = `<table>
-      <colgroup><col style="width:70px"/><col style="width:140px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:60px"/></colgroup>
+      <colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead>
-      <tbody>${project_progress.map(p => {
-        const rowCls = p.status === '风险' ? ' class="risk-row"' : '';
-        const statusHtml = p.status === '风险' ? `<span class="risk-tag">风险</span>` : p.status;
-        return `<tr${rowCls}><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.weekly_progress)}</td><td>${p.progress_pct}%</td><td>${statusHtml}</td></tr>`;
-      }).join('')}</tbody></table>`;
+      <tbody>${buildMergedRows(project_progress, p => textToHtml(p.weekly_progress))}</tbody></table>`;
   } else {
     progressHtml = `<p class="no-data">本周无更新项目</p>`;
   }
 
   // 风险表格
   let riskHtml = '';
-  if (risk_and_warnings?.risk_projects?.length) {
-    riskHtml += `<h4 style="color:#DC2626;font-size:14px;margin-bottom:8px">风险项目（${risk_and_warnings.risk_projects.length} 项）</h4>
-      <table><colgroup><col style="width:70px"/><col style="width:140px"/><col style="width:70px"/><col/></colgroup>
+  if (riskProjects.length) {
+    riskHtml += `<h4 style="color:#DC2626;font-size:14px;margin-bottom:8px">风险项目（${riskProjects.length} 项）</h4>
+      <table><colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr></thead>
-      <tbody>${risk_and_warnings.risk_projects.map(p =>
+      <tbody>${riskProjects.map(p =>
         `<tr class="risk-row"><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`
       ).join('')}</tbody></table>`;
   }
-  if (risk_and_warnings?.severe_warnings?.length) {
-    riskHtml += `<h4 style="color:#F59E0B;font-size:14px;margin:14px 0 8px">严重预警指标（${risk_and_warnings.severe_warnings.length} 项）</h4>
+  if (severeWarnings.length) {
+    riskHtml += `<h4 style="color:#F59E0B;font-size:14px;margin:14px 0 8px">严重预警指标（${severeWarnings.length} 项）</h4>
       <table><thead><tr><th>部门</th><th>业务类型</th><th>指标</th><th>完成率</th><th>差额</th></tr></thead>
-      <tbody>${risk_and_warnings.severe_warnings.map(w =>
+      <tbody>${severeWarnings.map(w =>
         `<tr><td>${w.dept_name}</td><td>${w.business_type}</td><td>${w.indicator}</td><td style="color:#DC2626;font-weight:600">${w.completion_rate}%</td><td>${w.gap}</td></tr>`
       ).join('')}</tbody></table>`;
   }
-  if (!risk_and_warnings?.risk_projects?.length && !risk_and_warnings?.severe_warnings?.length) {
+  if (riskProjects.length === 0 && severeWarnings.length === 0) {
     riskHtml = `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
   }
 
-  // 下周重点工作
+  // 下周重点工作（同组合并）
   let nextWeekHtml = '';
   if (keyWorkItems.length) {
     nextWeekHtml = `<table>
-      <colgroup><col style="width:70px"/><col style="width:140px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:60px"/></colgroup>
+      <colgroup><col style="width:80px"/><col style="width:160px"/><col style="width:70px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
-      <tbody>${keyWorkItems.map(p =>
-        `<tr><td>${p.dept_name}</td><td>${p.name}</td><td>${p.owner_name}</td><td class="text-cell">${textToHtml(p.next_week_focus || p.due_date)}</td><td>${p.progress_pct}%</td><td>${p.status || '-'}</td></tr>`
-      ).join('')}</tbody></table>`;
+      <tbody>${buildMergedRows(keyWorkItems, p => textToHtml(p.next_week_focus || p.due_date))}</tbody></table>`;
   } else {
     nextWeekHtml = `<p class="no-data">暂无项目填写下周重点工作</p>`;
   }
@@ -220,14 +243,9 @@ function buildReportHtml(content) {
   <h1>增长组业务周报</h1>
   <div class="date">📅 ${week_start} 至 ${week_end}</div>
 
-  ${week_conclusion ? `<div class="conclusion-box">
-    <div class="conclusion-title">📋 本周结论 <span class="auto-tag">自动生成</span></div>
-    ${textToHtml(week_conclusion)}
-  </div>` : ''}
-
-  ${management_comment ? `<div class="comment-box">
-    <div class="comment-title">✍️ 管理评语</div>
-    ${textToHtml(management_comment)}
+  ${fullConclusion ? `<div class="conclusion-box">
+    <div class="conclusion-title">📋 本周结论 <span class="auto-tag">自动生成+可补充</span></div>
+    ${textToHtml(fullConclusion)}
   </div>` : ''}
 
   ${changesHtml}
@@ -277,7 +295,7 @@ function buildReportHtml(content) {
 
   <div class="footer">
     <span>🤖 本周报基础数据由系统自动汇总生成于 ${generated_at || ''}</span>
-    <span>${management_comment ? '✅ 已补充管理评语' : '管理评语与复盘结论需手动补充'}</span>
+    <span>结论与复盘可手动补充编辑</span>
   </div>
 </body></html>`;
 }
