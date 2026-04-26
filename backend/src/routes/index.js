@@ -104,7 +104,9 @@ router.post('/weekly-reports/generate', ...auth, requirePermission('weekly_repor
 router.get('/weekly-reports', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getReports);
 router.get('/weekly-reports/latest', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getLatestReport);
 router.get('/weekly-reports/:id', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.getReportById);
+router.put('/weekly-reports/:id/content', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportContent);
 router.put('/weekly-reports/:id/html', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportHtml);
+router.get('/weekly-reports/:id/png', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.exportReportPng);
 router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================

@@ -2,6 +2,7 @@ const { WeeklyReport } = require('../models');
 const { Department } = require('../models');
 const { generateWeeklyReportData } = require('../services/weeklyReportService');
 const { sendWeeklyReportToFeishu } = require('../services/feishuService');
+const { generateReportPng } = require('../services/reportScreenshotService');
 const { success, error } = require('../utils/response');
 const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 const moment = require('moment');
@@ -154,6 +155,38 @@ async function getReportById(req, res) {
 }
 
 /**
+ * 保存周报内容（编辑后）
+ * PUT /api/weekly-reports/:id/content
+ */
+async function saveReportContent(req, res) {
+  try {
+    const { id } = req.params;
+    const { content_json } = req.body;
+
+    if (!content_json) {
+      return error(res, '缺少 content_json 参数');
+    }
+
+    const report = await WeeklyReport.findByPk(id);
+    if (!report) {
+      return error(res, '周报不存在');
+    }
+
+    // 合并更新：保留原始数据，用编辑后的字段覆盖
+    const merged = { ...report.content_json, ...content_json };
+    await report.update({ content_json: merged });
+    success(res, { id: report.id, ...merged }, '周报内容保存成功');
+  } catch (err) {
+    console.error('保存周报内容失败:', err);
+    if (err.original && err.original.code === 'SQLITE_READONLY') {
+      error(res, '数据库只读，请重启服务（pm2 delete + start）', 1, 500);
+    } else {
+      error(res, '保存周报内容失败', 1, 500);
+    }
+  }
+}
+
+/**
  * 保存周报 HTML 内容
  * PUT /api/weekly-reports/:id/html
  */
@@ -197,13 +230,53 @@ async function saveReportFiles(req, res) {
   }
 }
 
+/**
+ * 导出周报 PNG（后端 puppeteer 截图）
+ * GET /api/weekly-reports/:id/png
+ */
+async function exportReportPng(req, res) {
+  try {
+    const { id } = req.params;
+    const report = await WeeklyReport.findByPk(id);
+
+    if (!report) {
+      return error(res, '周报不存在');
+    }
+
+    const content = report.content_json;
+    if (!content) {
+      return error(res, '周报内容为空');
+    }
+
+    const pngBuffer = await generateReportPng(content);
+
+    // 质检：空图检测
+    if (!pngBuffer || pngBuffer.length < 5000) {
+      return error(res, 'PNG 生成异常（空白图），请稍后重试', 1, 500);
+    }
+
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Disposition': `inline; filename="weekly_report_${report.week_start}_${report.week_end}.png"`,
+      'Content-Length': pngBuffer.length,
+      'Cache-Control': 'no-cache',
+    });
+    res.send(pngBuffer);
+  } catch (err) {
+    console.error('导出周报 PNG 失败:', err);
+    error(res, `导出 PNG 失败: ${err.message || '未知错误'}`, 1, 500);
+  }
+}
+
 module.exports = {
   generateReport,
   getReports,
   getLatestReport,
   getReportById,
+  saveReportContent,
   saveReportHtml,
-  saveReportFiles
+  saveReportFiles,
+  exportReportPng
 };
 
 /**

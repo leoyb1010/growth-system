@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col } from 'antd';
-import { FileTextOutlined, EyeOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, CheckCircleOutlined, AlertOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip } from 'antd';
+import { FileTextOutlined, EyeOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, CheckCircleOutlined, AlertOutlined, ThunderboltOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
-import { toPng } from 'html-to-image';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import MetricCard from '../components/ui/MetricCard';
 import { RobotOutlined } from '@ant-design/icons';
+
+const { TextArea } = Input;
 
 function WeeklyReportPage() {
   const [reports, setReports] = useState([]);
@@ -16,6 +17,11 @@ function WeeklyReportPage() {
 
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyReport, setHistoryReport] = useState(null);
+
+  // 编辑模式
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   // 渲染含换行的文本：\n → <br/>，同时限制最大宽度并自动换行
   const renderText = (text) => {
@@ -91,41 +97,88 @@ function WeeklyReportPage() {
     }
   };
 
-  // ===== 导出功能（保持不变） =====
+  // ===== 编辑模式 =====
+  const getContent = () => currentReport?.content || currentReport;
 
-  const handleExportPng = async (content) => {
-    if (!reportRef.current) {
-      message.error('报告内容未渲染，无法导出');
+  const handleStartEdit = () => {
+    const content = getContent();
+    if (!content) return;
+    setEditData(JSON.parse(JSON.stringify(content)));
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditData(null);
+    setEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!currentReport?.id || !editData) return;
+    setSaving(true);
+    try {
+      const res = await api.put(`/weekly-reports/${currentReport.id}/content`, { content_json: editData });
+      if (res.code === 0) {
+        message.success('周报内容保存成功');
+        setCurrentReport(prev => ({ ...prev, content: editData, ...editData }));
+        setEditing(false);
+        setEditData(null);
+      } else {
+        message.error(res.message || '保存失败');
+      }
+    } catch (err) {
+      message.error('保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 编辑辅助：深层更新 editData
+  const updateEditField = (path, value) => {
+    setEditData(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      let obj = next;
+      for (let i = 0; i < path.length - 1; i++) {
+        obj = obj[path[i]];
+      }
+      obj[path[path.length - 1]] = value;
+      return next;
+    });
+  };
+
+  // ===== 导出功能 =====
+
+  const handleExportPng = async () => {
+    if (!currentReport?.id) {
+      message.error('无周报数据，无法导出');
       return;
     }
     try {
-      // 等待一帧确保 DOM 渲染完成
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const dataUrl = await toPng(reportRef.current, {
-        width: 1200,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-        imagePlaceholder: undefined,
+      message.loading({ content: '正在生成 PNG（后端渲染中）...', key: 'png_export', duration: 0 });
+      const token = localStorage.getItem('token');
+      const apiBase = process.env.REACT_APP_API_URL || '';
+      const res = await fetch(`${apiBase}/api/weekly-reports/${currentReport.id}/png`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      // 空白图检测：base64 长度 < 5KB 说明截图失败
-      const base64Data = dataUrl.split(',')[1];
-      if (!base64Data || base64Data.length < 5000) {
-        message.error('截图生成异常（空白图），请稍后重试');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      if (blob.size < 5000) {
+        message.error({ content: 'PNG 生成异常（空白图），请稍后重试', key: 'png_export' });
         return;
       }
-      
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      const c = content || currentReport;
+      const c = currentReport?.content || currentReport;
       link.download = `增长组周报_${c?.week_start || ''}_${c?.week_end || ''}.png`;
-      link.href = dataUrl;
+      link.href = url;
       link.click();
-      message.success('PNG 导出成功');
+      URL.revokeObjectURL(url);
+      message.success({ content: 'PNG 导出成功', key: 'png_export' });
     } catch (err) {
       console.error('PNG导出失败:', err);
-      message.error('导出 PNG 失败，请尝试使用 MD 或 Word 格式导出');
+      message.error({ content: `导出 PNG 失败: ${err.message || '未知错误'}`, key: 'png_export' });
     }
   };
 
@@ -259,9 +312,24 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
 
   // ===== 周报内容渲染 =====
 
+  // 可编辑文本单元格
+  const EditableCell = ({ value, path, rows = 2 }) => {
+    if (!editing) return <span style={cellStyle}>{renderText(value)}</span>;
+    return (
+      <TextArea
+        value={value || ''}
+        onChange={e => updateEditField(path, e.target.value)}
+        autoSize={{ minRows: rows, maxRows: 6 }}
+        style={{ fontSize: 12 }}
+      />
+    );
+  };
+
   const renderReportContent = (content, compact = false) => {
     if (!content) return <Empty description="暂无周报数据" />;
-    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
+    // 编辑模式使用 editData，否则使用原始 content
+    const data = editing && !compact ? editData : content;
+    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements, management_comment } = data;
     // 兼容旧周报：next_week_key_work 优先，fallback 到 next_week_focus.upcoming_projects
     const keyWorkItems = next_week_key_work || next_week_focus?.upcoming_projects || [];
     const fontSize = compact ? 12 : 13;
@@ -270,37 +338,71 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
     const achievementCount = new_achievements?.length || 0;
 
     return (
-      <div ref={!compact ? reportRef : undefined} className="weekly-report">
+      <div ref={!compact && !editing ? reportRef : undefined} className="weekly-report">
         <h1 style={{ fontSize: compact ? 18 : 22, borderBottom: `2px solid #3B5AFB`, paddingBottom: 8, color: '#111827' }}>增长组业务周报</h1>
         <div style={{ fontSize, color: '#6B7280', marginBottom: 20 }}>
-          📅 {content.week_start} 至 {content.week_end}
+          📅 {data.week_start} 至 {data.week_end}
+          {editing && <Tag color="orange" style={{ marginLeft: 8 }}>编辑中</Tag>}
         </div>
 
-        {/* 本周结论（新增） */}
-        {content.week_conclusion && (
-          <div style={{
-            background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10,
-            padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#1E40AF', lineHeight: 1.7
-          }}>
-            <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-              📋 本周结论
-              <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>自动生成</Tag>
-            </div>
-            {renderText(content.week_conclusion)}
+        {/* 本周结论（可编辑） */}
+        <div style={{
+          background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10,
+          padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#1E40AF', lineHeight: 1.7
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            📋 本周结论
+            {editing ? <Tag color="orange" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>可编辑</Tag> : <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>自动生成</Tag>}
           </div>
-        )}
+          {editing && !compact ? (
+            <TextArea
+              value={data.week_conclusion || ''}
+              onChange={e => updateEditField(['week_conclusion'], e.target.value)}
+              autoSize={{ minRows: 2, maxRows: 8 }}
+              style={{ color: '#1E40AF', fontSize: 13 }}
+            />
+          ) : renderText(data.week_conclusion)}
+        </div>
 
-        {/* 关键变化（新增） */}
-        {content.key_changes && content.key_changes.length > 0 && (
+        {/* 管理评语（可编辑，始终展示） */}
+        <div style={{
+          background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10,
+          padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#9A3412', lineHeight: 1.7
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ✍️ 管理评语
+            {!management_comment && !editing && <Tag style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>待补充</Tag>}
+          </div>
+          {editing && !compact ? (
+            <TextArea
+              value={management_comment || ''}
+              onChange={e => updateEditField(['management_comment'], e.target.value)}
+              placeholder="请输入管理评语、复盘结论等..."
+              autoSize={{ minRows: 2, maxRows: 8 }}
+              style={{ color: '#9A3412', fontSize: 13 }}
+            />
+          ) : management_comment ? renderText(management_comment) : <span style={{ color: '#C4A882', fontStyle: 'italic' }}>点击编辑按钮补充管理评语</span>}
+        </div>
+
+        {/* 关键变化（编辑模式下可改文本） */}
+        {data.key_changes && data.key_changes.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontWeight: 700, fontSize: compact ? 13 : 15, marginBottom: 8 }}>⚡ 关键变化</div>
-            {content.key_changes.map((c, idx) => {
+            {data.key_changes.map((c, idx) => {
               const iconMap = { risk: '🔴', progress: '📈', deviation: '📉', achieved: '✅' };
               const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#DC2626', achieved: '#16A34A' };
               return (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: compact ? 12 : 13 }}>
                   <span>{iconMap[c.type] || '📌'}</span>
-                  <span style={{ color: colorMap[c.type] || '#111827' }}>{c.text}</span>
+                  {editing && !compact ? (
+                    <Input
+                      value={c.text}
+                      onChange={e => updateEditField(['key_changes', idx, 'text'], e.target.value)}
+                      style={{ flex: 1, fontSize: 12 }}
+                    />
+                  ) : (
+                    <span style={{ color: colorMap[c.type] || '#111827' }}>{c.text}</span>
+                  )}
                 </div>
               );
             })}
@@ -360,7 +462,7 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
                 {project_progress.map((p, idx) => (
                   <tr key={idx} className={p.status === '风险' ? 'risk-row' : ''}>
                     <td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td>
-                    <td style={cellStyle}>{renderText(p.weekly_progress)}</td>
+                    <td><EditableCell value={p.weekly_progress} path={['project_progress', idx, 'weekly_progress']} /></td>
                     <td>{p.progress_pct}%</td>
                     <td>{p.status === '风险' ? <span className="risk-tag">风险</span> : p.status}</td>
                   </tr>
@@ -382,7 +484,9 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
                 <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>风险描述</th></tr></thead>
                 <tbody>
                   {risk_and_warnings.risk_projects.map((p, idx) => (
-                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={cellStyle}>{renderText(p.risk_desc)}</td></tr>
+                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td>
+                      <td><EditableCell value={p.risk_desc} path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']} /></td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -415,7 +519,9 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
               <thead><tr><th>部门</th><th>项目名称</th><th>负责人</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
               <tbody>
                 {keyWorkItems.map((p, idx) => (
-                  <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td><td style={cellStyle}>{renderText(p.next_week_focus || p.due_date)}</td><td>{p.progress_pct}%</td><td>{p.status || '-'}</td></tr>
+                  <tr key={idx}><td>{p.dept_name}</td><td>{p.name}</td><td>{p.owner_name}</td>
+                    <td><EditableCell value={p.next_week_focus || p.due_date} path={['next_week_key_work', idx, 'next_week_focus']} /></td>
+                    <td>{p.progress_pct}%</td><td>{p.status || '-'}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -433,8 +539,9 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
               <tbody>
                 {new_achievements.map((a, idx) => (
                   <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.owner_name}</td><td>{a.achievement_type}</td>
-                  <td style={cellStyle}>{renderText(a.quantified_result)}</td>
-                  <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td></tr>
+                    <td><EditableCell value={a.quantified_result} path={['new_achievements', idx, 'quantified_result']} /></td>
+                    <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -444,8 +551,10 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
         </div>
 
         <div className="footer" style={{ marginTop: 20, borderTop: '1px solid #E5E7EB', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#9CA3AF', fontSize: 12 }}>🤖 本周报基础数据由系统自动汇总生成于 {content.generated_at}</span>
-          <span style={{ color: '#3B5AFB', fontSize: 12 }}>管理评语与复盘结论需手动补充</span>
+          <span style={{ color: '#9CA3AF', fontSize: 12 }}>🤖 本周报基础数据由系统自动汇总生成于 {data.generated_at}</span>
+          <span style={{ color: '#3B5AFB', fontSize: 12 }}>
+            {editing ? '编辑后请点击保存' : (management_comment ? '✅ 已补充管理评语' : '点击编辑按钮补充管理评语')}
+          </span>
         </div>
       </div>
     );
@@ -466,11 +575,11 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
   ];
 
   // 统一导出按钮组
-  const ExportButtons = ({ content }) => (
+  const ExportButtons = () => (
     <>
-      <Button icon={<FileImageOutlined />} onClick={() => handleExportPng(content)}>PNG</Button>
-      <Button icon={<FileWordOutlined />} onClick={() => handleExportDoc(content)}>Word</Button>
-      <Button icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown(content)}>MD</Button>
+      <Button icon={<FileImageOutlined />} onClick={handleExportPng} loading={false}>PNG</Button>
+      <Button icon={<FileWordOutlined />} onClick={() => handleExportDoc()}>Word</Button>
+      <Button icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown()}>MD</Button>
     </>
   );
 
@@ -485,7 +594,18 @@ td.text-cell { max-width: 260px; white-space: pre-wrap; }
           <Button key="gen" type="primary" icon={<FileTextOutlined />} onClick={handleGenerate} loading={generating}>
             生成周报
           </Button>,
-          currentReport && <ExportButtons key="export" />,
+          currentReport && !editing && (
+            <Tooltip key="edit" title="编辑周报内容、补充管理评语">
+              <Button icon={<EditOutlined />} onClick={handleStartEdit}>编辑</Button>
+            </Tooltip>
+          ),
+          editing && (
+            <Button key="save" type="primary" icon={<SaveOutlined />} onClick={handleSaveEdit} loading={saving}>保存</Button>
+          ),
+          editing && (
+            <Button key="cancel" icon={<CloseOutlined />} onClick={handleCancelEdit}>取消</Button>
+          ),
+          currentReport && !editing && <ExportButtons key="export" />,
         ]}
       />
 
