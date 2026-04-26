@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, Input, Modal, List, Tag, Spin, Empty, Form, message } from 'antd';
 import {
@@ -32,6 +32,8 @@ import AIFloatingButton from './ai/AIFloatingButton';
 import AIAssistantDrawer from './ai/AIAssistantDrawer';
 import useAIAssistant from '../hooks/useAIAssistant';
 import useAIContext from '../hooks/useAIContext';
+import packageInfo from '../../package.json';
+const appVersion = packageInfo.version;
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -51,6 +53,24 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = user?.role || 'dept_staff';
+
+  // ===== 更新日志弹窗 =====
+  const [changelogVisible, setChangelogVisible] = useState(false);
+  const [changelogData, setChangelogData] = useState(null);
+
+  useEffect(() => {
+    // 检查用户是否已看过当前版本的更新日志
+    const readVersion = localStorage.getItem('leobms_changelog_read');
+    if (readVersion === appVersion) return; // 已看过，不再弹
+
+    // 拉取 changelog
+    api.get('/changelog').then(res => {
+      if (res.code === 0 && res.data?.releases?.length > 0) {
+        setChangelogData(res.data);
+        setChangelogVisible(true);
+      }
+    }).catch(() => { /* 静默 */ });
+  }, []);
 
   // ===== AI 助手 =====
   const aiAssistant = useAIAssistant();
@@ -206,7 +226,7 @@ function AppLayout() {
         <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
           <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
             <h3 style={{ margin: 0, fontSize: collapsed ? 11 : 14, color: '#1890ff', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center' }}>
-              {collapsed ? '有道' : '网易有道 X 增长部门管理系统'}
+              {collapsed ? `v${appVersion}` : `LeoBMS-(v${appVersion})`}
             </h3>
           </div>
           <Menu
@@ -222,7 +242,7 @@ function AppLayout() {
       {/* ===== 移动端 Drawer 菜单 ===== */}
       {isMobile && (
         <Drawer
-          title="网易有道 X 增长部门"
+          title={`LeoBMS-(v${appVersion})`}
           placement="left"
           onClose={() => setMobileMenuOpen(false)}
           open={mobileMenuOpen}
@@ -423,6 +443,62 @@ function AppLayout() {
         onChat={aiAssistant.sendChat}
         onLoadPanel={aiAssistant.loadPanel}
       />
+
+      {/* 更新日志弹窗 */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ThunderboltOutlined style={{ color: '#3B5AFB' }} />
+            <span>LeoBMS 更新日志</span>
+            {changelogData?.latestVersion && (
+              <Tag color="blue" style={{ marginLeft: 8 }}>v{changelogData.latestVersion}</Tag>
+            )}
+          </div>
+        }
+        open={changelogVisible}
+        onCancel={() => {
+          setChangelogVisible(false);
+          localStorage.setItem('leobms_changelog_read', appVersion);
+        }}
+        footer={null}
+        width={560}
+        centered
+      >
+        {changelogData?.releases?.map((release, idx) => (
+          <div key={release.version} style={{
+            marginBottom: idx < changelogData.releases.length - 1 ? 20 : 0,
+            paddingBottom: idx < changelogData.releases.length - 1 ? 20 : 0,
+            borderBottom: idx < changelogData.releases.length - 1 ? '1px solid #f0f0f0' : 'none'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#1f1f1f' }}>v{release.version}</span>
+              <span style={{ fontSize: 12, color: '#999' }}>{release.date}</span>
+              <span style={{ fontSize: 13, color: '#666', marginLeft: 4 }}>{release.title}</span>
+            </div>
+            <div style={{ paddingLeft: 4 }}>
+              {release.changes?.map((change, cidx) => {
+                const typeConfig = {
+                  feature: { color: '#3B5AFB', label: '新增' },
+                  improve: { color: '#0891B2', label: '优化' },
+                  fix:     { color: '#DC2626', label: '修复' },
+                };
+                const cfg = typeConfig[change.type] || typeConfig.improve;
+                return (
+                  <div key={cidx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                    <Tag color={cfg.color} style={{ margin: 0, minWidth: 40, textAlign: 'center', fontSize: 11, lineHeight: '18px' }}>
+                      {cfg.label}
+                    </Tag>
+                    <span style={{ fontSize: 13, color: '#333', flex: 1 }}>
+                      <span style={{ color: '#999', marginRight: 4 }}>[{change.module}]</span>
+                      {change.desc}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </Modal>
     </Layout>
   );
 }
