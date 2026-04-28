@@ -1,4 +1,4 @@
-const { Project, Department, ProjectUpdateLog, MonthlyTask } = require('../models');
+const { Project, Department, ProjectUpdateLog, MonthlyTask, Achievement } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
@@ -180,7 +180,6 @@ async function createProject(req, res) {
 
     // 同步选项：同步到季度成果
     if (data.sync_to_achievement && payload.weekly_progress) {
-      const Achievement = require('../models').Achievement;
       const achievements = await Achievement.findAll({
         where: { project_id: project.id, quarter: project.quarter },
         order: [['created_at', 'DESC']]
@@ -263,7 +262,6 @@ async function updateProject(req, res) {
 
     // 同步选项：同步到季度成果
     if (req.body.sync_to_achievement && updateData.weekly_progress) {
-      const Achievement = require('../models').Achievement;
       const achievements = await Achievement.findAll({
         where: { project_id: project.id, quarter: project.quarter },
         order: [['created_at', 'DESC']]
@@ -276,6 +274,34 @@ async function updateProject(req, res) {
           ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
           : `[同步${moment().format('M/D')}] ${syncContent}`;
         await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
+      }
+    }
+
+    // 项目完成时自动生成成果草稿
+    if (updateData.status === '完成' && oldValues.status !== '完成') {
+      // 检查是否已存在该项目本季度的成果
+      const existingAchievement = await Achievement.findOne({
+        where: { project_id: project.id, quarter: project.quarter }
+      });
+      if (!existingAchievement) {
+        await Achievement.create({
+          dept_id: project.dept_id,
+          project_id: project.id,
+          quarter: project.quarter,
+          owner_name: project.owner_name || '',
+          achievement_type: project.type || '其他',
+          project_name: project.name,
+          description: `项目已完成，请补充成果详情。${project.weekly_progress ? '\n最终进展：' + project.weekly_progress : ''}`,
+          quantified_result: '',
+          business_value: '',
+          reusable_content: '',
+          include_next_quarter: false,
+          priority: project.priority || '中',
+          achievement_status: '草稿',
+          creator_id: req.user?.id || null,
+          updater_id: req.user?.id || null,
+        });
+        await logAudit('achievements', project.id, 'create', getOperator(req), null, { note: '项目完成时自动生成成果草稿' });
       }
     }
 

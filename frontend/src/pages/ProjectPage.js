@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch, Input as AntInput } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import { can } from '../permissions/ability';
 import moment from 'moment';
@@ -8,6 +8,7 @@ import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import { STATUS_COLORS, defaultStatusColor, getStatusStyle, getProgressColor } from '../utils/constants';
 import DepartmentSelect from '../components/DepartmentSelect';
+import { useDepartments } from '../components/DepartmentSelect';
 import { RobotOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -51,6 +52,8 @@ function ProjectPage() {
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
   const [filters, setFilters] = useState({ quarter: currentQuarter });
+  const [searchText, setSearchText] = useState('');
+  const departments = useDepartments();
 
   const getNextWeekRange = () => {
     const today = moment();
@@ -61,12 +64,13 @@ function ProjectPage() {
   };
   const nextWeek = getNextWeekRange();
 
-  useEffect(() => { fetchData(); }, [filters, sortMode]);
+  useEffect(() => { fetchData(); }, [filters, sortMode, searchText]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const params = { ...filters };
+      if (searchText) params.search = searchText;
       if (sortMode === 'priority') {
         params.sort = 'priority';
       }
@@ -520,6 +524,38 @@ function ProjectPage() {
           ),
         ]}
       />
+
+      {/* 筛选栏：部门 + 状态标签 + 搜索 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Select
+          placeholder="选择部门"
+          value={filters.dept_id}
+          onChange={(v) => setFilters({ ...filters, dept_id: v })}
+          style={{ width: 140 }}
+          allowClear
+        >
+          {(departments || []).map(d => (
+            <Option key={d.id} value={d.id}>{d.name}</Option>
+          ))}
+        </Select>
+        {['未启动', '进行中', '合作中', '风险', '完成'].map(s => (
+          <Tag.CheckableTag
+            key={s}
+            checked={filters.status === s}
+            onChange={(checked) => setFilters({ ...filters, status: checked ? s : undefined })}
+            style={{ padding: '2px 10px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12 }}
+          >
+            {s}
+          </Tag.CheckableTag>
+        ))}
+        <Input.Search
+          placeholder="搜索项目/负责人"
+          allowClear
+          onSearch={(v) => setSearchText(v)}
+          onChange={(e) => { if (!e.target.value) setSearchText(''); }}
+          style={{ width: 200 }}
+        />
+      </div>
 
       {viewMode === 'card' ? renderCardView() : viewMode === 'kanban' ? renderKanbanView() : (
         <PanelCard>

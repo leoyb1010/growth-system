@@ -490,6 +490,7 @@ td.text-cell { white-space: pre-wrap; }
     const next_week_key_work = data.next_week_key_work;
     const next_week_focus = data.next_week_focus;
     const new_achievements = data.new_achievements || [];
+    const week_attention = data.week_attention || [];
     const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
     const fontSize = compact ? 12 : 13;
     const riskProjects = Array.isArray(risk_and_warnings.risk_projects) ? risk_and_warnings.risk_projects : [];
@@ -572,6 +573,44 @@ td.text-cell { white-space: pre-wrap; }
             </Card>
           </Col>
         </Row>
+
+        {/* 本周关注：高优先级 / 需决策 / 风险项目 */}
+        {week_attention.length > 0 && (
+          <div className="section" style={{ marginBottom: 20 }}>
+            <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>⚡ 本周关注（{week_attention.length} 项）</div>
+            <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: 80 }} />
+                <col style={{ width: 180 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 70 }} />
+                <col />
+              </colgroup>
+              <thead><tr><th>部门</th><th>项目名称</th><th>进度</th><th>状态</th><th>关注原因</th></tr></thead>
+              <tbody>
+                {week_attention.map((p, idx) => {
+                  const reasons = [];
+                  if (p.priority === '高') reasons.push('🔥高优先');
+                  if (p.decision_needed) reasons.push('📋需决策');
+                  if (p.status === '风险') reasons.push('🔴风险');
+                  return (
+                    <tr key={idx} className={p.status === '风险' ? 'risk-row' : ''}>
+                      <td>{p.dept_name}</td>
+                      <td>{p.name}</td>
+                      <td style={{ textAlign: 'center' }}>{p.progress_pct}%</td>
+                      <td style={{ textAlign: 'center' }}>{p.status === '风险' ? <span className="risk-tag">风险</span> : (p.status || '-')}</td>
+                      <td style={cellStyle}>
+                        {reasons.join(' ')}
+                        {p.risk_desc && <span style={{ color: '#DC2626', marginLeft: 6 }}>— {p.risk_desc}</span>}
+                        {p.next_action && <span style={{ color: '#6B7280', marginLeft: 6 }}>→ {p.next_action}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* 数据摘要 — 分层卡片 */}
         <div className="section">
@@ -742,7 +781,7 @@ td.text-cell { white-space: pre-wrap; }
               </tbody>
             </table>
           ) : (
-            <p className="subtle-text">本周无新增成果</p>
+            <p className="subtle-text">本周无新增成果 — 请在「季度成果」页面录入，或项目完成时系统将自动生成草稿</p>
           )}
         </div>
 

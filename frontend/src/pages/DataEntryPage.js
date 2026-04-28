@@ -28,6 +28,10 @@ function DataEntryPage() {
   const handleSubmit = async (endpoint, form, values, extraTransform = null) => {
     try {
       let payload = { ...values };
+      // 月份字段：DatePicker 返回 moment 对象，转为 YYYY-MM 字符串
+      if (payload.month && moment.isMoment(payload.month)) {
+        payload.month = payload.month.format('YYYY-MM');
+      }
       if (extraTransform) {
         payload = extraTransform(payload);
       }
@@ -301,8 +305,8 @@ function DataEntryPage() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={currentMonth}>
-                    <Input placeholder="格式：2026-04" />
+                  <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={moment(currentMonth, 'YYYY-MM')}>
+                    <DatePicker picker="month" format="YYYY-MM" style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
               </Row>

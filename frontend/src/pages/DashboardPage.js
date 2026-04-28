@@ -111,9 +111,10 @@ function DashboardPage() {
     return { label: `${days}天`, level: 'caution', color: '#D97706', bg: '#FFFBEB' };
   };
 
-  // KPI 指标行
+  // KPI 指标行 — 分主次两层
   const timeProgress = data.time_progress || 0;
-  const kpiCards = [
+  // 主指标：部门级 GMV + 利润
+  const primaryKpiCards = [
     {
       title: '部门 GMV', value: `${data.kpi_cards?.total_gmv_rate || 0}%`, suffix: '完成率',
       hint: `目标 ${(data.kpi_cards?.total_gmv_target || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${(data.kpi_cards?.total_gmv_actual || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
@@ -126,14 +127,30 @@ function DashboardPage() {
       status: data.kpi_cards?.total_profit_status || 'error',
       icon: <DollarOutlined style={{ fontSize: 20, color: '#16A34A' }} />,
     },
-    // 动态渲染各部门 GMV 卡片
-    ...(data.kpi_cards?.dept_cards || []).map((dept, idx) => ({
+  ];
+  // 次指标：各组 GMV + 利润
+  const secondaryKpiCards = (data.kpi_cards?.dept_cards || []).flatMap((dept, idx) => {
+    const cards = [];
+    // 各组 GMV
+    cards.push({
       title: `${dept.dept_name} GMV`, value: `${dept.gmv_rate}%`, suffix: '完成率',
       hint: `目标 ${dept.gmv_target.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${dept.gmv_actual.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
       status: dept.gmv_status || 'error',
-      icon: idx % 2 === 0 ? <FundOutlined style={{ fontSize: 20, color: '#7C3AED' }} /> : <RiseOutlined style={{ fontSize: 20, color: '#0891B2' }} />,
-    })),
-  ];
+      icon: <FundOutlined style={{ fontSize: 18, color: '#7C3AED' }} />,
+      isSecondary: true,
+    });
+    // 各组利润（如有数据）
+    if (dept.profit_target > 0 || dept.profit_actual > 0) {
+      cards.push({
+        title: `${dept.dept_name} 利润`, value: `${dept.profit_rate}%`, suffix: '完成率',
+        hint: `目标 ${dept.profit_target.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 实际 ${dept.profit_actual.toLocaleString(undefined, { maximumFractionDigits: 0 })} 万 · 时间进度 ${timeProgress.toFixed(0)}%`,
+        status: dept.profit_status || 'error',
+        icon: <RiseOutlined style={{ fontSize: 18, color: '#0891B2' }} />,
+        isSecondary: true,
+      });
+    }
+    return cards;
+  });
 
   // 工作状态分布饼图
   const statusChartOption = {
@@ -374,27 +391,56 @@ function DashboardPage() {
         ]}
       />
 
-      {/* ===== 区块1：本周概览（4个KPI） ===== */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {kpiCards.map((card, idx) => (
-          <Col xs={24} sm={12} xl={6} key={idx}>
-            <Card className="surface-card hover-lift" bodyStyle={{ padding: 20 }}>
+      {/* ===== 区块1：主要指标（部门级 GMV + 利润） ===== */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+        {primaryKpiCards.map((card, idx) => (
+          <Col xs={24} sm={12} key={idx}>
+            <Card className="surface-card hover-lift" bodyStyle={{ padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div className="metric-label">{card.title}</div>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="metric-label" style={{ fontSize: 14, fontWeight: 600 }}>{card.title}</div>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {card.icon}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-                <span className="metric-value">{card.value}</span>
-                <span className="subtle-text" style={{ fontSize: 13 }}>{card.suffix}</span>
+                <span className="metric-value" style={{ fontSize: 36 }}>{card.value}</span>
+                <span className="subtle-text" style={{ fontSize: 14 }}>{card.suffix}</span>
               </div>
-              <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={6} style={{ marginBottom: 10 }} />
+              <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 10 }} />
               <div className="subtle-text" style={{ fontSize: 12 }}>{card.hint}</div>
             </Card>
           </Col>
         ))}
       </Row>
+
+      {/* ===== 区块1.5：各组指标（次要） ===== */}
+      {secondaryKpiCards.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, color: '#8c8c8c', fontWeight: 600, marginBottom: 8, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <FlagOutlined style={{ fontSize: 14, color: '#7C3AED' }} /> 各组指标
+          </div>
+          <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
+            {secondaryKpiCards.map((card, idx) => (
+              <Col xs={24} sm={12} xl={6} key={idx}>
+                <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div className="metric-label" style={{ fontSize: 12 }}>{card.title}</div>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {card.icon}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+                    <span className="metric-value" style={{ fontSize: 24 }}>{card.value}</span>
+                    <span className="subtle-text" style={{ fontSize: 12 }}>{card.suffix}</span>
+                  </div>
+                  <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={5} style={{ marginBottom: 6 }} />
+                  <div className="subtle-text" style={{ fontSize: 11 }}>{card.hint}</div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </>
+      )}
 
       {/* 季度回退提示 */}
       {showQuarterFallback && (
