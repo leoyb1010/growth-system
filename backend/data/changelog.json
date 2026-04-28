@@ -1,6 +1,63 @@
 {
-  "latestVersion": "6.3.0",
+  "latestVersion": "6.4.0",
   "releases": [
+    {
+      "version": "6.4.0",
+      "date": "2026-04-28",
+      "title": "五大问题全面修复 + 功能升级",
+      "changes": [
+        {
+          "type": "feature",
+          "module": "月度任务",
+          "desc": "月份选择器从文本输入升级为 DatePicker 月份选择，支持点选日历"
+        },
+        {
+          "type": "feature",
+          "module": "驾驶舱",
+          "desc": "KPI 指标主次分层：部门 GMV+利润大卡片（2列）→ 各组指标小卡片（4列），层次分明"
+        },
+        {
+          "type": "feature",
+          "module": "项目推进",
+          "desc": "新增筛选栏：部门下拉 + 状态标签快筛 + 关键词搜索，快速定位项目"
+        },
+        {
+          "type": "feature",
+          "module": "周报",
+          "desc": "新增「本周关注」section，自动汇总高优先级、需决策、风险项目"
+        },
+        {
+          "type": "fix",
+          "module": "周报",
+          "desc": "风险项目查询修复：status='风险' OR risk_desc 非空，不再漏报有风险描述的项目"
+        },
+        {
+          "type": "fix",
+          "module": "周报",
+          "desc": "结论标点修复：去除「。；」重复标点"
+        },
+        {
+          "type": "feature",
+          "module": "成果",
+          "desc": "项目完成时自动生成成果草稿（草稿标签），无需手动录入"
+        },
+        {
+          "type": "improve",
+          "module": "成果",
+          "desc": "空数据引导提示条 + 周报成果引导文案，降低录入门槛"
+        },
+        {
+          "type": "improve",
+          "module": "预警",
+          "desc": "预警数据源优先从 KPI 提取（完成率 < 时间进度 70% 且 < 60%），降级到 Performance 表"
+        },
+        {
+          "type": "fix",
+          "module": "项目推进",
+          "desc": "修复页面崩溃问题：移除错误的 Input 重命名导致的渲染失败"
+        }
+      ]
+    },
     {
       "version": "6.3.0",
       "date": "2026-04-26",
