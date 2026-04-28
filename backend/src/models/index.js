@@ -168,6 +168,7 @@ const Achievement = sequelize.define('Achievement', {
   archive_owner: { type: DataTypes.STRING(50), allowNull: true }, // 沉淀负责人
   completed_at: { type: DataTypes.DATEONLY, allowNull: true }, // 完成时间
   priority: { type: DataTypes.ENUM('高', '中', '低'), allowNull: false, defaultValue: '中' },
+  achievement_status: { type: DataTypes.ENUM('草稿', '已确认'), allowNull: false, defaultValue: '已确认' }, // 成果状态：草稿=自动生成待补充，已确认=人工确认
   creator_id: { type: DataTypes.INTEGER, allowNull: true },
   updater_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {

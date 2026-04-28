@@ -71,7 +71,7 @@ async function createAchievement(req, res) {
     }
 
     // 字段白名单
-    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority'];
+    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority', 'achievement_status'];
     const payload = {};
     allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
     payload.creator_id = req.user?.id || null;
@@ -114,7 +114,7 @@ async function updateAchievement(req, res) {
     if (isBlocked) return;
 
     // 字段白名单
-    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority'];
+    const allowedFields = ['dept_id', 'project_id', 'quarter', 'owner_name', 'achievement_type', 'project_name', 'description', 'quantified_result', 'business_value', 'reusable_content', 'include_next_quarter', 'archive_owner', 'completed_at', 'priority', 'achievement_status'];
     const updateData = {};
     allowedFields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
     updateData.updater_id = req.user?.id || null;

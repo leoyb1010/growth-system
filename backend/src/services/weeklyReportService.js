@@ -125,7 +125,13 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   })).sort(sortByDept);
 
   // 3. 风险与预警
-  const riskWhere = { status: '风险' };
+  // 修复：除了 status='风险'，也包含有风险描述的项目
+  const riskWhere = {
+    [Op.or]: [
+      { status: '风险' },
+      { risk_desc: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }, { [Op.ne]: '暂无' }] } }
+    ]
+  };
   if (deptFilter) riskWhere.dept_id = deptFilter;
   else if (excludeDeptIds.length) riskWhere.dept_id = { [Op.notIn]: excludeDeptIds };
   const riskProjects = await Project.findAll({
@@ -143,33 +149,53 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     progress_pct: p.progress_pct
   })).sort(sortByDept);
 
-  // 严重预警指标
-  const perfWhere = {};
-  if (deptFilter) perfWhere.dept_id = deptFilter;
-  else if (excludeDeptIds.length) perfWhere.dept_id = { [Op.notIn]: excludeDeptIds };
-  const performances = await Performance.findAll({
-    where: perfWhere,
-    include: [{ model: Department, attributes: ['name'] }]
-  });
+  // 严重预警指标 — 优先从 KPI 数据提取，降级到 Performance 表
+  let severeWarnings = [];
 
-  const severeWarnings = [];
-  performances.forEach(p => {
-    const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
-    const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
-    if (totalTarget > 0) {
-      const rate = (totalActual / totalTarget) * 100;
-      if (rate < 60) {
-        severeWarnings.push({
-          dept_id: p.dept_id,
-          dept_name: p.Department?.name || '',
-          business_type: p.business_type,
-          indicator: p.indicator,
-          completion_rate: Math.round(rate),
-          gap: Math.round(totalTarget - totalActual)
-        });
-      }
+  // 优先从 KPI 数据中提取完成率低于时间进度的指标
+  const currentTimeProgress = getQuarterTimeProgress(quarterLabel, currentYear);
+  kpiSummary.forEach(k => {
+    if (k.completion_rate < currentTimeProgress * 0.7 && k.completion_rate < 60) {
+      severeWarnings.push({
+        dept_id: k.dept_id,
+        dept_name: k.dept_name,
+        business_type: '-',
+        indicator: k.indicator,
+        completion_rate: k.completion_rate,
+        gap: Math.round(k.target - k.actual),
+        source: 'KPI'
+      });
     }
   });
+
+  // 降级：Performance 表有数据时补充
+  if (severeWarnings.length === 0) {
+    const perfWhere = {};
+    if (deptFilter) perfWhere.dept_id = deptFilter;
+    else if (excludeDeptIds.length) perfWhere.dept_id = { [Op.notIn]: excludeDeptIds };
+    const performances = await Performance.findAll({
+      where: perfWhere,
+      include: [{ model: Department, attributes: ['name'] }]
+    });
+    performances.forEach(p => {
+      const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
+      const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
+      if (totalTarget > 0) {
+        const rate = (totalActual / totalTarget) * 100;
+        if (rate < 60) {
+          severeWarnings.push({
+            dept_id: p.dept_id,
+            dept_name: p.Department?.name || '',
+            business_type: p.business_type,
+            indicator: p.indicator,
+            completion_rate: Math.round(rate),
+            gap: Math.round(totalTarget - totalActual),
+            source: 'Performance'
+          });
+        }
+      }
+    });
+  }
 
   // 4. 下周重点工作（基于项目填写的 next_week_focus 字段，而非 due_date 时间）
   const focusWhere = {
@@ -182,6 +208,36 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     include: [{ model: Department, attributes: ['name'] }],
     order: [['updated_at', 'DESC']]
   });
+
+  // 本周关注：高优先级项目 + 需决策项目 + 风险项目（管理层关注焦点）
+  const attentionWhere = {
+    [Op.or]: [
+      { priority: '高' },
+      { decision_needed: true },
+      { status: '风险' },
+    ]
+  };
+  if (deptFilter) attentionWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) attentionWhere.dept_id = { [Op.notIn]: excludeDeptIds };
+  const attentionProjects = await Project.findAll({
+    where: attentionWhere,
+    include: [{ model: Department, attributes: ['name'] }],
+    order: [['updated_at', 'DESC']]
+  });
+
+  const weekAttention = attentionProjects.map(p => ({
+    id: p.id,
+    dept_id: p.dept_id,
+    dept_name: p.Department?.name || '',
+    name: p.name,
+    owner_name: p.owner_name,
+    status: p.status,
+    priority: p.priority,
+    decision_needed: p.decision_needed,
+    risk_desc: p.risk_desc,
+    progress_pct: p.progress_pct,
+    next_action: p.next_action,
+  })).sort(sortByDept);
 
   const nextWeekKeyWork = focusProjects.map(p => ({
     id: p.id,
@@ -263,6 +319,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
       severe_warnings: severeWarnings
     },
     next_week_key_work: nextWeekKeyWork,
+    week_attention: weekAttention,
     new_achievements: achievementList
   };
 }
@@ -318,7 +375,7 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
     conclusions.push('本周无项目更新，请各负责人及时录入进展。');
   }
 
-  return conclusions.join('；');
+  return conclusions.join('；').replace(/。；/g, '；');
 }
 
 /**

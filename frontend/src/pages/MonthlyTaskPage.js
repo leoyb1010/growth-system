@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Badge, Popconfirm } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
@@ -43,15 +43,23 @@ function MonthlyTaskPage() {
 
   const handleSubmit = async (values) => {
     try {
-      if (editingRecord) { await api.put(`/monthly-tasks/${editingRecord.id}`, values); message.success('更新成功'); }
-      else { await api.post('/monthly-tasks', values); message.success('创建成功'); }
+      // 月份字段：DatePicker 返回 moment 对象，转为 YYYY-MM 字符串
+      const payload = {
+        ...values,
+        month: values.month ? (moment.isMoment(values.month) ? values.month.format('YYYY-MM') : values.month) : undefined,
+      };
+      if (editingRecord) { await api.put(`/monthly-tasks/${editingRecord.id}`, payload); message.success('更新成功'); }
+      else { await api.post('/monthly-tasks', payload); message.success('创建成功'); }
       setModalVisible(false); setEditingRecord(null); form.resetFields(); fetchData();
     } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
   const handleEdit = (record) => {
     setEditingRecord(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      ...record,
+      month: record.month ? moment(record.month, 'YYYY-MM') : undefined,
+    });
     setModalVisible(true);
   };
 
@@ -122,12 +130,15 @@ function MonthlyTaskPage() {
         title="月度重点工作"
         subtitle={`${filters.month} · 来源于项目推进的月度重点事项`}
         extra={[
-          <Input
+          <DatePicker
             key="month"
-            placeholder="月份筛选"
-            value={filters.month}
-            onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            style={{ width: 130 }}
+            picker="month"
+            value={filters.month ? moment(filters.month, 'YYYY-MM') : null}
+            onChange={(_, dateString) => setFilters({ ...filters, month: dateString || currentMonth })}
+            format="YYYY-MM"
+            placeholder="选择月份"
+            style={{ width: 140 }}
+            allowClear={false}
           />,
           <Button
             key="view"
@@ -237,8 +248,8 @@ function MonthlyTaskPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={currentMonth}>
-                <Input placeholder="格式：2026-04" />
+              <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={moment(currentMonth, 'YYYY-MM')}>
+                <DatePicker picker="month" format="YYYY-MM" style={{ width: '100%' }} onChange={(_, dateString) => form.setFieldsValue({ month: dateString ? moment(dateString, 'YYYY-MM') : undefined })} />
               </Form.Item>
             </Col>
             <Col span={8}>
