@@ -125,12 +125,9 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   })).sort(sortByDept);
 
   // 3. 风险与预警
-  // 修复：除了 status='风险'，也包含有风险描述的项目
+  // 风险项目：只认 status='风险'（risk_desc 是风险备注，不是风险声明）
   const riskWhere = {
-    [Op.or]: [
-      { status: '风险' },
-      { risk_desc: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }, { [Op.ne]: '暂无' }] } }
-    ]
+    status: '风险'
   };
   if (deptFilter) riskWhere.dept_id = deptFilter;
   else if (excludeDeptIds.length) riskWhere.dept_id = { [Op.notIn]: excludeDeptIds };
