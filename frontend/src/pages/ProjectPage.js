@@ -53,7 +53,7 @@ function ProjectPage() {
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
   const [filters, setFilters] = useState({ quarter: currentQuarter });
   const [searchText, setSearchText] = useState('');
-  const departments = useDepartments();
+  const { departments } = useDepartments();
 
   const getNextWeekRange = () => {
     const today = moment();
