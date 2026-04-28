@@ -93,6 +93,18 @@ app.get('/health', async (req, res) => {
 
 // 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+// index.html 不缓存，确保每次都获取最新的 JS hash
+app.get('/', (req, res) => {
+  const indexPath = path.join(frontendBuildPath, 'index.html');
+  if (require('fs').existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend not built');
+  }
+});
 app.use(express.static(frontendBuildPath));
 // SPA 回退：所有非 API、非静态文件的 GET 请求返回 index.html
 app.get('*', (req, res, next) => {
@@ -101,6 +113,9 @@ app.get('*', (req, res, next) => {
   }
   const indexPath = path.join(frontendBuildPath, 'index.html');
   if (require('fs').existsSync(indexPath)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(indexPath);
   } else {
     next();
