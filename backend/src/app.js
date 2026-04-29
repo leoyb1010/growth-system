@@ -41,6 +41,13 @@ const aiLimiter = rateLimit({
   message: { code: 429, data: null, message: 'AI请求过于频繁，请稍后再试' }
 });
 
+// 限流 - AI 流式接口：更严格的限制（长连接消耗更大）
+const aiStreamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10, // 流式接口最多10次/分钟
+  message: { code: 429, data: null, message: 'AI流式请求过于频繁，请稍后再试' }
+});
+
 // 限流 - 导入接口：防批量冲击
 const importLimiter = rateLimit({
   windowMs: 60 * 1000, // 1分钟
@@ -69,6 +76,7 @@ app.use(dbWriteGuard);
 app.use('/api', routes({
   loginLimiter,
   aiLimiter,
+  aiStreamLimiter,
   importLimiter
 }));
 
