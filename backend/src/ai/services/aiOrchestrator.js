@@ -111,9 +111,10 @@ async function handleChat(params) {
     const answerMeta = typeof answer === 'object' ? answer : {};
     return formatChatResponse({
       answer: answerText,
-      sources: answerMeta.sources?.map(s => s.title) || ['规则分析'],
+      sources: answerMeta.sources || [{ type: 'rule', id: null, title: '规则分析' }],
       suggestedFollowUps: generateSuggestedFollowUps(context),
-      confidence: answerMeta.confidence,
+      confidence: answerMeta.confidence ?? 0.5,
+      confidenceLevel: '中',
       isMock: true
     });
   }
@@ -160,9 +161,10 @@ async function handleChat(params) {
     const answerMeta = typeof answer === 'object' ? answer : {};
     return formatChatResponse({
       answer: answerText + '\n\n（LLM 不可用，以上为规则分析结果）',
-      sources: answerMeta.sources?.map(s => s.title) || ['规则分析（降级）'],
+      sources: answerMeta.sources || [{ type: 'rule', id: null, title: '规则分析（降级）' }],
       suggestedFollowUps: generateSuggestedFollowUps(context),
-      confidence: answerMeta.confidence,
+      confidence: answerMeta.confidence ?? 0.5,
+      confidenceLevel: '中',
       isMock: true
     });
   }

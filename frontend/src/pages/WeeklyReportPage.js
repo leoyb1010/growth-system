@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip } from 'antd';
-import { FileTextOutlined, EyeOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin } from 'antd';
+import { FileTextOutlined, EyeOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -62,7 +62,7 @@ function WeeklyReportPage() {
     dept: { width: 80, minWidth: 80, whiteSpace: 'nowrap' },
     name: { width: 180, minWidth: 120 },
     text: cellStyle,
-    progress: { width: 60, minWidth: 60, textAlign: 'center' },
+    progress: { width: 100, minWidth: 80, textAlign: 'center' },
     status: { width: 70, minWidth: 70, textAlign: 'center' },
   };
 
@@ -248,30 +248,36 @@ function WeeklyReportPage() {
     if (!items || items.length === 0) return null;
     const rows = addRowSpan(items);
     return (
-      <table style={{ fontSize: 13, tableLayout: 'fixed', width: '100%' }}>
+      <table style={{ fontSize: 13, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
         <colgroup>
           <col style={{ width: 80 }} />
           <col style={{ width: 180 }} />
           <col />
-          <col style={{ width: 60 }} />
+          <col style={{ width: 80 }} />
           <col style={{ width: 70 }} />
         </colgroup>
-        <thead><tr>
-          <th>部门</th><th>项目名称</th><th>{columns.textTitle}</th><th>进度</th><th>状态</th>
+        <thead><tr style={{ background: '#F9FAFB' }}>
+          <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>部门</th>
+          <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>项目名称</th>
+          <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>{columns.textTitle}</th>
+          <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>进度</th>
+          <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>状态</th>
         </tr></thead>
         <tbody>
           {rows.map((p, idx) => (
-            <tr key={idx} className={p.status === '风险' ? 'risk-row' : ''}>
+            <tr key={idx} style={p.status === '风险' ? { background: '#FEF2F2' } : { borderBottom: '1px solid #F3F4F6' }}>
               {p.deptRowSpan > 0 ? (
-                <td rowSpan={p.deptRowSpan} style={colStyles.dept}>{p.dept_name}</td>
+                <td rowSpan={p.deptRowSpan} style={{ ...colStyles.dept, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.dept_name}</td>
               ) : null}
-              <td style={colStyles.name}>{p.name}</td>
-              <td style={colStyles.text}>
+              <td style={{ ...colStyles.name, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.name}</td>
+              <td style={{ ...colStyles.text, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
                 <EditableCell value={p[columns.textField]} path={[...editPathPrefix, idx, columns.textField]} />
               </td>
-              <td style={colStyles.progress}>{p.progress_pct}%</td>
-              <td style={colStyles.status}>
-                {p.status === '风险' ? <span className="risk-tag">风险</span> : (p.status || '-')}
+              <td style={{ ...colStyles.progress, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
+              </td>
+              <td style={{ ...colStyles.status, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                {p.status === '风险' ? <Tag color="error" style={{ margin: 0 }}>风险</Tag> : (p.status || '-')}
               </td>
             </tr>
           ))}
@@ -551,23 +557,32 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 摘要卡片行 */}
         <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
-          <Col span={8}>
-            <Card className="surface-card" bodyStyle={{ padding: 16 }}>
-              <div className="metric-label">关键成果</div>
+          <Col xs={24} sm={12} md={8}>
+            <Card className="surface-card" styles={{ body: { padding: 16 } }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <TrophyOutlined style={{ fontSize: 18, color: '#3B5AFB' }} />
+                <span className="metric-label">关键成果</span>
+              </div>
               <div className="metric-value" style={{ fontSize: compact ? 22 : 28 }}>{achievementCount}</div>
               <div className="subtle-text" style={{ fontSize: 11 }}>本周新增</div>
             </Card>
           </Col>
-          <Col span={8}>
-            <Card className="surface-card" bodyStyle={{ padding: 16 }}>
-              <div className="metric-label">风险事项</div>
+          <Col xs={24} sm={12} md={8}>
+            <Card className="surface-card" styles={{ body: { padding: 16 } }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <WarningOutlined style={{ fontSize: 18, color: riskCount > 0 ? '#DC2626' : '#16A34A' }} />
+                <span className="metric-label">风险事项</span>
+              </div>
               <div className="metric-value" style={{ fontSize: compact ? 22 : 28, color: riskCount > 0 ? '#DC2626' : '#16A34A' }}>{riskCount}</div>
               <div className="subtle-text" style={{ fontSize: 11 }}>{riskCount > 0 ? '需要关注' : '一切正常'}</div>
             </Card>
           </Col>
-          <Col span={8}>
-            <Card className="surface-card" bodyStyle={{ padding: 16 }}>
-              <div className="metric-label">下周重点</div>
+          <Col xs={24} sm={12} md={8}>
+            <Card className="surface-card" styles={{ body: { padding: 16 } }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <ScheduleOutlined style={{ fontSize: 18, color: '#F59E0B' }} />
+                <span className="metric-label">下周重点</span>
+              </div>
               <div className="metric-value" style={{ fontSize: compact ? 22 : 28 }}>{nextWeekCount}</div>
               <div className="subtle-text" style={{ fontSize: 11 }}>已填写重点工作</div>
             </Card>
@@ -578,15 +593,21 @@ td.text-cell { white-space: pre-wrap; }
         {week_attention.length > 0 && (
           <div className="section" style={{ marginBottom: 20 }}>
             <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>⚡ 本周关注（{week_attention.length} 项）</div>
-            <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
+            <table style={{ fontSize, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
               <colgroup>
                 <col style={{ width: 80 }} />
                 <col style={{ width: 180 }} />
-                <col style={{ width: 60 }} />
+                <col style={{ width: 100 }} />
                 <col style={{ width: 70 }} />
                 <col />
               </colgroup>
-              <thead><tr><th>部门</th><th>项目名称</th><th>进度</th><th>状态</th><th>关注原因</th></tr></thead>
+              <thead><tr style={{ background: '#F9FAFB' }}>
+                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>部门</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>项目名称</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>进度</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>状态</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>关注原因</th>
+              </tr></thead>
               <tbody>
                 {week_attention.map((p, idx) => {
                   const reasons = [];
@@ -594,12 +615,14 @@ td.text-cell { white-space: pre-wrap; }
                   if (p.decision_needed) reasons.push('📋需决策');
                   if (p.status === '风险') reasons.push('🔴风险');
                   return (
-                    <tr key={idx} className={p.status === '风险' ? 'risk-row' : ''}>
-                      <td>{p.dept_name}</td>
-                      <td>{p.name}</td>
-                      <td style={{ textAlign: 'center' }}>{p.progress_pct}%</td>
-                      <td style={{ textAlign: 'center' }}>{p.status === '风险' ? <span className="risk-tag">风险</span> : (p.status || '-')}</td>
-                      <td style={cellStyle}>
+                    <tr key={idx} style={p.status === '风险' ? { background: '#FEF2F2' } : {}}>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>{p.dept_name}</td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>{p.name}</td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>
+                        <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
+                      </td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6', textAlign: 'center' }}>{p.status === '风险' ? <Tag color="error" style={{ margin: 0 }}>风险</Tag> : (p.status || '-')}</td>
+                      <td style={{ ...cellStyle, padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>
                         {reasons.join(' ')}
                         {p.risk_desc && <span style={{ color: '#DC2626', marginLeft: 6 }}>— {p.risk_desc}</span>}
                         {p.next_action && <span style={{ color: '#6B7280', marginLeft: 6 }}>→ {p.next_action}</span>}
@@ -628,7 +651,7 @@ td.text-cell { white-space: pre-wrap; }
                       {grouped.row1.map((k, idx) => {
                         const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
                         return (
-                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 18, flex: 1 }} style={{ flex: 1 }}>
+                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 18, flex: 1 } }} style={{ flex: 1 }}>
                             <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>{k.label}</div>
                             <div style={{ fontSize: 30, fontWeight: 700, color, margin: '6px 0' }}>{k.rate}%</div>
                             <div style={{ fontSize: 12, color: '#9CA3AF' }}>
@@ -646,7 +669,7 @@ td.text-cell { white-space: pre-wrap; }
                       {grouped.row2.map((k, idx) => {
                         const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
                         return (
-                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
+                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 14 } }}>
                             <div style={{ fontSize: 12, color: '#6B7280' }}>{k.label}</div>
                             <div style={{ fontSize: 24, fontWeight: 700, color, margin: '4px 0' }}>{k.completion_rate}%</div>
                             <div style={{ fontSize: 11, color: '#9CA3AF' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
@@ -663,7 +686,7 @@ td.text-cell { white-space: pre-wrap; }
                       {grouped.row3.map((k, idx) => {
                         const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
                         return (
-                          <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 10 }}>
+                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 10 } }}>
                             <div style={{ fontSize: 11, color: '#8c8c8c' }}>{k.label}</div>
                             <div style={{ fontSize: 20, fontWeight: 700, color, margin: '2px 0' }}>{k.completion_rate}%</div>
                             <div style={{ fontSize: 10, color: '#bfbfbf' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
@@ -681,7 +704,7 @@ td.text-cell { white-space: pre-wrap; }
             return (
               <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
                 {kpi_summary.map((kpi, idx) => (
-                  <Card key={idx} size="small" className="surface-card" bodyStyle={{ padding: 14 }}>
+                  <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 14 } }}>
                     <div style={{ fontSize: 12, color: '#6B7280' }}>{kpi.dept_name} · {kpi.indicator}</div>
                     <div style={{ fontSize: 24, fontWeight: 700, color: kpi.completion_rate >= 90 ? '#16A34A' : kpi.completion_rate >= 60 ? '#F59E0B' : '#DC2626', margin: '4px 0' }}>
                       {kpi.completion_rate}%
@@ -721,7 +744,7 @@ td.text-cell { white-space: pre-wrap; }
                 <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
                 <tbody>
                   {riskProjects.map((p, idx) => (
-                    <tr key={idx} className="risk-row"><td>{p.dept_name}</td><td>{p.name}</td>
+                    <tr key={idx} style={{ background: '#FEF2F2' }}><td>{p.dept_name}</td><td>{p.name}</td>
                       <td style={cellStyle}><EditableCell value={p.risk_desc} path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']} /></td>
                     </tr>
                   ))}
@@ -845,7 +868,12 @@ td.text-cell { white-space: pre-wrap; }
 
       <Tabs defaultActiveKey="current">
         <Tabs.TabPane tab="当前周报" key="current">
-          {currentReport ? (
+          {generating ? (
+            <div style={{ textAlign: 'center', padding: 80 }}>
+              <Spin size="large" />
+              <div style={{ marginTop: 16, color: '#6B7280', fontSize: 14 }}>正在生成周报...</div>
+            </div>
+          ) : currentReport ? (
             <div style={{ background: '#F5F7FB', padding: 24, borderRadius: 14 }}>
               {renderReportContent(currentReport.content || currentReport)}
             </div>

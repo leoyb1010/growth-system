@@ -280,7 +280,7 @@ async function streamChat(req, res) {
         currentUser
       });
       const answer = mockProvider.mockChatAnswer(safeQuery, context);
-      const text = typeof answer === 'string' ? answer : answer.content;
+      const text = typeof answer === 'string' ? answer : (answer.answer || answer.content || '');
       const meta = typeof answer === 'object' ? { confidence: answer.confidence, sources: answer.sources } : {};
       res.write(`data: ${JSON.stringify({ type: 'content', text })}\n\n`);
       res.write(`data: ${JSON.stringify({ type: 'done', isMock: true, ...meta })}\n\n`);

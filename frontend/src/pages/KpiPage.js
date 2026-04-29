@@ -239,7 +239,7 @@ function KpiPage() {
   });
 
   return (
-    <div className="app-page" style={{ padding: 24 }}>
+    <div className="app-page">
       <PageHeader title="指标与目标" subtitle="核心指标 + 业务线业绩统一管理中心" />
       <Tabs
         activeKey={mainTab}
@@ -253,7 +253,8 @@ function KpiPage() {
       />
       {mainTab === 'performance' ? <PerformancePage /> : mainTab === 'annual' ? (
       <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <Card className="surface-card" bodyStyle={{ padding: '12px 16px' }} style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>年度指标汇总</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <InputNumber value={filters.year} onChange={(v) => setFilters({ ...filters, year: v })} style={{ width: 100 }} />
@@ -264,6 +265,7 @@ function KpiPage() {
           )}
         </div>
       </div>
+      </Card>
 
       {/* 按部门和指标名分组，全年累计 */}
       {(() => {
@@ -278,7 +280,7 @@ function KpiPage() {
         });
 
         const items = Object.values(grouped);
-        if (items.length === 0) return <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF' }}>暂无年度指标数据</div>;
+        if (items.length === 0) return <Empty description="暂无年度指标数据" />;
 
         return (
           <Row gutter={[16, 16]}>
@@ -327,7 +329,8 @@ function KpiPage() {
       </>
       ) : (
       <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <Card className="surface-card" bodyStyle={{ padding: '12px 16px' }} style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>核心指标管理</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <Select value={filters.quarter} onChange={(v) => setFilters({ ...filters, quarter: v })} style={{ width: 100 }}>
@@ -341,10 +344,11 @@ function KpiPage() {
           )}
         </div>
       </div>
+      </Card>
 
       {/* 指标卡片 - 按部门分组 */}
       {Object.keys(grouped).length === 0 && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#bfbfbf' }}>暂无指标数据，请先录入</div>
+        <Empty description="暂无指标数据，请先录入" />
       )}
       {Object.entries(grouped).map(([dept, items]) => {
         return (

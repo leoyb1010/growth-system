@@ -66,14 +66,28 @@ function formatAIResponse(data) {
  * 格式化聊天响应
  */
 function formatChatResponse(data) {
-  const confidenceLevel = data.confidenceLevel || data.confidence || '中';
+  // Resolve confidenceLevel (string "高"/"中"/"低") and numeric confidence
+  let confidenceLevel = '中';
+  let numericConfidence = 0.5;
+  if (typeof data.confidence === 'number') {
+    numericConfidence = data.confidence;
+    // Derive confidenceLevel from numeric value
+    confidenceLevel = numericConfidence >= 0.8 ? '高' : numericConfidence >= 0.5 ? '中' : '低';
+  } else if (typeof data.confidence === 'string') {
+    confidenceLevel = data.confidence;
+    // Derive numeric from string
+    numericConfidence = confidenceLevel === '高' ? 0.85 : confidenceLevel === '低' ? 0.3 : 0.5;
+  }
+  if (data.confidenceLevel && typeof data.confidenceLevel === 'string') {
+    confidenceLevel = data.confidenceLevel;
+  }
   return {
     answer: data.answer || '',
     sources: data.sources || [],
     sourceLabels: (data.sources || []).map(s => typeof s === 'string' ? s : s.title).filter(Boolean),
     suggestedFollowUps: data.suggestedFollowUps || [],
-    confidence: typeof data.confidence === 'number' ? data.confidence : 0.5,
-    confidenceLevel: typeof confidenceLevel === 'string' ? confidenceLevel : '中',
+    confidence: numericConfidence,
+    confidenceLevel,
     isMock: data.isMock || false,
     suggestedActions: (data.suggestedActions || []).map(a => ({
       key: a.key || '',

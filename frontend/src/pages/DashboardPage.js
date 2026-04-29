@@ -96,7 +96,7 @@ function DashboardPage() {
 
   // 兜底：data 为 null 时显示空状态而非卡死
   if (!data) return (
-    <div className="app-page" style={{ padding: 24 }}>
+    <div className="app-page">
       <PageHeader title="总览" subtitle="数据加载异常" extra={[
         <Button key="retry" type="primary" onClick={() => { setData(null); fetchDashboard(); }}>重新加载</Button>
       ]} />
@@ -214,7 +214,7 @@ function DashboardPage() {
   // 普通成员首页：自己的项目 + 快捷更新 + 个人待办
   if (isMember) {
     return (
-      <div className="app-page" style={{ padding: 24 }}>
+      <div className="app-page">
         <PageHeader
           title="我的工作台"
           subtitle={`${data.current_year}年 · ${modeLabel} · 我负责的项目与待办`}
@@ -400,7 +400,7 @@ function DashboardPage() {
 
   // ===== 管理员/部门负责人首页（原有仪表盘） =====
   return (
-    <div className="app-page" style={{ padding: 24 }}>
+    <div className="app-page">
       <PageHeader
         title={canonicalRole === 'super_admin' ? '管理驾驶舱' : '部门仪表盘'}
         subtitle={`${data.current_year}年 · ${modeLabel} · 本周状态、待办事项与风险一览`}
