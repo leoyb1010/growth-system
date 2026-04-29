@@ -1,6 +1,93 @@
 {
-  "latestVersion": "6.4.0",
+  "latestVersion": "7.0.0",
   "releases": [
+    {
+      "version": "7.0.0",
+      "date": "2026-04-29",
+      "title": "安全加固 + 视觉动效 + AI存在感升级",
+      "changes": [
+        {
+          "type": "security",
+          "module": "AI安全",
+          "desc": "AI请求白名单校验中间件(validateAiRequest)：mode/actionKey/query/briefing type 全量校验"
+        },
+        {
+          "type": "security",
+          "module": "AI安全",
+          "desc": "AI Action白名单：6个安全操作(view_project/create_note/flag_risk/set_reminder/export_summary/navigate_to)，禁止DELETE/UPDATE"
+        },
+        {
+          "type": "security",
+          "module": "AI安全",
+          "desc": "streamChat安全对齐：复用promptSecurity+roleMapper，不再inline重复逻辑"
+        },
+        {
+          "type": "security",
+          "module": "权限",
+          "desc": "AI权限从'dashboard.read'升级为'ai.use'独立权限，实际校验不再空声明"
+        },
+        {
+          "type": "security",
+          "module": "限流",
+          "desc": "新增aiStreamLimiter：chat-stream专用10次/分钟限流"
+        },
+        {
+          "type": "feature",
+          "module": "AI助手",
+          "desc": "新增POST /api/ai/action端点，AI可执行操作+确认Modal+执行反馈"
+        },
+        {
+          "type": "improve",
+          "module": "AI助手",
+          "desc": "roleMapper统一收敛5处重复mapRole逻辑到1个工具函数"
+        },
+        {
+          "type": "improve",
+          "module": "AI助手",
+          "desc": "AI浮动按钮视觉增强：56px+品牌蓝渐变+脉冲动画"
+        },
+        {
+          "type": "improve",
+          "module": "AI助手",
+          "desc": "AI Drawer品牌色Header+页面上下文感知+可操作Action卡片"
+        },
+        {
+          "type": "improve",
+          "module": "AI助手",
+          "desc": "useAIContext更精准页面映射+语义描述"
+        },
+        {
+          "type": "feature",
+          "module": "视觉动效",
+          "desc": "CSS变量驱动卡片错落进场(stagger)，零JS运行时开销"
+        },
+        {
+          "type": "feature",
+          "module": "视觉动效",
+          "desc": "useCountUp数字滚动hook：requestAnimationFrame+easeOutExpo缓动"
+        },
+        {
+          "type": "feature",
+          "module": "视觉动效",
+          "desc": "3级卡片系统：primary(大阴影)/secondary(小阴影)/inline(无阴影)"
+        },
+        {
+          "type": "feature",
+          "module": "视觉动效",
+          "desc": "驾驶舱KPI数字动画+风险Banner渐变+ECharts克制配色+hover放大"
+        },
+        {
+          "type": "feature",
+          "module": "视觉动效",
+          "desc": "prefers-reduced-motion：动效敏感用户自动禁用所有动画"
+        },
+        {
+          "type": "improve",
+          "module": "视觉动效",
+          "desc": "骨架屏/进度条/表格hover/表单焦点/Drawer弹性/Modal入场等微交互"
+        }
+      ]
+    },
     {
       "version": "6.4.0",
       "date": "2026-04-28",

@@ -395,9 +395,55 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
-### v6.3.0 — 2026-04-26 · 周报数据摘要分层 + 数值格式化
+### v7.0.0 — 2026-04-29 · 安全加固 + 视觉动效 + AI存在感升级
 
-> 核心改动：周报数据摘要从平铺混乱改为三行分层（部门级→各组GMV→其他指标），万元/百分比等数值取整显示，"百分比"汉字改为%符号。
+> 核心改动：AI安全白名单校验+可执行Action端点；CSS变量驱动动效体系；AI助手视觉存在感全面增强。
+
+**AI安全加固（6项）**
+- 新增 `validateAiRequest` 中间件：mode/actionKey/query/briefing type 全量白名单校验
+- AI Action 白名单：6个安全操作（view_project/create_note/flag_risk/set_reminder/export_summary/navigate_to），禁止 DELETE/UPDATE
+- AI 权限从 `dashboard.read` 升级为 `ai.use` 独立权限
+- streamChat 安全对齐：复用 promptSecurity + roleMapper，不再 inline 重复逻辑
+- 新增 `aiStreamLimiter`：chat-stream 专用 10次/分钟限流
+- `roleMapper` 统一收敛 5 处重复 mapRole 逻辑到 1 个工具函数
+
+**AI助手存在感升级（4项）**
+- 新增 `POST /api/ai/action` 端点：AI 可执行操作 + 确认 Modal + 执行反馈
+- AI 浮动按钮：56px + 品牌蓝渐变 + CSS `::after` 脉冲动画
+- AI Drawer：品牌色 Header + 页面上下文感知 + AIActionCard 可操作卡片
+- `useAIContext` 更精准页面映射 + 语义描述
+
+**视觉动效体系（6项）**
+- CSS 变量驱动卡片错落进场（stagger），零 JS 运行时开销
+- `useCountUp` 数字滚动 hook：requestAnimationFrame + easeOutExpo 缓动
+- 3 级卡片系统：primary(大阴影) / secondary(小阴影) / inline(无阴影)
+- 驾驶舱 KPI 数字动画 + 风险 Banner 渐变 + ECharts 克制配色 + hover 放大
+- `prefers-reduced-motion`：动效敏感用户自动禁用所有动画
+- 骨架屏/进度条/表格 hover/表单焦点/Drawer 弹性/Modal 入场等微交互
+
+**新增文件**
+- `backend/src/middleware/validateAiRequest.js`
+- `backend/src/ai/utils/roleMapper.js`
+- `frontend/src/hooks/useCountUp.js`
+- `frontend/src/hooks/useStaggeredEnter.js`
+
+---
+
+### v6.4.0 — 2026-04-28 · 五大问题全面修复 + 功能升级
+
+> 核心改动：月度任务DatePicker升级、驾驶舱KPI主次分层、项目推进筛选栏、周报本周关注、成果自动生成草稿。
+
+- 月度任务：月份选择器从文本输入升级为 DatePicker
+- 驾驶舱：KPI 指标主次分层，部门大卡片(2列) → 各组小卡片(4列含利润)
+- 项目推进：新增筛选栏（部门Select + 状态Tag + 搜索Input）
+- 周报：新增「本周关注」section，自动汇总高优先级/需决策/风险项目
+- 周报：风险查询修复 status='风险' OR risk_desc非空；结论标点修复
+- 成果：项目完成时自动生成achievement草稿(achievement_status字段)；空数据引导提示条
+- 预警：数据源优先从KPI提取完成率，降级到Performance表
+
+---
+
+### v6.3.0 — 2026-04-26 · 周报数据摘要分层 + 数值格式化
 
 **周报数据摘要三行分层**
 - Row1：部门 GMV + 部门利润（2张大卡片，字号大，主色调，管理核心指标一眼看到）
@@ -883,6 +929,8 @@ docker-compose up -d --build
 - [x] v6.1.0 安全加固 + 体验升级（3波18项：认证防护 + 数据安全 + AI标准化 + 前端性能）
 - [x] v6.2.0 SQLITE_READONLY 自愈 + 驾驶舱管理者部门过滤（三重防护 + 前端告警 + dept type 过滤）
 - [x] v6.3.0 周报数据摘要分层 + 数值格式化（三行分层 + fmtNum + displayUnit + 百分比→%）
+- [x] v6.4.0 五大问题全面修复 + 功能升级（月度任务DatePicker+驾驶舱KPI分层+项目筛选+周报本周关注+成果自动生成+预警数据源）
+- [x] v7.0.0 安全加固 + 视觉动效 + AI存在感升级（AI白名单校验+Action端点+roleMapper统一+CSS动效体系+AI浮动按钮+Drawer品牌化）
 
 ## License
 
