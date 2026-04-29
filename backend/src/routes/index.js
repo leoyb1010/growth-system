@@ -25,7 +25,7 @@ const fileRoutes = require('./fileRoutes');
 const router = express.Router();
 
 // 接收精细化限流器
-module.exports = function({ loginLimiter, aiLimiter, importLimiter } = {}) {
+module.exports = function({ loginLimiter, aiLimiter, aiStreamLimiter, importLimiter } = {}) {
 
 // 文件上传配置
 const upload = multer({
@@ -143,6 +143,10 @@ router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('
 
 // ==================== AI 助手 ====================
 router.use('/ai', aiLimiter || [], aiRoutes);
+// 流式接口额外限流（chat-stream 走更严格的限制）
+if (aiStreamLimiter) {
+  router.use('/ai/chat-stream', aiStreamLimiter);
+}
 
 // ==================== 文件下载（鉴权） ====================
 router.use('/files', fileRoutes);

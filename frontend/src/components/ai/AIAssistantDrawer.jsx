@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Drawer, Typography, Divider, Tag, Button, Space, message } from 'antd';
-import { CloseOutlined, ReloadOutlined, CopyOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import { Drawer, Typography, Divider, Tag, Button, Space, message, Modal } from 'antd';
+import { CloseOutlined, ReloadOutlined, CopyOutlined, DownOutlined, RightOutlined, ThunderboltOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ArrowRightOutlined, RobotOutlined } from '@ant-design/icons';
 import AITabHeader from './AITabHeader';
 import AIInsightCard from './AIInsightCard';
 import AIActionList from './AIActionList';
@@ -9,11 +9,94 @@ import AIEmptyState from './AIEmptyState';
 import AIMarkdownContent from './AIMarkdownContent';
 import useAIContext from '../../hooks/useAIContext';
 import useAIStream from '../../hooks/useAIStream';
+import { api } from '../../hooks/useAuth';
 
 const { Text, Paragraph } = Typography;
 
 /**
+ * AI 可操作 Action 卡片
+ * 每个可执行操作都有确认按钮 + 二次确认 Modal
+ */
+function AIActionCard({ action, onExecute }) {
+  const [confirming, setConfirming] = useState(false);
+  const [executing, setExecuting] = useState(false);
+
+  const iconMap = {
+    view_project: <ArrowRightOutlined />,
+    navigate_to: <ArrowRightOutlined />,
+    flag_risk: <ExclamationCircleOutlined style={{ color: '#DC2626' }} />,
+    create_note: <ThunderboltOutlined />,
+    set_reminder: <CheckCircleOutlined />,
+    export_summary: <CopyOutlined />,
+  };
+
+  const handleExecute = () => {
+    if (action.confirmRequired) {
+      setConfirming(true);
+    } else {
+      doExecute();
+    }
+  };
+
+  const doExecute = async () => {
+    setConfirming(false);
+    setExecuting(true);
+    try {
+      await onExecute(action);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  return (
+    <>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 12px',
+        marginBottom: 6,
+        background: '#F0F4FF',
+        borderRadius: 8,
+        border: '1px solid rgba(59, 90, 251, 0.1)',
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[action.key] || '⚡'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{action.label}</div>
+          {action.desc && <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{action.desc}</div>}
+        </div>
+        <Button
+          size="small"
+          type="primary"
+          ghost
+          loading={executing}
+          onClick={handleExecute}
+          style={{ flexShrink: 0 }}
+        >
+          执行
+        </Button>
+      </div>
+      <Modal
+        title="确认操作"
+        open={confirming}
+        onOk={doExecute}
+        onCancel={() => setConfirming(false)}
+        okText="确认执行"
+        cancelText="取消"
+        okButtonProps={{ danger: action.key === 'flag_risk' }}
+        width={400}
+      >
+        <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+          {action.confirmMessage || `确认执行「${action.label}」？`}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/**
  * AI 助手侧边栏
+ * V7: 增强存在感 + 可操作输出 + 上下文感知
  */
 export default function AIAssistantDrawer({
   open,
@@ -30,13 +113,13 @@ export default function AIAssistantDrawer({
   const { currentPage, currentObject } = useAIContext();
   const [chatInput, setChatInput] = useState('');
   const [rawExpanded, setRawExpanded] = useState(false);
+  const [actionResults, setActionResults] = useState([]);
   const { streamChat, content: streamContent, isStreaming, error: streamError } = useAIStream();
   const chatEndRef = useRef(null);
 
   // 流式完成后，把 SSE 内容推入 chatHistory
   useEffect(() => {
     if (!isStreaming && streamContent) {
-      // 流式结束，通知父组件将内容加入 chatHistory
       onChat?.(null, currentPage, currentObject, false, streamContent);
     }
   }, [isStreaming, streamContent]);
@@ -46,7 +129,7 @@ export default function AIAssistantDrawer({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, streamContent, isStreaming]);
 
-  // 打开时自动加载（仅非 free_ask 模式）
+  // 打开时自动加载
   useEffect(() => {
     if (open && !data && activeMode !== 'free_ask') {
       onLoadPanel?.(activeMode, currentPage, currentObject);
@@ -69,12 +152,37 @@ export default function AIAssistantDrawer({
     onAction?.(action.key, currentPage, currentObject);
   }, [activeMode, currentPage, currentObject, onAction, onModeChange]);
 
+  // 可操作 Action 执行
+  const handleActionExecute = useCallback(async (action) => {
+    try {
+      const res = await api.post('/ai/action', {
+        actionKey: action.key,
+        params: action.params || {},
+      });
+      if (res.code === 0) {
+        const result = res.data;
+        setActionResults(prev => [...prev, { action, result, time: new Date() }]);
+        if (result.type === 'navigate') {
+          message.success(`正在跳转: ${result.path}`);
+          // 延迟跳转让用户看到反馈
+          setTimeout(() => {
+            window.location.hash = result.path;
+          }, 500);
+        } else {
+          message.success(`操作「${action.label}」已执行`);
+        }
+      } else {
+        message.error(res.message || '操作执行失败');
+      }
+    } catch (err) {
+      message.error('操作执行失败，请稍后重试');
+    }
+  }, []);
+
   // 自由问答 — SSE 流式
   const handleChat = useCallback(async (query) => {
     if (isStreaming) return;
-    // 先添加用户消息到 chatHistory
-    onChat?.(query, currentPage, currentObject, true); // true = 只添加用户消息
-    // 启动 SSE 流式
+    onChat?.(query, currentPage, currentObject, true);
     await streamChat(query, currentPage);
   }, [currentPage, currentObject, isStreaming, streamChat, onChat]);
 
@@ -93,45 +201,77 @@ export default function AIAssistantDrawer({
     onLoadPanel?.(activeMode, currentPage, currentObject);
   }, [activeMode, currentPage, currentObject, onLoadPanel]);
 
+  // 页面名称映射
+  const pageNameMap = {
+    dashboard: '驾驶舱', week: '本周管理', kpis: '核心指标',
+    projects: '项目推进', weekly_reports: '周报复盘',
+    monthly_tasks: '月度任务', achievements: '季度成果',
+  };
+
   return (
     <Drawer
       title={null}
       placement="right"
       onClose={onClose}
       open={open}
-      width={420}
+      width={440}
       closable={false}
       styles={{
         body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%' },
-        header: { display: 'none' }
+        header: { display: 'none' },
+        wrapper: {},
       }}
     >
-      {/* 自定义 Header */}
+      {/* 自定义 Header — 品牌感更强 */}
       <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #f0f0f0',
-        background: 'linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%)',
+        padding: '16px 18px 12px',
+        background: 'linear-gradient(135deg, #3B5AFB 0%, #2B4AE0 100%)',
+        color: '#fff',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18 }}>🤖</span>
-            <Text strong style={{ fontSize: 16 }}>AI 业务副驾驶</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 10,
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <RobotOutlined style={{ fontSize: 18, color: '#fff' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>AI 业务副驾驶</div>
+              <div style={{ fontSize: 11, opacity: 0.75 }}>当前页面: {pageNameMap[currentPage] || '总览'}</div>
+            </div>
           </div>
           <Space size={4}>
-            <Button type="text" size="small" icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading} />
-            <Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
+            <Button
+              type="text"
+              size="small"
+              icon={<ReloadOutlined style={{ color: '#fff' }} />}
+              onClick={handleRefresh}
+              loading={loading}
+              style={{ color: '#fff' }}
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<CloseOutlined style={{ color: '#fff' }} />}
+              onClick={onClose}
+              style={{ color: '#fff' }}
+            />
           </Space>
         </div>
 
-        {/* headline */}
+        {/* headline — 白色卡片 */}
         {data?.headline && (
           <div style={{
-            background: '#fff',
-            borderRadius: 6,
-            padding: '8px 12px',
+            background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: 10,
+            padding: '10px 14px',
             fontSize: 13,
-            color: '#262626',
-            border: '1px solid #e6f7ff',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            lineHeight: 1.6,
           }}>
             {data.headline}
             {data.isMock && <Tag color="default" style={{ marginLeft: 8, fontSize: 10 }}>规则分析</Tag>}
@@ -165,12 +305,12 @@ export default function AIAssistantDrawer({
                 )}
                 {data.sections?.map((section, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1890ff', marginBottom: 4 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 4 }}>
                       {section.title}
                     </div>
                     <div style={{
-                      background: '#fafafa',
-                      borderRadius: 6,
+                      background: '#F9FAFB',
+                      borderRadius: 8,
                       padding: '8px 12px',
                     }}>
                       <AIMarkdownContent content={section.content} />
@@ -179,8 +319,8 @@ export default function AIAssistantDrawer({
                 ))}
                 {data.content && !data.sections?.length && (
                   <div style={{
-                    background: '#fafafa',
-                    borderRadius: 6,
+                    background: '#F9FAFB',
+                    borderRadius: 8,
                     padding: '10px 12px',
                     position: 'relative',
                   }}>
@@ -197,11 +337,21 @@ export default function AIAssistantDrawer({
               </div>
             )}
 
-            {/* 快捷动作 */}
+            {/* V7: 可操作 Action 卡片 */}
             {data.actions?.length > 0 && (
               <>
-                <Divider style={{ margin: '8px 0', fontSize: 12, color: '#8c8c8c' }}>快捷动作</Divider>
-                <AIActionList actions={data.actions} onAction={handleAction} />
+                <Divider style={{ margin: '10px 0', fontSize: 12, color: '#6B7280' }}>
+                  <ThunderboltOutlined style={{ marginRight: 4 }} />建议操作
+                </Divider>
+                {data.actions
+                  .filter(a => a.type === 'action')
+                  .map((action, i) => (
+                    <AIActionCard key={i} action={action} onExecute={handleActionExecute} />
+                  ))}
+                {/* 传统快捷动作（type !== 'action'） */}
+                {data.actions.filter(a => a.type !== 'action').length > 0 && (
+                  <AIActionList actions={data.actions.filter(a => a.type !== 'action')} onAction={handleAction} />
+                )}
               </>
             )}
 
@@ -219,8 +369,8 @@ export default function AIAssistantDrawer({
                 </Divider>
                 {rawExpanded && (
                   <div style={{
-                    background: '#fafafa',
-                    borderRadius: 6,
+                    background: '#F9FAFB',
+                    borderRadius: 8,
                     padding: '10px 12px',
                     position: 'relative',
                   }}>
@@ -236,6 +386,28 @@ export default function AIAssistantDrawer({
                 )}
               </>
             )}
+
+            {/* 操作结果反馈 */}
+            {actionResults.length > 0 && (
+              <>
+                <Divider style={{ margin: '8px 0', fontSize: 12, color: '#16A34A' }}>
+                  <CheckCircleOutlined style={{ marginRight: 4 }} />已执行操作
+                </Divider>
+                {actionResults.slice(-3).map((ar, i) => (
+                  <div key={i} style={{
+                    padding: '6px 10px',
+                    marginBottom: 4,
+                    background: '#F0FDF4',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    color: '#16A34A',
+                    border: '1px solid #BBF7D0',
+                  }}>
+                    ✓ {ar.action.label} — {ar.result.type === 'navigate' ? '已跳转' : '已执行'}
+                  </div>
+                ))}
+              </>
+            )}
           </>
         )}
 
@@ -243,9 +415,20 @@ export default function AIAssistantDrawer({
         {activeMode === 'free_ask' && (
           <div>
             {chatHistory.length === 0 && !isStreaming && (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#8c8c8c' }}>
-                <span style={{ fontSize: 32 }}>💬</span>
-                <div style={{ marginTop: 8, fontSize: 13 }}>输入问题，AI 会基于当前页面数据回答</div>
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#9CA3AF' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14,
+                  background: '#F0F4FF', margin: '0 auto 12px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <RobotOutlined style={{ fontSize: 22, color: '#3B5AFB' }} />
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#111827', marginBottom: 4 }}>
+                  基于当前页面数据回答
+                </div>
+                <div style={{ fontSize: 12, color: '#6B7280' }}>
+                  问我关于项目、指标、风险等任何问题
+                </div>
               </div>
             )}
             {chatHistory.map((msg, i) => (
@@ -256,7 +439,7 @@ export default function AIAssistantDrawer({
               }}>
                 <div style={{
                   maxWidth: '85%',
-                  background: msg.role === 'user' ? '#1890ff' : msg.isError ? '#fff1f0' : '#f0f5ff',
+                  background: msg.role === 'user' ? '#3B5AFB' : msg.isError ? '#FEF2F2' : '#F0F4FF',
                   color: msg.role === 'user' ? '#fff' : '#262626',
                   padding: '8px 12px',
                   borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
@@ -288,7 +471,7 @@ export default function AIAssistantDrawer({
               }}>
                 <div style={{
                   maxWidth: '85%',
-                  background: '#f0f5ff',
+                  background: '#F0F4FF',
                   color: '#262626',
                   padding: '8px 12px',
                   borderRadius: '12px 12px 12px 2px',
@@ -301,7 +484,6 @@ export default function AIAssistantDrawer({
                 </div>
               </div>
             )}
-            {/* 流式错误 */}
             {streamError && (
               <div style={{
                 marginBottom: 10,
@@ -310,7 +492,7 @@ export default function AIAssistantDrawer({
               }}>
                 <div style={{
                   maxWidth: '85%',
-                  background: '#fff1f0',
+                  background: '#FEF2F2',
                   color: '#a8071a',
                   padding: '8px 12px',
                   borderRadius: '12px 12px 12px 2px',
@@ -337,7 +519,7 @@ export default function AIAssistantDrawer({
           loading={loading}
           suggestedFollowUps={
             chatHistory.length === 0
-              ? (data?.actions?.map(a => a.label) || ['当前有哪些风险项目？', '本周指标达成情况如何？', '下周应该优先做什么？'])
+              ? (data?.actions?.filter(a => a.type === 'action').map(a => a.label) || ['当前有哪些风险项目？', '本周指标达成情况如何？', '下周应该优先做什么？'])
               : (chatHistory[chatHistory.length - 1]?.suggestedFollowUps || [])
           }
         />

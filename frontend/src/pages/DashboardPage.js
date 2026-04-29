@@ -11,12 +11,14 @@ import PanelCard from '../components/ui/PanelCard';
 import { getStatusStyle, getProgressColor } from '../utils/constants';
 import useAIAssistant from '../hooks/useAIAssistant';
 import useAIContext from '../hooks/useAIContext';
+import useCountUp from '../hooks/useCountUp';
 
 function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('quarter');
   const [staleProjects, setStaleProjects] = useState([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const role = user?.role || 'dept_staff';
@@ -36,9 +38,14 @@ function DashboardPage() {
 
   const fetchDashboard = async () => {
     setLoading(true);
+    setDataLoaded(false);
     try {
       const res = await api.get(`/dashboard?mode=${viewMode}`);
-      if (res.code === 0) setData(res.data);
+      if (res.code === 0) {
+        setData(res.data);
+        // 延迟触发动画（数据加载完成后）
+        setTimeout(() => setDataLoaded(true), 100);
+      }
     } catch (err) {
       message.error('获取仪表盘数据失败');
     } finally {
@@ -152,17 +159,34 @@ function DashboardPage() {
     return cards;
   });
 
-  // 工作状态分布饼图
+  // 工作状态分布饼图 — 品牌色系（克制配色）
+  const CHART_COLORS = {
+    completed: '#16A34A',
+    inProgress: '#3B5AFB',
+    risk: '#DC2626',
+    notStarted: '#94A3B8',
+  };
+
   const statusChartOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
-    legend: { bottom: 0, textStyle: { fontSize: 12 } },
+    legend: { bottom: 0, textStyle: { fontSize: 12, color: '#6B7280' } },
     series: [{
       name: '状态', type: 'pie', radius: ['42%', '72%'], avoidLabelOverlap: false,
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-      label: { show: true, formatter: '{b}\n{c}个', fontSize: 12 },
+      label: { show: true, formatter: '{b}\n{c}个', fontSize: 12, color: '#374151' },
+      emphasis: {
+        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.1)' },
+        scale: true,
+        scaleSize: 4,
+      },
       data: (data.project_status_distribution || []).map(item => ({
         name: item.status, value: item.count,
-        itemStyle: { color: item.status === '完成' ? '#16A34A' : item.status === '进行中' ? '#3B5AFB' : item.status === '风险' ? '#DC2626' : '#9CA3AF' }
+        itemStyle: {
+          color: item.status === '完成' ? CHART_COLORS.completed
+            : item.status === '进行中' ? CHART_COLORS.inProgress
+            : item.status === '风险' ? CHART_COLORS.risk
+            : CHART_COLORS.notStarted
+        }
       }))
     }]
   };
@@ -395,17 +419,14 @@ function DashboardPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
         {primaryKpiCards.map((card, idx) => (
           <Col xs={24} sm={12} key={idx}>
-            <Card className="surface-card hover-lift" bodyStyle={{ padding: 24 }}>
+            <Card className="surface-card hover-lift" bodyStyle={{ padding: 24 }} style={{ '--stagger-index': idx }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div className="metric-label" style={{ fontSize: 14, fontWeight: 600 }}>{card.title}</div>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {card.icon}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-                <span className="metric-value" style={{ fontSize: 36 }}>{card.value}</span>
-                <span className="subtle-text" style={{ fontSize: 14 }}>{card.suffix}</span>
-              </div>
+              <KpiValue value={parseFloat(card.value)} loaded={dataLoaded} suffix={card.suffix} />
               <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 10 }} />
               <div className="subtle-text" style={{ fontSize: 12 }}>{card.hint}</div>
             </Card>
@@ -422,7 +443,7 @@ function DashboardPage() {
           <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
             {secondaryKpiCards.map((card, idx) => (
               <Col xs={24} sm={12} xl={6} key={idx}>
-                <Card className="surface-card hover-lift" bodyStyle={{ padding: 16 }}>
+                <Card className="surface-card-secondary hover-lift" bodyStyle={{ padding: 16 }} style={{ '--stagger-index': idx + 2 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <div className="metric-label" style={{ fontSize: 12 }}>{card.title}</div>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -430,7 +451,7 @@ function DashboardPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
-                    <span className="metric-value" style={{ fontSize: 24 }}>{card.value}</span>
+                    <span className="metric-value count-up-value" style={{ fontSize: 24 }}>{card.value}</span>
                     <span className="subtle-text" style={{ fontSize: 12 }}>{card.suffix}</span>
                   </div>
                   <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={5} style={{ marginBottom: 6 }} />
@@ -589,14 +610,35 @@ function DashboardPage() {
         </Col>
       </Row>
 
-      {/* ===== 区块4：风险/阻塞摘要 ===== */}
+      {/* ===== 区块4：风险/阻塞摘要 — 增强视觉警示 ===== */}
       {riskCount > 0 && (
-        <div style={{ marginBottom: 24, padding: '12px 20px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
-          <span style={{ fontSize: 14, color: '#991B1B' }}>
-            当前有 <strong>{riskCount}</strong> 个风险项目需要关注
-          </span>
-          <Button type="link" size="small" onClick={() => navigate('/projects')} style={{ padding: 0, height: 'auto', fontWeight: 600 }}>项目推进 →</Button>
+        <div style={{
+          marginBottom: 24,
+          padding: '14px 20px',
+          background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+          border: '1px solid #FECACA',
+          borderLeft: '4px solid #DC2626',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(220, 38, 38, 0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#991B1B' }}>
+              当前有 {riskCount} 个风险项目需要关注
+            </span>
+          </div>
+          <Button type="primary" danger size="small" onClick={() => navigate('/projects')}>
+            查看详情 →
+          </Button>
         </div>
       )}
 
@@ -732,3 +774,17 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+
+/**
+ * KPI 数字组件 — 带数字滚动动画
+ * 必须是独立组件才能使用 useCountUp hook
+ */
+function KpiValue({ value, loaded, suffix }) {
+  const animatedValue = useCountUp(Math.round(value), 800, loaded);
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+      <span className="metric-value count-up-value" style={{ fontSize: 36 }}>{animatedValue}%</span>
+      <span className="subtle-text" style={{ fontSize: 14 }}>{suffix}</span>
+    </div>
+  );
+}
