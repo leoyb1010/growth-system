@@ -5,25 +5,35 @@
 
 // 危险指令模式（尝试覆盖系统指令的常见模式）
 const INJECTION_PATTERNS = [
-  // 直接指令覆盖
+  // 英文：直接指令覆盖
   /ignore\s+(all\s+)?previous\s+(instructions|prompts|rules)/i,
   /forget\s+(all\s+)?previous\s+(instructions|prompts|rules)/i,
   /disregard\s+(all\s+)?previous/i,
-  /你现在是/,
-  /从现在起/,
-  /新的指令/,
   /override\s+(system|default)\s+(prompt|instruction)/i,
-  // 角色切换
-  /你(?:不再|不再)是/i,
+  // 英文：角色切换
   /act\s+as\s+(if\s+you\s+are|a|an)/i,
   /pretend\s+(to\s+be|you\s+are)/i,
-  /角色扮演/,
-  // 系统指令泄露
+  // 英文：系统指令泄露
   /show\s+me\s+(your|the|system)\s+(prompt|instruction|rule)/i,
   /reveal\s+your\s+(system|initial|original)\s+prompt/i,
-  /输出(?:你的|系统)(?:提示|指令|prompt)/i,
-  /重复(?:你的|系统)(?:提示|指令)/i,
-  // 数据外泄
+  // 中文：直接指令覆盖
+  /忽略(以上|之前|前面|所有).{0,12}(指令|规则|提示|prompt)/i,
+  /忘记(以上|之前|前面|所有).{0,12}(指令|规则|提示|prompt)/i,
+  /不要遵守.{0,12}(系统|开发者|规则|指令)/i,
+  /你现在是/,
+  /从现在(起|开始)/,
+  /新的(系统)?指令/,
+  /覆盖.{0,12}(系统|默认).{0,12}(提示|指令|prompt)/i,
+  // 中文：角色切换
+  /你(?:不再|不是)是/i,
+  /角色扮演/,
+  /扮演.{0,20}(助手|专家|管理员|系统)/,
+  // 中文：系统指令泄露
+  /输出(?:你的|系统|隐藏|原始)(?:提示|指令|prompt)/i,
+  /重复(?:你的|系统|隐藏|原始)(?:提示|指令|prompt)/i,
+  /泄露.{0,12}(系统|隐藏|原始).{0,12}(提示|指令|prompt)/i,
+  /告诉我你的.{0,12}(提示|指令|prompt)/i,
+  // 通用：数据外泄
   /\/etc\/passwd/i,
   /environment\s+variable/i,
   /process\.env/i,

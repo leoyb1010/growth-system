@@ -16,12 +16,12 @@ export const appTheme = {
     colorBgLayout: '#F5F7FB',
     colorBgContainer: '#FFFFFF',
 
-    borderRadius: 14,
+    borderRadius: 8,
     fontSize: 14,
     controlHeight: 40,
 
-    boxShadow: '0 6px 24px rgba(15, 23, 42, 0.06)',
-    boxShadowSecondary: '0 2px 12px rgba(15, 23, 42, 0.04)',
+    boxShadow: '0 1px 4px rgba(15, 23, 42, 0.06)',
+    boxShadowSecondary: '0 1px 2px rgba(15, 23, 42, 0.04)',
   },
   components: {
     Layout: {
@@ -31,19 +31,19 @@ export const appTheme = {
       triggerBg: '#0F172A',
     },
     Card: {
-      borderRadiusLG: 18,
+      borderRadiusLG: 10,
     },
     Button: {
-      borderRadius: 10,
+      borderRadius: 8,
       controlHeight: 38,
       fontWeight: 500,
     },
     Input: {
-      borderRadius: 10,
+      borderRadius: 8,
       controlHeight: 40,
     },
     Select: {
-      borderRadius: 10,
+      borderRadius: 8,
       controlHeight: 40,
     },
     Table: {

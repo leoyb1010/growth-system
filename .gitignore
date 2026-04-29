@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 
 # Build
@@ -30,5 +29,12 @@ npm-debug.log*
 
 # Database
 postgres_data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+backend/data/*.db
 *.sql.backup
 backups/
+
+# User data (uploads/exports)
+backend/uploads/exports/*

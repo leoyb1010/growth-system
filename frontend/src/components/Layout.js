@@ -223,14 +223,16 @@ function AppLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       {/* ===== 桌面端侧边栏 ===== */}
       {!isMobile && (
-        <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
-          <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
-            <h3 style={{ margin: 0, fontSize: collapsed ? 11 : 14, color: '#1890ff', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center' }}>
+        <Sider trigger={null} collapsible collapsed={collapsed} theme="dark" width={200}
+          style={{ overflow: 'auto', height: '100vh', position: 'sticky', top: 0 }}>
+          <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <h3 style={{ margin: 0, fontSize: collapsed ? 11 : 14, color: '#fff', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center', fontWeight: 600, letterSpacing: '0.5px' }}>
               {collapsed ? `v${appVersion}` : `LeoBMS-(v${appVersion})`}
             </h3>
           </div>
           <Menu
             mode="inline"
+            theme="dark"
             selectedKeys={[location.pathname === '/settlement' ? '/monthly-tasks' : location.pathname]}
             items={menuItems}
             onClick={({ key }) => navigate(key)}
@@ -317,10 +319,9 @@ function AppLayout() {
         </Header>
 
         <Content style={{
-          margin: isMobile ? 8 : 24,
-          padding: isMobile ? 12 : 24,
-          background: '#fff',
-          borderRadius: 8,
+          margin: isMobile ? 8 : 20,
+          padding: 0,
+          background: 'var(--bg-muted, #F5F7FB)',
           minHeight: 280
         }}>
           <Outlet />

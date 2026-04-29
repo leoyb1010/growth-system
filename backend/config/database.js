@@ -25,10 +25,15 @@ if (dialect === 'sqlite') {
     }
   });
 } else {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const dbPassword = process.env.DB_PASSWORD;
+  if (isProduction && !dbPassword) {
+    throw new Error('DB_PASSWORD is required in production');
+  }
   sequelize = new Sequelize(
     process.env.DB_NAME || 'growth_system',
     process.env.DB_USER || 'growth',
-    process.env.DB_PASSWORD || 'growth123',
+    dbPassword || 'growth123',
     {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,

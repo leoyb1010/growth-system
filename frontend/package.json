@@ -1,6 +1,6 @@
 {
   "name": "growth-system-frontend",
-  "version": "7.0.0",
+  "version": "1.7.0",
   "description": "增长组业务管理系统前端",
   "private": true,
   "dependencies": {

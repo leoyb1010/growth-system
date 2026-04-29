@@ -142,11 +142,11 @@ router.get('/audit-logs/:table_name/:record_id', ...auth, requirePermission('aud
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
 
 // ==================== AI 助手 ====================
-router.use('/ai', aiLimiter || [], aiRoutes);
-// 流式接口额外限流（chat-stream 走更严格的限制）
+// 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截
 if (aiStreamLimiter) {
   router.use('/ai/chat-stream', aiStreamLimiter);
 }
+router.use('/ai', aiLimiter || [], aiRoutes);
 
 // ==================== 文件下载（鉴权） ====================
 router.use('/files', fileRoutes);
