@@ -208,11 +208,10 @@ body {
 }
 
 .hover-lift {
-  transition: all 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .hover-lift:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
 }
 
@@ -316,11 +315,11 @@ body {
 }
 
 .ant-btn:not(:disabled):hover {
-  transform: translateY(-1px);
+  /* 移除 translateY，后台系统不宜浮动 */
 }
 
 .ant-btn:not(:disabled):active {
-  transform: translateY(0) scale(0.97);
+  transform: scale(0.97);
 }
 
 /* 标签 hover 反馈 */
@@ -331,7 +330,6 @@ body {
 
 .ant-tag-clickable:hover,
 .ant-tag[style*="cursor: pointer"]:hover {
-  transform: scale(1.03);
   box-shadow: var(--shadow-sm);
 }
 

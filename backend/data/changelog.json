@@ -1,8 +1,8 @@
 {
-  "latestVersion": "7.0.0",
+  "latestVersion": "1.7.0",
   "releases": [
     {
-      "version": "7.0.0",
+      "version": "1.7.0",
       "date": "2026-04-29",
       "title": "安全加固 + 视觉动效 + AI存在感升级",
       "changes": [
@@ -89,7 +89,7 @@
       ]
     },
     {
-      "version": "6.4.0",
+      "version": "1.6.4",
       "date": "2026-04-28",
       "title": "五大问题全面修复 + 功能升级",
       "changes": [
@@ -146,7 +146,7 @@
       ]
     },
     {
-      "version": "6.3.0",
+      "version": "1.6.3",
       "date": "2026-04-26",
       "title": "周报数据摘要分层 + 数值格式化",
       "changes": [
@@ -178,7 +178,7 @@
       ]
     },
     {
-      "version": "6.2.0",
+      "version": "1.6.2",
       "date": "2026-04-26",
       "title": "SQLITE_READONLY 自愈 + 驾驶舱优化",
       "changes": [
@@ -210,7 +210,7 @@
       ]
     },
     {
-      "version": "6.1.0",
+      "version": "1.6.1",
       "date": "2026-04-25",
       "title": "安全加固 + 体验升级",
       "changes": [
@@ -237,7 +237,7 @@
       ]
     },
     {
-      "version": "6.0.0",
+      "version": "1.6.0",
       "date": "2026-04-24",
       "title": "AI 智能助手上线",
       "changes": [

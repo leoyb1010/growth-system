@@ -107,10 +107,13 @@ async function handleChat(params) {
 
   if (!llmProvider.isAvailable()) {
     const answer = mockProvider.mockChatAnswer(query, context);
+    const answerText = typeof answer === 'string' ? answer : (answer.answer || answer.content || '');
+    const answerMeta = typeof answer === 'object' ? answer : {};
     return formatChatResponse({
-      answer,
-      sources: ['规则分析'],
+      answer: answerText,
+      sources: answerMeta.sources?.map(s => s.title) || ['规则分析'],
       suggestedFollowUps: generateSuggestedFollowUps(context),
+      confidence: answerMeta.confidence,
       isMock: true
     });
   }
@@ -153,10 +156,13 @@ async function handleChat(params) {
   } catch (err) {
     console.error('AI 自由问答 LLM 调用失败:', err.message);
     const answer = mockProvider.mockChatAnswer(query, context);
+    const answerText = typeof answer === 'string' ? answer : (answer.answer || answer.content || '');
+    const answerMeta = typeof answer === 'object' ? answer : {};
     return formatChatResponse({
-      answer: answer + '\n\n（LLM 不可用，以上为规则分析结果）',
-      sources: ['规则分析（降级）'],
+      answer: answerText + '\n\n（LLM 不可用，以上为规则分析结果）',
+      sources: answerMeta.sources?.map(s => s.title) || ['规则分析（降级）'],
       suggestedFollowUps: generateSuggestedFollowUps(context),
+      confidence: answerMeta.confidence,
       isMock: true
     });
   }

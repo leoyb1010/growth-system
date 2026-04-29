@@ -96,7 +96,7 @@ function DashboardPage() {
 
   // 兜底：data 为 null 时显示空状态而非卡死
   if (!data) return (
-    <div className="app-page">
+    <div className="app-page" style={{ padding: 24 }}>
       <PageHeader title="总览" subtitle="数据加载异常" extra={[
         <Button key="retry" type="primary" onClick={() => { setData(null); fetchDashboard(); }}>重新加载</Button>
       ]} />
@@ -164,7 +164,7 @@ function DashboardPage() {
     completed: '#16A34A',
     inProgress: '#3B5AFB',
     risk: '#DC2626',
-    notStarted: '#94A3B8',
+    notStarted: '#F59E0B',
   };
 
   const statusChartOption = {
@@ -214,7 +214,7 @@ function DashboardPage() {
   // 普通成员首页：自己的项目 + 快捷更新 + 个人待办
   if (isMember) {
     return (
-      <div className="app-page">
+      <div className="app-page" style={{ padding: 24 }}>
         <PageHeader
           title="我的工作台"
           subtitle={`${data.current_year}年 · ${modeLabel} · 我负责的项目与待办`}
@@ -400,7 +400,7 @@ function DashboardPage() {
 
   // ===== 管理员/部门负责人首页（原有仪表盘） =====
   return (
-    <div className="app-page">
+    <div className="app-page" style={{ padding: 24 }}>
       <PageHeader
         title={canonicalRole === 'super_admin' ? '管理驾驶舱' : '部门仪表盘'}
         subtitle={`${data.current_year}年 · ${modeLabel} · 本周状态、待办事项与风险一览`}
@@ -473,52 +473,93 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* ===== 区块2：今日提醒 + 本周关注（双列） ===== */}
+      {/* ===== 优先级1：今日风险 ===== */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#DC2626', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <AlertOutlined style={{ fontSize: 16 }} /> 今日风险
+      </div>
+
+      {riskCount > 0 && (
+        <div style={{
+          marginBottom: 16,
+          padding: '14px 20px',
+          background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+          border: '1px solid #FECACA',
+          borderLeft: '4px solid #DC2626',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'rgba(220, 38, 38, 0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#991B1B' }}>
+              当前有 {riskCount} 个风险项目需要关注
+            </span>
+          </div>
+          <Button type="primary" danger size="small" onClick={() => navigate('/projects')}>
+            查看详情 →
+          </Button>
+        </div>
+      )}
+
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={12}>
+        <Col xs={24}>
           <PanelCard
-            title={<span><ClockCircleOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />今日提醒</span>}
-            subtitle="工作相关提醒 · 自动筛选"
+            title={<span><AlertOutlined style={{ color: '#DC2626', marginRight: 8 }} />今日风险与提醒</span>}
+            subtitle="到期、风险、偏差、待更新"
             extra={<Button type="link" size="small" onClick={openTodayDrawer}>查看详情 →</Button>}
           >
             {(() => {
-              // 工作内容提醒：到期、风险、待更新、偏差，不含操作行为
+              // 合并今日提醒和本周关注，去重
               const reminders = [];
+              const seen = new Set();
+              const addReminder = (r) => {
+                const key = `${r.type}_${r.text}`;
+                if (!seen.has(key)) { seen.add(key); reminders.push(r); }
+              };
               // 今日到期
               const todayDue = (data.recent_projects || []).filter(p => p.is_due_soon && p.due_date && moment().diff(moment(p.due_date), 'days') === 0 && p.status !== '完成');
-              if (todayDue.length > 0) reminders.push({ type: 'due_today', text: `${todayDue.length}个项目今日到期`, count: todayDue.length });
+              if (todayDue.length > 0) addReminder({ type: 'due_today', text: `${todayDue.length}个项目今日到期`, count: todayDue.length });
               // 本周到期
               const dueSoon = data.due_soon_projects || [];
-              if (dueSoon.length > 0) reminders.push({ type: 'due_soon', text: `${dueSoon.length}个项目7天内到期`, count: dueSoon.length });
+              if (dueSoon.length > 0) addReminder({ type: 'due_soon', text: `${dueSoon.length}个项目7天内到期`, count: dueSoon.length });
               // 风险项目
-              const riskCount = data.kpi_cards?.risk_project_count || 0;
-              if (riskCount > 0) reminders.push({ type: 'risk', text: `${riskCount}个项目存在风险`, count: riskCount });
+              if (riskCount > 0) addReminder({ type: 'risk', text: `${riskCount}个项目存在风险`, count: riskCount });
+              // 本周关注项（去重合并）
+              (data.week_focus || []).forEach(f => addReminder(f));
               // 待更新
               const staleCount = staleProjects.length;
-              if (staleCount > 0) reminders.push({ type: 'stale', text: `${staleCount}个项目超过7天未更新`, count: staleCount });
-              // KPI偏差（基于时间进度检测）
+              if (staleCount > 0) addReminder({ type: 'stale', text: `${staleCount}个项目超过7天未更新`, count: staleCount });
+              // KPI偏差
               const deviationItems = (data.kpi_cards?.dept_cards || [])
                 .filter(d => d.gmv_status === 'error')
                 .map(d => `${d.dept_name}GMV`);
-              if (deviationItems.length > 0) reminders.push({ type: 'deviation', text: `${deviationItems.join('、')}完成率偏差较大`, count: deviationItems.length });
+              if (deviationItems.length > 0) addReminder({ type: 'deviation', text: `${deviationItems.join('、')}完成率偏差较大`, count: deviationItems.length });
 
               if (reminders.length === 0) {
                 return (
                   <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
-                    <ClockCircleOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
-                    <div style={{ fontSize: 13 }}>今日暂无工作提醒</div>
+                    <CheckCircleOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
+                    <div style={{ fontSize: 13 }}>今日暂无风险或提醒</div>
                   </div>
                 );
               }
               const iconMap = { due_today: '🔴', due_soon: '⏰', risk: '⚠️', stale: '💤', deviation: '📉' };
               const bgMap = { due_today: '#FEF2F2', due_soon: '#FFFBEB', risk: '#FEF2F2', stale: '#F9FAFB', deviation: '#F5F3FF' };
               return (
-                <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {reminders.map((r, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: idx < reminders.length - 1 ? 8 : 0, background: bgMap[r.type] || '#F9FAFB', borderRadius: 8 }}>
-                      <span style={{ fontSize: 18, flexShrink: 0 }}>{iconMap[r.type] || '📌'}</span>
-                      <div style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{r.text}</div>
-                      <Tag color={r.type === 'risk' || r.type === 'due_today' ? 'error' : r.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0 }}>{r.count}</Tag>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: bgMap[r.type] || '#F9FAFB', borderRadius: 8, fontSize: 13 }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[r.type] || '📌'}</span>
+                      <span style={{ color: '#111827', fontWeight: 500 }}>{r.text}</span>
+                      <Tag color={r.type === 'risk' || r.type === 'due_today' ? 'error' : r.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0, margin: 0 }}>{r.count}</Tag>
                     </div>
                   ))}
                 </div>
@@ -526,35 +567,34 @@ function DashboardPage() {
             })()}
           </PanelCard>
         </Col>
-        <Col xs={24} lg={12}>
-          <PanelCard
-            title={<span><AlertOutlined style={{ color: '#F59E0B', marginRight: 8 }} />本周关注</span>}
-            subtitle="系统自动筛选"
-            extra={data.week_focus?.length > 0 && <span className="subtle-text" style={{ fontSize: 12 }}>{data.week_focus.reduce((s, f) => s + f.count, 0)} 项</span>}
-          >
-            {(!data.week_focus || data.week_focus.length === 0) ? (
-              <div style={{ textAlign: 'center', padding: 32, color: '#9CA3AF' }}>
-                <AlertOutlined style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: 0.4 }} />
-                <div style={{ fontSize: 13 }}>本周暂无特别关注事项</div>
-              </div>
-            ) : (
-              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-                {data.week_focus.map((f, idx) => {
-                  const iconMap = { due_soon: '⏰', risk: '🔴', stale: '💤', deviation: '📉' };
-                  const bgMap = { due_soon: '#FFFBEB', risk: '#FEF2F2', stale: '#F9FAFB', deviation: '#F5F3FF' };
-                  return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: idx < data.week_focus.length - 1 ? 8 : 0, background: bgMap[f.type] || '#F9FAFB', borderRadius: 8 }}>
-                      <span style={{ fontSize: 18, flexShrink: 0 }}>{iconMap[f.type] || '📌'}</span>
-                      <div style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{f.text}</div>
-                      <Tag color={f.type === 'risk' ? 'error' : f.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0 }}>{f.count}</Tag>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </PanelCard>
-        </Col>
       </Row>
+
+      {/* ===== 优先级2：目标偏差 ===== */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#F59E0B', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <FlagOutlined style={{ fontSize: 16 }} /> 目标偏差
+      </div>
+
+      {/* KPI 偏差概览条 */}
+      {(() => {
+        const deviatingDepts = (data.kpi_cards?.dept_cards || []).filter(d => d.gmv_status === 'error');
+        if (deviatingDepts.length === 0 && primaryKpiCards.every(c => c.status !== 'error')) {
+          return <div style={{ marginBottom: 16, padding: '10px 16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: 13, color: '#166534' }}>✅ 各项指标均正常，无显著偏差</div>;
+        }
+        return (
+          <Row gutter={[12, 8]} style={{ marginBottom: 16 }}>
+            {primaryKpiCards.filter(c => c.status === 'error').map((c, idx) => (
+              <Col key={idx}>
+                <Tag color="error" style={{ fontSize: 13, padding: '4px 10px' }}>{c.title} 偏差 ({c.value})</Tag>
+              </Col>
+            ))}
+            {deviatingDepts.map((d, idx) => (
+              <Col key={`d${idx}`}>
+                <Tag color="warning" style={{ fontSize: 13, padding: '4px 10px' }}>{d.dept_name} GMV {d.gmv_rate}%</Tag>
+              </Col>
+            ))}
+          </Row>
+        );
+      })()}
 
       {/* ===== 区块3：重点推进事项 + 长期未更新项目（双列） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -610,37 +650,10 @@ function DashboardPage() {
         </Col>
       </Row>
 
-      {/* ===== 区块4：风险/阻塞摘要 — 增强视觉警示 ===== */}
-      {riskCount > 0 && (
-        <div style={{
-          marginBottom: 24,
-          padding: '14px 20px',
-          background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
-          border: '1px solid #FECACA',
-          borderLeft: '4px solid #DC2626',
-          borderRadius: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'rgba(220, 38, 38, 0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <AlertOutlined style={{ fontSize: 18, color: '#DC2626' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: '#991B1B' }}>
-              当前有 {riskCount} 个风险项目需要关注
-            </span>
-          </div>
-          <Button type="primary" danger size="small" onClick={() => navigate('/projects')}>
-            查看详情 →
-          </Button>
-        </div>
-      )}
+      {/* ===== 优先级3：待闭环事项 ===== */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#3B5AFB', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ThunderboltOutlined style={{ fontSize: 16 }} /> 待闭环事项
+      </div>
 
       {/* ===== 区块5：图表区 ===== */}
       <Row gutter={[16, 16]}>

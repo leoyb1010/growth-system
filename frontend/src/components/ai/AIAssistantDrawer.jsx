@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Drawer, Typography, Divider, Tag, Button, Space, message, Modal } from 'antd';
+import { Drawer, Typography, Divider, Tag, Button, Space, message, Modal, Alert } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { CloseOutlined, ReloadOutlined, CopyOutlined, DownOutlined, RightOutlined, ThunderboltOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ArrowRightOutlined, RobotOutlined } from '@ant-design/icons';
 import AITabHeader from './AITabHeader';
 import AIInsightCard from './AIInsightCard';
@@ -111,6 +112,7 @@ export default function AIAssistantDrawer({
   onLoadPanel,
 }) {
   const { currentPage, currentObject } = useAIContext();
+  const navigate = useNavigate();
   const [chatInput, setChatInput] = useState('');
   const [rawExpanded, setRawExpanded] = useState(false);
   const [actionResults, setActionResults] = useState([]);
@@ -274,7 +276,7 @@ export default function AIAssistantDrawer({
             lineHeight: 1.6,
           }}>
             {data.headline}
-            {data.isMock && <Tag color="default" style={{ marginLeft: 8, fontSize: 10 }}>规则分析</Tag>}
+            {data.isMock && <Tag color="orange" style={{ marginLeft: 8, fontSize: 10, fontWeight: 600 }}>规则分析（非AI）</Tag>}
           </div>
         )}
       </div>
@@ -291,13 +293,19 @@ export default function AIAssistantDrawer({
         {activeMode !== 'free_ask' && data && (
           <>
             {/* 结构化卡片模式 */}
-            {data.cards?.length > 0 && data.cards.map((card, i) => (
-              <AIInsightCard key={card.id || i} card={card} onAction={handleAction} />
-            ))}
+            {data.cards?.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 8 }}>洞察</div>
+                {data.cards.map((card, i) => (
+                  <AIInsightCard key={card.id || i} card={card} onAction={handleAction} />
+                ))}
+              </>
+            )}
 
             {/* 简报/议程模式 */}
             {(data.sections?.length > 0 || data.content) && !data.cards?.length && (
               <div>
+                <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 8 }}>分析</div>
                 {data.title && (
                   <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10, color: '#262626' }}>
                     {data.title}
@@ -337,12 +345,44 @@ export default function AIAssistantDrawer({
               </div>
             )}
 
+            {/* 置信度 */}
+            {typeof data.confidence === 'number' && (
+              <div style={{ marginTop: 8, fontSize: 11, color: data.confidence >= 0.7 ? '#16A34A' : data.confidence >= 0.4 ? '#F59E0B' : '#DC2626' }}>
+                置信度 {Math.round(data.confidence * 100)}%
+              </div>
+            )}
+
+            {/* 引用来源 */}
+            {data.sources?.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#6B7280', marginRight: 4 }}>引用：</span>
+                {data.sources.map((s, i) => (
+                  <Tag key={i} color="blue" style={{ cursor: s.id ? 'pointer' : 'default', fontSize: 11 }}
+                    onClick={() => s.id && s.type === 'project' && navigate(`/projects?projectId=${s.id}`)}>
+                    {s.title}
+                  </Tag>
+                ))}
+              </div>
+            )}
+
+            {/* 建议操作按钮 */}
+            {data.suggestedActions?.length > 0 && (
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>建议操作</span>
+                {data.suggestedActions.map((action, i) => (
+                  <Button key={i} size="small" type={action.confirmRequired ? 'default' : 'primary'}
+                    onClick={() => handleActionExecute(action)}
+                    danger={action.key === 'flag_risk'}>
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
             {/* V7: 可操作 Action 卡片 */}
             {data.actions?.length > 0 && (
               <>
-                <Divider style={{ margin: '10px 0', fontSize: 12, color: '#6B7280' }}>
-                  <ThunderboltOutlined style={{ marginRight: 4 }} />建议操作
-                </Divider>
+                <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4, marginTop: 4 }}>建议</div>
                 {data.actions
                   .filter(a => a.type === 'action')
                   .map((action, i) => (
@@ -449,7 +489,7 @@ export default function AIAssistantDrawer({
                   ) : (
                     <AIMarkdownContent content={msg.content} compact />
                   )}
-                  {msg.isMock && <Tag color="default" style={{ marginLeft: 4, fontSize: 10 }}>规则</Tag>}
+                  {msg.isMock && <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, fontWeight: 600 }}>规则分析（非AI）</Tag>}
                   {msg.suggestedFollowUps && !isStreaming && (
                     <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {msg.suggestedFollowUps.map((q, j) => (

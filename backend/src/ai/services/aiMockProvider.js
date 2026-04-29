@@ -68,12 +68,29 @@ function mockTodayJudgment(context) {
     });
   }
 
-  return { headline, cards, isMock: true };
+  // 引用来源：引用相关项目
+  const sources = [];
+  highRiskProjects.slice(0, 3).forEach(p => {
+    sources.push({ title: p.name, type: 'project', id: p.id || p._id });
+  });
+  staleProjects.slice(0, 2).forEach(s => {
+    if (!sources.find(x => x.id === (s.projectId || s.id))) {
+      sources.push({ title: s.name, type: 'project', id: s.projectId || s.id });
+    }
+  });
+
+  return {
+    headline,
+    cards,
+    isMock: true,
+    confidence: 0.6,
+    sources,
+    suggestedActions: highRiskProjects.length > 0
+      ? [{ key: 'flag_risk', label: '标记风险项目', confirmRequired: true }]
+      : [],
+  };
 }
 
-/**
- * 生成 mock 风险与闭环
- */
 function mockRiskClosure(context) {
   const { pageData, derivedSignals } = context;
   const riskProjects = (derivedSignals.projectSignals || []).filter(s => s.riskLevel === 'high' || s.riskLevel === 'medium');
@@ -126,12 +143,23 @@ function mockRiskClosure(context) {
     });
   }
 
-  return { headline, cards, isMock: true };
+  // 引用来源：引用风险项目
+  const sources = riskProjects.slice(0, 3).map(s => ({
+    title: s.name, type: 'project', id: s.projectId || s.id,
+  }));
+
+  return {
+    headline,
+    cards,
+    isMock: true,
+    confidence: 0.55,
+    sources,
+    suggestedActions: riskProjects.length > 0
+      ? [{ key: 'flag_risk', label: '标记风险', confirmRequired: true }]
+      : [],
+  };
 }
 
-/**
- * 生成 mock 汇报与周会
- */
 function mockBriefingMeeting(context) {
   const { pageData } = context;
   const projects = pageData.projects || [];
@@ -164,34 +192,71 @@ function mockBriefingMeeting(context) {
     }
   ];
 
-  return { headline, sections, isMock: true };
+  // 引用来源：引用关键项目
+  const sources = [...riskProjects.slice(0, 2), ...progressProjects.slice(0, 2)].map(p => ({
+    title: p.name, type: 'project', id: p.id || p._id,
+  }));
+
+  return {
+    headline,
+    sections,
+    isMock: true,
+    confidence: 0.5,
+    sources,
+  };
 }
 
 /**
  * 生成 mock 自由问答回复
+ * @returns {{ answer: string, confidence: number, sources: Array<{type:string,id:null,title:string}> }}
  */
 function mockChatAnswer(question, context) {
   const { currentPage, pageData } = context;
   const projects = pageData.projects || [];
+  const ruleSource = { type: 'rule', id: null, title: '规则分析' };
 
   // 简单关键词匹配
   if (question.includes('风险') || question.includes('危险')) {
     const risks = projects.filter(p => p.status === '风险' || p.status === '阻塞中');
-    return risks.length > 0
-      ? `当前有 ${risks.length} 个风险项目：${risks.map(p => p.name).join('、')}。建议优先处理。`
-      : '当前没有标记为风险的项目。';
+    const sources = risks.slice(0, 3).map(p => ({ title: p.name, type: 'project', id: p.id || p._id }));
+    sources.push(ruleSource);
+    return {
+      answer: risks.length > 0
+        ? `当前有 ${risks.length} 个风险项目：${risks.map(p => p.name).join('、')}。建议优先处理。`
+        : '当前没有标记为风险的项目。',
+      isMock: true,
+      confidence: 0.5,
+      sources,
+    };
   }
   if (question.includes('进度') || question.includes('落后')) {
-    return `系统中共 ${projects.length} 个项目，您可以在项目推进页面查看详细进度。`;
+    const sources = projects.slice(0, 3).map(p => ({ title: p.name, type: 'project', id: p.id || p._id }));
+    sources.push(ruleSource);
+    return {
+      answer: `系统中共 ${projects.length} 个项目，您可以在项目推进页面查看详细进度。`,
+      isMock: true,
+      confidence: 0.5,
+      sources,
+    };
   }
   if (question.includes('指标') || question.includes('KPI') || question.includes('kpi')) {
     const kpis = pageData.kpis || [];
-    return kpis.length > 0
-      ? `当前有 ${kpis.length} 个指标，${kpis.filter(k => parseFloat(k.actual) < parseFloat(k.target) * 0.8).length} 个偏差较大。`
-      : '暂无指标数据。';
+    return {
+      answer: kpis.length > 0
+        ? `当前有 ${kpis.length} 个指标，${kpis.filter(k => parseFloat(k.actual) < parseFloat(k.target) * 0.8).length} 个偏差较大。`
+        : '暂无指标数据。',
+      isMock: true,
+      confidence: 0.5,
+      sources: [ruleSource],
+    };
   }
 
-  return `[规则分析] 关于"${question}"：当前在${currentPage}页面，系统共 ${projects.length} 个项目。如需深度分析，请配置 AI 模型。`;
+  return {
+    answer: `[规则分析] 关于"${question}"：当前在${currentPage}页面，系统共 ${projects.length} 个项目。如需深度分析，请配置 AI 模型。`,
+    isMock: true,
+    confidence: 0.5,
+    sources: [ruleSource],
+  };
 }
 
 module.exports = {

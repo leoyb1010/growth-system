@@ -9,6 +9,56 @@ const { logAudit } = require('../../services/auditLogService');
 const { VALID_AI_ACTIONS } = require('../../middleware/validateAiRequest');
 
 /**
+ * Best-effort extraction of source references from LLM text.
+ * Matches project names and KPI indicator names from the data context.
+ * @param {string} text - LLM output text
+ * @param {Object} context - AI context with pageData and derivedSignals
+ * @returns {Array<{type: string, id: number|null, title: string}>}
+ */
+function extractSources(text, context) {
+  if (!text || !context) return [];
+  try {
+    const sources = [];
+    const seen = new Set();
+
+    // Match project names
+    const projects = (context.pageData && context.pageData.projects) || [];
+    for (const p of projects) {
+      if (p.name && text.includes(p.name) && !seen.has('project:' + p.name)) {
+        seen.add('project:' + p.name);
+        sources.push({ type: 'project', id: p.id || null, title: p.name });
+      }
+    }
+
+    // Match KPI indicator names
+    const kpis = (context.pageData && context.pageData.kpis) || [];
+    for (const k of kpis) {
+      if (k.indicator_name && text.includes(k.indicator_name) && !seen.has('kpi:' + k.indicator_name)) {
+        seen.add('kpi:' + k.indicator_name);
+        sources.push({ type: 'kpi', id: k.id || null, title: k.indicator_name });
+      }
+    }
+
+    // Match "XXX完成率" pattern for KPIs
+    const completionMatch = text.match(/([\u4e00-\u9fa5A-Za-z]+)完成率/g);
+    if (completionMatch) {
+      for (const m of completionMatch) {
+        const name = m.replace('完成率', '');
+        const kpi = kpis.find(k => k.indicator_name && k.indicator_name.includes(name));
+        if (kpi && !seen.has('kpi:' + kpi.indicator_name)) {
+          seen.add('kpi:' + kpi.indicator_name);
+          sources.push({ type: 'kpi', id: kpi.id || null, title: kpi.indicator_name });
+        }
+      }
+    }
+
+    return sources;
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
  * POST /api/ai/panel
  * 打开 AI 助手栏时获取结构化内容
  */
@@ -91,6 +141,29 @@ async function chat(req, res) {
       currentObject: currentObject || {},
       currentUser
     });
+
+    // Best-effort: extract source references from answer text using context
+    try {
+      const aiContextService = require('../services/aiContextService');
+      const context = await aiContextService.assembleContext({
+        currentPage: currentPage || 'dashboard',
+        currentObject: currentObject || {},
+        currentUser
+      });
+      const extractedSources = extractSources(result.answer || '', context);
+      if (extractedSources.length > 0) {
+        // Merge: keep existing structured sources, add extracted ones not already present
+        const existingTitles = new Set((result.sources || []).map(s => s.title || s));
+        for (const s of extractedSources) {
+          if (!existingTitles.has(s.title)) {
+            result.sources = result.sources || [];
+            result.sources.push(s);
+          }
+        }
+      }
+    } catch (_) {
+      // best-effort, don't break response
+    }
 
     return success(res, result);
   } catch (err) {
@@ -207,8 +280,10 @@ async function streamChat(req, res) {
         currentUser
       });
       const answer = mockProvider.mockChatAnswer(safeQuery, context);
-      res.write(`data: ${JSON.stringify({ type: 'content', text: answer })}\n\n`);
-      res.write(`data: ${JSON.stringify({ type: 'done', isMock: true })}\n\n`);
+      const text = typeof answer === 'string' ? answer : answer.content;
+      const meta = typeof answer === 'object' ? { confidence: answer.confidence, sources: answer.sources } : {};
+      res.write(`data: ${JSON.stringify({ type: 'content', text })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done', isMock: true, ...meta })}\n\n`);
       res.end();
       return;
     }
@@ -232,12 +307,22 @@ async function streamChat(req, res) {
       userQuery: safeQuery
     });
 
-    // 流式调用 LLM
+    // 流式调用 LLM，累积文本用于 source 提取
+    let fullText = '';
     await llmProvider.callStream(systemPrompt, userPrompt, {}, (chunk) => {
+      fullText += chunk;
       res.write(`data: ${JSON.stringify({ type: 'content', text: chunk })}\n\n`);
     });
 
-    res.write(`data: ${JSON.stringify({ type: 'done', isMock: false })}\n\n`);
+    // Best-effort: extract source references from accumulated text
+    let extractedSources = [];
+    try {
+      extractedSources = extractSources(fullText, context);
+    } catch (_) {
+      // best-effort, ignore
+    }
+
+    res.write(`data: ${JSON.stringify({ type: 'done', isMock: false, sources: extractedSources })}\n\n`);
     res.end();
   } catch (err) {
     console.error('AI Stream Chat 错误:', err);
@@ -289,8 +374,11 @@ async function executeAction(req, res) {
       case 'navigate_to': {
         const { path } = params || {};
         if (!path || typeof path !== 'string') return error(res, '缺少 path 参数');
-        // 路径安全：只允许内部路径
+        // 路径安全：只允许白名单内部路径
+        const ALLOWED_PATH_PREFIXES = ['/dashboard', '/projects', '/kpis', '/week', '/monthly-tasks', '/achievements', '/weekly-reports', '/settlement', '/today', '/departments'];
         if (!path.startsWith('/')) return error(res, '只允许内部路径');
+        const isAllowed = ALLOWED_PATH_PREFIXES.some(prefix => path === prefix || path.startsWith(prefix + '/') || path.startsWith(prefix + '?'));
+        if (!isAllowed) return error(res, '不允许导航到该路径');
         result = { actionKey, type: 'navigate', path };
         break;
       }

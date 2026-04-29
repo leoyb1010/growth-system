@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Table, Tabs, Popconfirm } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, message, Tag, Progress, Drawer, Descriptions, Table, Tabs, Popconfirm, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { api, useAuth } from '../hooks/useAuth';
@@ -239,7 +239,7 @@ function KpiPage() {
   });
 
   return (
-    <div className="app-page">
+    <div className="app-page" style={{ padding: 24 }}>
       <PageHeader title="指标与目标" subtitle="核心指标 + 业务线业绩统一管理中心" />
       <Tabs
         activeKey={mainTab}

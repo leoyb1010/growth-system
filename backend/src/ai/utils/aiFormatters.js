@@ -46,7 +46,19 @@ function formatAIResponse(data) {
     cards: (data.cards || []).map(formatInsightCard),
     actions: (data.actions || []).map(formatAction),
     rawAnalysis: data.rawAnalysis || null, // LLM 原始输出（可选）
-    isMock: data.isMock || false
+    isMock: data.isMock || false,
+    sources: (data.sources || []).map(s => ({
+      type: s.type || 'unknown',
+      id: s.id ?? null,
+      title: s.title || ''
+    })),
+    suggestedActions: (data.suggestedActions || []).map(a => ({
+      key: a.key || '',
+      label: a.label || '',
+      params: a.params || {},
+      confirmRequired: a.confirmRequired || false
+    })),
+    confidence: data.confidence ?? 0.5
   };
 }
 
@@ -54,12 +66,21 @@ function formatAIResponse(data) {
  * 格式化聊天响应
  */
 function formatChatResponse(data) {
+  const confidenceLevel = data.confidenceLevel || data.confidence || '中';
   return {
     answer: data.answer || '',
     sources: data.sources || [],
+    sourceLabels: (data.sources || []).map(s => typeof s === 'string' ? s : s.title).filter(Boolean),
     suggestedFollowUps: data.suggestedFollowUps || [],
-    confidence: data.confidence || '中', // 高/中/低
-    isMock: data.isMock || false
+    confidence: typeof data.confidence === 'number' ? data.confidence : 0.5,
+    confidenceLevel: typeof confidenceLevel === 'string' ? confidenceLevel : '中',
+    isMock: data.isMock || false,
+    suggestedActions: (data.suggestedActions || []).map(a => ({
+      key: a.key || '',
+      label: a.label || '',
+      params: a.params || {},
+      confirmRequired: a.confirmRequired || false
+    }))
   };
 }
 

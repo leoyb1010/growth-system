@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import { can } from '../permissions/ability';
@@ -283,9 +283,7 @@ function ProjectPage() {
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
         <Col span={24}>
-          <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF' }}>
-            暂无数据
-          </div>
+          <Empty description="暂无项目数据" />
         </Col>
       )}
       {data.map(item => {
@@ -475,7 +473,7 @@ function ProjectPage() {
   ];
 
   return (
-    <div className="app-page">
+    <div className="app-page" style={{ padding: 24 }}>
       <PageHeader
         title="项目推进"
         subtitle="项目数据的唯一维护入口 · 其他页面的项目信息均自动引用此处数据"
@@ -526,7 +524,8 @@ function ProjectPage() {
       />
 
       {/* 筛选栏：部门 + 状态标签 + 搜索 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <Card className="surface-card" bodyStyle={{ padding: '12px 16px' }} style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Select
           placeholder="选择部门"
           value={filters.dept_id}
@@ -556,6 +555,7 @@ function ProjectPage() {
           style={{ width: 200 }}
         />
       </div>
+      </Card>
 
       {viewMode === 'card' ? renderCardView() : viewMode === 'kanban' ? renderKanbanView() : (
         <PanelCard>
