@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbox, message, Tag, Drawer, Descriptions, Table, Space, Popconfirm } from 'antd';
+import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbox, message, Tag, Drawer, Descriptions, Table, Space, Popconfirm, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, TrophyOutlined, AppstoreOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
@@ -107,7 +107,7 @@ function AchievementPage() {
   const renderCardView = () => (
     <Row gutter={[16, 16]}>
       {data.length === 0 && (
-        <Col span={24}><div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>暂无数据</div></Col>
+        <Col span={24}><Empty description="暂无成果数据" /></Col>
       )}
       {data.map(item => (
         <Col xs={24} sm={12} lg={8} key={item.id}>

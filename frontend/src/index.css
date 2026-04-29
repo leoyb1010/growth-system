@@ -608,3 +608,35 @@ body {
   .weekly-report { padding: 20px !important; }
   .weekly-report th { position: static !important; }
 }
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+  .app-page {
+    padding: 12px !important;
+  }
+
+  .weekly-report {
+    padding: 16px !important;
+  }
+
+  .weekly-report h1 {
+    font-size: 20px !important;
+  }
+
+  .weekly-report table {
+    font-size: 12px !important;
+  }
+
+  .weekly-report th,
+  .weekly-report td {
+    padding: 8px 6px !important;
+  }
+
+  .metric-value {
+    font-size: 24px !important;
+  }
+
+  .page-title {
+    font-size: 20px !important;
+  }
+}

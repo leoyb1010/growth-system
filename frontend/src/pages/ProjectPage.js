@@ -473,7 +473,7 @@ function ProjectPage() {
   ];
 
   return (
-    <div className="app-page" style={{ padding: 24 }}>
+    <div className="app-page">
       <PageHeader
         title="项目推进"
         subtitle="项目数据的唯一维护入口 · 其他页面的项目信息均自动引用此处数据"
