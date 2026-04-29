@@ -424,8 +424,31 @@ docker-compose up -d --build
 **新增文件**
 - `backend/src/middleware/validateAiRequest.js`
 - `backend/src/ai/utils/roleMapper.js`
+- `backend/src/ai/utils/normalizeText.js`
 - `frontend/src/hooks/useCountUp.js`
 - `frontend/src/hooks/useStaggeredEnter.js`
+
+**P0安全修复**
+- AI stream限流顺序修正：aiStreamLimiter挂载到aiRoutes之前
+- docker-compose密钥加固：POSTGRES_PASSWORD/JWT_SECRET/DB_PASSWORD必填校验
+- 生产环境DB_PASSWORD强制校验
+- promptSecurity中文注入规则从7条→19条，修复正则bug
+- navigate_to白名单：10个已知路由前缀
+
+**AI响应结构化**
+- formatAIResponse/formatChatResponse支持sources(引用)/suggestedActions(建议)/confidence(0-1数值)
+- aiFormatters confidence数值↔字符串双向推导
+- aiOrchestrator sources对象化传递
+- aiMockProvider 4个mock函数均返回confidence+sources+suggestedActions
+- AIAssistantDrawer前端展示：引用标签+置信度指示+建议操作按钮+Mock标签增强
+
+**UI升级**
+- Layout深色侧边栏(theme=dark) + Content背景var(--bg-muted)
+- LoginPage完全重写：品牌渐变+3能力点+大气风格
+- 动效收敛：hover-lift移除translateY，圆角14→8
+- 移动端适配：app-page自适应padding+WeeklyReport响应式列+媒体查询
+- 各页面Empty组件替代裸文字+筛选栏Card包裹
+- WeeklyReport: Progress组件+Tag风险标签+图标摘要卡
 
 ---
 
