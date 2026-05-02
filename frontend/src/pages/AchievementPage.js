@@ -3,6 +3,7 @@ import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, Checkbo
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, TrophyOutlined, AppstoreOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
 import moment from 'moment';
+import dayjs from 'dayjs';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import DepartmentSelect from '../components/DepartmentSelect';
@@ -54,7 +55,7 @@ function AchievementPage() {
 
   const handleEdit = (record) => {
     setEditingRecord(record);
-    form.setFieldsValue({ ...record, completed_at: record.completed_at ? moment(record.completed_at) : null });
+    form.setFieldsValue({ ...record, completed_at: record.completed_at ? dayjs(record.completed_at) : null });
     setModalVisible(true);
   };
 

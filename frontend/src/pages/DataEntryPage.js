@@ -8,6 +8,7 @@ import {
 import { api } from '../hooks/useAuth';
 import DepartmentSelect from '../components/DepartmentSelect';
 import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -28,8 +29,8 @@ function DataEntryPage() {
   const handleSubmit = async (endpoint, form, values, extraTransform = null) => {
     try {
       let payload = { ...values };
-      // 月份字段：DatePicker 返回 moment 对象，转为 YYYY-MM 字符串
-      if (payload.month && moment.isMoment(payload.month)) {
+      // 月份字段：DatePicker 返回 dayjs 对象，转为 YYYY-MM 字符串
+      if (payload.month && dayjs.isDayjs(payload.month)) {
         payload.month = payload.month.format('YYYY-MM');
       }
       if (extraTransform) {
@@ -305,7 +306,7 @@ function DataEntryPage() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={moment(currentMonth, 'YYYY-MM')}>
+                  <Form.Item name="month" label="月份" rules={[{ required: true }]} initialValue={dayjs(currentMonth, 'YYYY-MM')}>
                     <DatePicker picker="month" format="YYYY-MM" style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
