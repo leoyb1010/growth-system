@@ -7,6 +7,7 @@ const { success, error } = require('../../utils/response');
 const orchestrator = require('../services/aiOrchestrator');
 const { logAudit } = require('../../services/auditLogService');
 const { VALID_AI_ACTIONS } = require('../../middleware/validateAiRequest');
+const { ActionItem, RiskRegister, User } = require('../../models');
 
 /**
  * Best-effort extraction of source references from LLM text.
@@ -424,6 +425,87 @@ async function executeAction(req, res) {
   }
 }
 
+/**
+ * 将 AI 建议的行动项一键生成待确认行动项
+ * POST /api/ai/materialize-actions
+ */
+async function materializeActions(req, res) {
+  try {
+    const { actions, source_type, source_id } = req.body;
+    if (!Array.isArray(actions) || actions.length === 0) {
+      return error(res, '缺少行动项数据', 1, 400);
+    }
+
+    const created = [];
+    for (const action of actions) {
+      if (!action.title) continue;
+      const item = await ActionItem.create({
+        title: action.title,
+        description: action.description || action.reason || '',
+        owner_id: action.owner_id || null,
+        priority: action.priority || 'medium',
+        status: 'pending',
+        due_date: action.due_date || null,
+        source_type: source_type || 'ai',
+        source_id: source_id || null,
+        created_by_ai: true,
+        confirmed_by_user: false,
+        created_by: req.user?.id,
+        updated_by: req.user?.id
+      });
+      created.push(item);
+    }
+
+    await logAudit('action_items', created[0]?.id || 0, 'create', { id: req.user?.id, name: req.user?.name || req.user?.username });
+    success(res, { count: created.length }, `已生成 ${created.length} 个待确认行动项`);
+  } catch (err) {
+    console.error('Materialize Actions 失败:', err);
+    error(res, '生成行动项失败', 1, 500);
+  }
+}
+
+/**
+ * 将 AI 识别的风险一键加入风险台账
+ * POST /api/ai/materialize-risks
+ */
+async function materializeRisks(req, res) {
+  try {
+    const { risks, source_type, source_id, project_id } = req.body;
+    if (!Array.isArray(risks) || risks.length === 0) {
+      return error(res, '缺少风险数据', 1, 400);
+    }
+
+    const created = [];
+    for (const risk of risks) {
+      if (!risk.title && !risk.description) continue;
+      const item = await RiskRegister.create({
+        title: risk.title || (risk.description || '').slice(0, 60),
+        description: risk.description || '',
+        risk_level: risk.risk_level || risk.level || 'medium',
+        risk_type: risk.risk_type || risk.type || null,
+        impact: risk.impact || '',
+        probability: risk.probability || 'medium',
+        mitigation_plan: risk.mitigation_plan || risk.recommendation || '',
+        owner_id: risk.owner_id || null,
+        project_id: risk.project_id || project_id || null,
+        status: 'open',
+        detected_by: 'ai',
+        source_type: source_type || 'ai',
+        source_id: source_id || null,
+        created_by: req.user?.id,
+        updated_by: req.user?.id
+      });
+      created.push(item);
+    }
+
+    await logAudit('risk_register', created[0]?.id || 0, 'create', { id: req.user?.id, name: req.user?.name || req.user?.username });
+    success(res, { count: created.length }, `已加入 ${created.length} 个风险到台账`);
+  } catch (err) {
+    console.error('Materialize Risks 失败:', err);
+    error(res, '加入风险台账失败', 1, 500);
+  }
+}
+
 module.exports = {
   getPanel,
   analyze,
@@ -431,5 +513,7 @@ module.exports = {
   generateBriefing,
   getBadgeSummary,
   streamChat,
-  executeAction
+  executeAction,
+  materializeActions,
+  materializeRisks
 };

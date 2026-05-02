@@ -24,6 +24,8 @@ import {
   ImportOutlined,
   FileProtectOutlined,
   BankOutlined,
+  CheckCircleOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
@@ -146,6 +148,8 @@ function AppLayout() {
     { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
+    { key: '/action-items', icon: <CheckCircleOutlined />, label: '行动项' },
+    { key: '/risks', icon: <AlertOutlined />, label: '风险台账' },
   ].filter(item => canSeeMenu(role, item.key));
 
   // ========== 系统管理菜单（仅 super_admin）==========

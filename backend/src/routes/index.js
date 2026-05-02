@@ -19,6 +19,8 @@ const exportController = require('../controllers/exportController');
 const archiveController = require('../controllers/archiveController');
 const auditLogController = require('../controllers/auditLogController');
 const searchController = require('../controllers/searchController');
+const actionItemController = require('../controllers/actionItemController');
+const riskRegisterController = require('../controllers/riskRegisterController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const fileRoutes = require('./fileRoutes');
 
@@ -56,6 +58,8 @@ router.post('/auth/login', loginLimiter || [], authController.login);
 router.post('/auth/register', authController.register);                         // 用户注册（公开）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
+router.post('/auth/refresh', authController.refreshToken);                      // 刷新 Token
+router.post('/auth/logout', authenticate, authController.logout);               // 登出
 
 // ==================== 部门管理（super_admin） ====================
 router.get('/departments', ...auth, requirePermission('department.read'), departmentController.getDepartments);
@@ -140,6 +144,17 @@ router.get('/audit-logs/:table_name/:record_id', ...auth, requirePermission('aud
 
 // ==================== 全局搜索 ====================
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
+
+// ==================== 行动项 ====================
+router.get('/action-items', ...auth, requirePermission('action_item.read'), actionItemController.list);
+router.post('/action-items', ...auth, requirePermission('action_item.create'), actionItemController.create);
+router.patch('/action-items/:id', ...auth, requirePermission('action_item.update'), actionItemController.update);
+router.delete('/action-items/:id', ...auth, requirePermission('action_item.delete'), actionItemController.remove);
+
+// ==================== 风险台账 ====================
+router.get('/risk-register', ...auth, requirePermission('risk_register.read'), riskRegisterController.list);
+router.post('/risk-register', ...auth, requirePermission('risk_register.create'), riskRegisterController.create);
+router.patch('/risk-register/:id', ...auth, requirePermission('risk_register.update'), riskRegisterController.update);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截

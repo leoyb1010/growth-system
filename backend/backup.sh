@@ -43,6 +43,31 @@ fi
 BACKUP_SIZE=$(stat -f%z "${BACKUP_FILE}" 2>/dev/null || stat -c%s "${BACKUP_FILE}" 2>/dev/null)
 DB_SIZE=$(stat -f%z "${DB_FILE}" 2>/dev/null || stat -c%s "${DB_FILE}" 2>/dev/null)
 
+# ====== 备份恢复验证 ======
+TEMP_RESTORE="${BACKUP_DIR}/_verify_restore.sqlite"
+cp "${BACKUP_FILE}" "${TEMP_RESTORE}"
+VERIFY_INTEGRITY=$(sqlite3 "${TEMP_RESTORE}" "PRAGMA integrity_check;" 2>&1)
+
+if [[ "${VERIFY_INTEGRITY}" != *"ok"* ]]; then
+  echo "[${TIMESTAMP}] FATAL: 备份验证失败(integrity_check): ${VERIFY_INTEGRITY}" >&2
+  rm -f "${TEMP_RESTORE}"
+  exit 1
+fi
+
+# 验证备份中的表数量与原库一致
+BACKUP_TABLE_COUNT=$(sqlite3 "${TEMP_RESTORE}" "SELECT COUNT(*) FROM sqlite_master WHERE type='table';" 2>&1)
+DB_TABLE_COUNT=$(sqlite3 "${DB_FILE}" "SELECT COUNT(*) FROM sqlite_master WHERE type='table';" 2>&1)
+
+if [ "${BACKUP_TABLE_COUNT}" != "${DB_TABLE_COUNT}" ]; then
+  echo "[${TIMESTAMP}] FATAL: 备份表数量(${BACKUP_TABLE_COUNT})与原库(${DB_TABLE_COUNT})不一致" >&2
+  rm -f "${TEMP_RESTORE}"
+  exit 1
+fi
+
+rm -f "${TEMP_RESTORE}"
+echo "[${TIMESTAMP}] ✅ 备份验证通过 (${BACKUP_TABLE_COUNT} 张表, 完整性ok)"
+# ====== 验证完成 ======
+
 echo "[${TIMESTAMP}] ✅ 备份成功: ${BACKUP_FILE} (${BACKUP_SIZE} bytes, 源DB: ${DB_SIZE} bytes)"
 
 # 清理旧备份

@@ -16,7 +16,9 @@ const ROLE_PERMISSIONS = {
     'user.read', 'user.create', 'user.update', 'user.disable', 'user.reset_password',
     'department.read', 'department.create', 'department.update', 'department.delete',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
-    'import.excel', 'export.data', 'search.use', 'ai.use'
+    'import.excel', 'export.data', 'search.use', 'ai.use',
+    'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update', 'kpi.delete',
@@ -26,7 +28,9 @@ const ROLE_PERMISSIONS = {
     'achievement.read', 'achievement.create', 'achievement.update', 'achievement.delete',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'department.read',
-    'export.data', 'search.use', 'ai.use'
+    'export.data', 'search.use', 'ai.use',
+    'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
@@ -36,7 +40,9 @@ const ROLE_PERMISSIONS = {
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read',
     'department.read',
-    'export.data', 'search.use', 'ai.use'
+    'export.data', 'search.use', 'ai.use',
+    'action_item.read', 'action_item.create', 'action_item.update',
+    'risk_register.read'
   ]
 };
 

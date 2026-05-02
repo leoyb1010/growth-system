@@ -3,6 +3,7 @@ const { User, Department } = require('../models');
 const { generateToken } = require('../utils/jwt');
 const { success, error } = require('../utils/response');
 const { logAudit } = require('../services/auditLogService');
+const { generateAccessToken, generateRefreshToken, verifyAndRotateRefreshToken, revokeAllUserTokens } = require('../services/refreshTokenService');
 
 /**
  * 用户登录
@@ -54,8 +55,12 @@ async function login(req, res) {
       token_version: user.token_version || 0
     });
 
+    // 生成 refresh token
+    const refreshToken = await generateRefreshToken(user);
+
     success(res, {
       token,
+      refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -198,4 +203,43 @@ async function register(req, res) {
   }
 }
 
-module.exports = { login, getCurrentUser, changePassword, register };
+/**
+ * 刷新 Token
+ * POST /api/auth/refresh
+ */
+async function refreshToken(req, res) {
+  try {
+    const { refreshToken: token } = req.body;
+    if (!token) return error(res, '缺少 refreshToken', 1, 400);
+
+    const result = await verifyAndRotateRefreshToken(token);
+    if (!result) return error(res, 'refreshToken 无效或已过期', 1, 401);
+
+    const { user, refreshToken: newRefreshToken } = result;
+    const accessToken = generateAccessToken(user);
+
+    success(res, {
+      token: accessToken,
+      refreshToken: newRefreshToken
+    }, 'Token 刷新成功');
+  } catch (err) {
+    console.error('刷新 Token 失败:', err);
+    error(res, '刷新 Token 失败', 1, 500);
+  }
+}
+
+/**
+ * 登出（撤销所有 refresh token）
+ * POST /api/auth/logout
+ */
+async function logout(req, res) {
+  try {
+    await revokeAllUserTokens(req.user.id);
+    success(res, null, '登出成功');
+  } catch (err) {
+    console.error('登出失败:', err);
+    error(res, '登出失败', 1, 500);
+  }
+}
+
+module.exports = { login, getCurrentUser, changePassword, register, refreshToken, logout };

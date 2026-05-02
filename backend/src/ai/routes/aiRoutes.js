@@ -38,4 +38,10 @@ router.post('/chat-stream', ...auth, aiPermission, validateAiRequest('chat-strea
 // POST /api/ai/action - AI 可操作输出（白名单+审计）
 router.post('/action', ...auth, aiPermission, validateAiRequest('action'), aiController.executeAction);
 
+// POST /api/ai/materialize-actions - AI 建议一键生成行动项
+router.post('/materialize-actions', ...auth, aiPermission, aiController.materializeActions);
+
+// POST /api/ai/materialize-risks - AI 识别风险一键加入台账
+router.post('/materialize-risks', ...auth, aiPermission, aiController.materializeRisks);
+
 module.exports = router;
