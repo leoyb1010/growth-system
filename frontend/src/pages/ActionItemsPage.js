@@ -22,6 +22,7 @@ function ActionItemsPage() {
   const [filters, setFilters] = useState({ status: '', priority: '' });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
   const [form] = Form.useForm();
+  const [users, setUsers] = useState([]);
 
   const stats = {
     pending: data.filter(i => i.status === 'pending').length,
@@ -30,6 +31,10 @@ function ActionItemsPage() {
   };
 
   useEffect(() => { fetchData(); }, [filters, pagination.page]);
+
+  useEffect(() => {
+    api.get('/users').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -72,14 +77,18 @@ function ActionItemsPage() {
 
   const handleEdit = (record) => {
     setEditingRecord(record);
-    form.setFieldsValue({ ...record, due_date: record.due_date ? undefined : undefined });
+    form.setFieldsValue({
+      ...record,
+      owner_id: record.owner_id || undefined,
+      due_date: record.due_date ? undefined : undefined
+    });
     setModalVisible(true);
   };
 
   const handleAdd = () => {
     setEditingRecord(null);
     form.resetFields();
-    form.setFieldsValue({ priority: 'medium', status: 'pending' });
+    form.setFieldsValue({ priority: 'medium', status: 'pending', owner_id: undefined });
     setModalVisible(true);
   };
 
@@ -170,7 +179,14 @@ function ActionItemsPage() {
               <Form.Item name="status" label="状态"><Select>{Object.entries(statusLabels).map(([k, v]) => <Option key={k} value={k}>{v}</Option>)}</Select></Form.Item>
             </Col>
           </Row>
-          <Form.Item name="due_date" label="截止日期"><DatePicker style={{ width: '100%' }} /></Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="owner_id" label="负责人"><Select allowClear placeholder="选择负责人">{users.map(u => <Option key={u.id} value={u.id}>{u.name || u.username}</Option>)}</Select></Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="due_date" label="截止日期"><DatePicker style={{ width: '100%' }} /></Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
     </div>

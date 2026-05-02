@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, Select, message, Tag, Table, Space, Alert } from 'antd';
 import { PlusOutlined, FireOutlined, AlertOutlined, SafetyOutlined } from '@ant-design/icons';
 import { fetchRisks, createRisk, updateRisk } from '../services/riskRegisterService';
+import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 
@@ -21,6 +22,8 @@ function RiskRegisterPage() {
   const [filters, setFilters] = useState({ risk_level: '', status: '' });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
   const [form] = Form.useForm();
+  const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   const stats = {
     critical: data.filter(r => r.risk_level === 'critical').length,
@@ -29,6 +32,11 @@ function RiskRegisterPage() {
   };
 
   useEffect(() => { fetchData(); }, [filters, pagination.page]);
+
+  useEffect(() => {
+    api.get('/users').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
+    api.get('/projects').then(res => { if (res.code === 0) setProjects(res.data || []); }).catch(() => {});
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -67,14 +75,18 @@ function RiskRegisterPage() {
 
   const handleEdit = (record) => {
     setEditingRecord(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      ...record,
+      project_id: record.project_id || undefined,
+      owner_id: record.owner_id || undefined
+    });
     setModalVisible(true);
   };
 
   const handleAdd = () => {
     setEditingRecord(null);
     form.resetFields();
-    form.setFieldsValue({ risk_level: 'medium', status: 'open', probability: 'medium', detected_by: 'manual' });
+    form.setFieldsValue({ risk_level: 'medium', status: 'open', probability: 'medium', detected_by: 'manual', project_id: undefined, owner_id: undefined });
     setModalVisible(true);
   };
 
@@ -170,6 +182,14 @@ function RiskRegisterPage() {
           <Row gutter={16}>
             <Col span={12}><Form.Item name="risk_type" label="风险类型"><Select allowClear>{['schedule', 'quality', 'resource', 'cost', 'communication', 'other'].map(v => <Option key={v} value={v}>{v}</Option>)}</Select></Form.Item></Col>
             <Col span={12}><Form.Item name="probability" label="概率"><Select>{['low', 'medium', 'high'].map(v => <Option key={v} value={v}>{v}</Option>)}</Select></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="project_id" label="关联项目"><Select allowClear placeholder="选择项目">{projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}</Select></Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="owner_id" label="负责人"><Select allowClear placeholder="选择负责人">{users.map(u => <Option key={u.id} value={u.id}>{u.name || u.username}</Option>)}</Select></Form.Item>
+            </Col>
           </Row>
         </Form>
       </Modal>
