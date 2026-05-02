@@ -272,6 +272,116 @@ MonthlyTask.belongsTo(Project, { foreignKey: 'project_id' });
 Project.hasMany(Achievement, { foreignKey: 'project_id', as: 'Achievements' });
 Achievement.belongsTo(Project, { foreignKey: 'project_id' });
 
+// 行动项表
+const ActionItem = sequelize.define('ActionItem', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  title: { type: DataTypes.STRING(200), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  owner_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } },
+  priority: { type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'), allowNull: false, defaultValue: 'medium' },
+  status: { type: DataTypes.ENUM('pending', 'in_progress', 'done', 'cancelled'), allowNull: false, defaultValue: 'pending' },
+  due_date: { type: DataTypes.DATEONLY, allowNull: true },
+  source_type: { type: DataTypes.STRING(50), allowNull: true }, // ai_risk / ai_kpi / weekly_report / project / manual
+  source_id: { type: DataTypes.INTEGER, allowNull: true },
+  created_by_ai: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  confirmed_by_user: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
+  updated_by: { type: DataTypes.INTEGER, allowNull: true },
+  completed_at: { type: DataTypes.DATE, allowNull: true }
+}, {
+  tableName: 'action_items',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at'
+});
+
+// 风险台账表
+const RiskRegister = sequelize.define('RiskRegister', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: Project, key: 'id' } },
+  title: { type: DataTypes.STRING(200), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  risk_level: { type: DataTypes.ENUM('low', 'medium', 'high', 'critical'), allowNull: false, defaultValue: 'medium' },
+  risk_type: { type: DataTypes.STRING(50), allowNull: true }, // schedule / quality / resource / cost / communication / other
+  impact: { type: DataTypes.TEXT, allowNull: true },
+  probability: { type: DataTypes.ENUM('low', 'medium', 'high'), allowNull: false, defaultValue: 'medium' },
+  mitigation_plan: { type: DataTypes.TEXT, allowNull: true },
+  owner_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } },
+  status: { type: DataTypes.ENUM('open', 'monitoring', 'mitigated', 'closed'), allowNull: false, defaultValue: 'open' },
+  detected_by: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'manual' }, // manual / ai
+  source_type: { type: DataTypes.STRING(50), allowNull: true },
+  source_id: { type: DataTypes.INTEGER, allowNull: true },
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
+  updated_by: { type: DataTypes.INTEGER, allowNull: true },
+  resolved_at: { type: DataTypes.DATE, allowNull: true }
+}, {
+  tableName: 'risk_register',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at'
+});
+
+// AI 调用日志表
+const AiCallLog = sequelize.define('AiCallLog', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } },
+  task_type: { type: DataTypes.STRING(50), allowNull: false },
+  provider: { type: DataTypes.STRING(20), allowNull: false },
+  success: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  latency_ms: { type: DataTypes.INTEGER, allowNull: true },
+  prompt_tokens: { type: DataTypes.INTEGER, allowNull: true },
+  completion_tokens: { type: DataTypes.INTEGER, allowNull: true },
+  total_tokens: { type: DataTypes.INTEGER, allowNull: true },
+  error_message: { type: DataTypes.TEXT, allowNull: true },
+  request_hash: { type: DataTypes.STRING(64), allowNull: true }
+}, {
+  tableName: 'ai_call_logs',
+  timestamps: true,
+  updatedAt: false,
+  createdAt: 'created_at'
+});
+
+// AI 结果缓存表
+const AiResultCache = sequelize.define('AiResultCache', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  cache_key: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+  task_type: { type: DataTypes.STRING(50), allowNull: false },
+  result_json: { type: DataTypes.TEXT, allowNull: false },
+  expires_at: { type: DataTypes.DATE, allowNull: false }
+}, {
+  tableName: 'ai_result_cache',
+  timestamps: true,
+  updatedAt: false,
+  createdAt: 'created_at'
+});
+
+// Refresh Token 表
+const RefreshToken = sequelize.define('RefreshToken', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  token: { type: DataTypes.STRING(500), allowNull: false, unique: true },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+  revoked: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+}, {
+  tableName: 'refresh_tokens',
+  timestamps: true,
+  updatedAt: false,
+  createdAt: 'created_at'
+});
+
+// 新模型关联
+User.hasMany(ActionItem, { foreignKey: 'owner_id', as: 'OwnedActionItems' });
+ActionItem.belongsTo(User, { foreignKey: 'owner_id', as: 'Owner' });
+ActionItem.belongsTo(User, { foreignKey: 'created_by', as: 'Creator' });
+
+Project.hasMany(RiskRegister, { foreignKey: 'project_id' });
+RiskRegister.belongsTo(Project, { foreignKey: 'project_id' });
+User.hasMany(RiskRegister, { foreignKey: 'owner_id', as: 'OwnedRisks' });
+RiskRegister.belongsTo(User, { foreignKey: 'owner_id', as: 'Owner' });
+
+AiCallLog.belongsTo(User, { foreignKey: 'user_id' });
+RefreshToken.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
   sequelize,
   Department,
@@ -284,5 +394,10 @@ module.exports = {
   WeeklyReport,
   AuditLog,
   QuarterArchive,
-  ProjectUpdateLog
+  ProjectUpdateLog,
+  ActionItem,
+  RiskRegister,
+  AiCallLog,
+  AiResultCache,
+  RefreshToken
 };

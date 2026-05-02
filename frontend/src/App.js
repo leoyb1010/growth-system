@@ -24,6 +24,8 @@ const UserPage = React.lazy(() => import('./pages/UserPage'));
 const DepartmentPage = React.lazy(() => import('./pages/DepartmentPage'));
 const AuditLogPage = React.lazy(() => import('./pages/AuditLogPage'));
 const ArchivePage = React.lazy(() => import('./pages/ArchivePage'));
+const ActionItemsPage = React.lazy(() => import('./pages/ActionItemsPage'));
+const RiskRegisterPage = React.lazy(() => import('./pages/RiskRegisterPage'));
 
 // 页面加载 Spinner
 const PageLoading = () => (
@@ -84,6 +86,8 @@ function App() {
             <Route path="departments" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><DepartmentPage /></Suspense></ErrorBoundary>} />
             <Route path="audit-logs" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><AuditLogPage /></Suspense></ErrorBoundary>} />
             <Route path="archives" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><ArchivePage /></Suspense></ErrorBoundary>} />
+            <Route path="action-items" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><ActionItemsPage /></Suspense></ErrorBoundary>} />
+            <Route path="risks" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><RiskRegisterPage /></Suspense></ErrorBoundary>} />
           </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

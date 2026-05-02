@@ -23,7 +23,9 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'user.read', 'user.create', 'user.update', 'user.disable', 'user.reset_password',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
-    'import.excel', 'export.data', 'search.use'
+    'import.excel', 'export.data', 'search.use',
+    'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update',
@@ -32,7 +34,9 @@ const ROLE_PERMISSIONS = {
     'monthly_task.read', 'monthly_task.create', 'monthly_task.update',
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
-    'export.data', 'search.use'
+    'export.data', 'search.use',
+    'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
@@ -41,7 +45,9 @@ const ROLE_PERMISSIONS = {
     'monthly_task.read', 'monthly_task.create', 'monthly_task.update',
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read',
-    'export.data', 'search.use'
+    'export.data', 'search.use',
+    'action_item.read', 'action_item.create', 'action_item.update',
+    'risk_register.read'
   ],
 };
 
@@ -100,6 +106,8 @@ export const MENU_PERMISSIONS = {
   '/users': 'user.read',
   '/audit-logs': 'audit.read',
   '/archives': 'archive.read',
+  '/action-items': 'action_item.read',
+  '/risks': 'risk_register.read',
 };
 
 /**
