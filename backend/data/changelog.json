@@ -1,6 +1,38 @@
 {
-  "latestVersion": "1.7.0",
+  "latestVersion": "1.8.0",
   "releases": [
+    {
+      "version": "1.8.0",
+      "date": "2026-05-02",
+      "title": "产品闭环 + 安全加固 + AI落地增强",
+      "changes": [
+        {
+          "type": "feature",
+          "module": "行动项管理",
+          "desc": "新增行动项管理页面和API，支持优先级/截止日期/逾期筛选，AI建议可一键生成待确认行动项"
+        },
+        {
+          "type": "feature",
+          "module": "风险台账",
+          "desc": "风险管理从备注字段升级为独立台账：风险等级/概率/影响/缓解措施结构化登记，AI识别风险一键入库"
+        },
+        {
+          "type": "feature",
+          "module": "认证安全",
+          "desc": "Refresh Token机制：JWT过期后免重新登录；登出撤销所有token；token轮转防重放"
+        },
+        {
+          "type": "feature",
+          "module": "AI增强",
+          "desc": "AI分析结果可落地为行动项/风险台账；AI调用日志追踪token消耗和延迟；AI结果缓存减少重复调用"
+        },
+        {
+          "type": "improve",
+          "module": "备份安全",
+          "desc": "备份脚本增加PRAGMA integrity_check和表数量校验，备份不完整时失败退出"
+        }
+      ]
+    },
     {
       "version": "1.7.0",
       "date": "2026-04-29",

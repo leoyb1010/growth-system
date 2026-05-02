@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, Select, message, Tag, Table, Space, Alert } from 'antd';
-import { PlusOutlined, FireOutlined, AlertOutlined, ShieldOutlined } from '@ant-design/icons';
+import { PlusOutlined, FireOutlined, AlertOutlined, SafetyOutlined } from '@ant-design/icons';
 import { fetchRisks, createRisk, updateRisk } from '../services/riskRegisterService';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -99,7 +99,7 @@ function RiskRegisterPage() {
       <Space>
         <Button size="small" onClick={() => handleEdit(record)}>编辑</Button>
         {!['mitigated', 'closed'].includes(record.status) && (
-          <Button size="small" type="primary" ghost icon={<ShieldOutlined />} onClick={() => handleMitigate(record)}>缓解</Button>
+          <Button size="small" type="primary" ghost icon={<SafetyOutlined />} onClick={() => handleMitigate(record)}>缓解</Button>
         )}
       </Space>
     )}
@@ -130,7 +130,7 @@ function RiskRegisterPage() {
           <PanelCard><Card size="small"><div style={{ textAlign: 'center' }}><AlertOutlined style={{ fontSize: 24, color: '#fa8c16' }} /><h3>{stats.high}</h3><div>高风险</div></div></Card></PanelCard>
         </Col>
         <Col span={8}>
-          <PanelCard><Card size="small"><div style={{ textAlign: 'center' }}><ShieldOutlined style={{ fontSize: 24, color: '#1890ff' }} /><h3>{stats.open}</h3><div>开放中</div></div></Card></PanelCard>
+          <PanelCard><Card size="small"><div style={{ textAlign: 'center' }}><SafetyOutlined style={{ fontSize: 24, color: '#1890ff' }} /><h3>{stats.open}</h3><div>开放中</div></div></Card></PanelCard>
         </Col>
       </Row>
 
