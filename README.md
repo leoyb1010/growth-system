@@ -395,6 +395,30 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.8.0 — 2026-05-02 · 产品闭环 + 安全加固 + AI落地增强
+
+> 核心改动：行动项管理+风险台账独立体系；Refresh Token认证安全；AI结果可落地为业务记录。
+
+**产品闭环（2大新模块）**
+- 行动项管理：CRUD 页面 + 完整 API，支持优先级/截止日期/逾期筛选/来源追踪
+- 风险台账：风险管理从备注字段升级为独立表，含风险等级/概率/影响/缓解措施
+- AI 落地：POST /api/ai/materialize-actions（AI 建议一键生成行动项）
+- AI 落地：POST /api/ai/materialize-risks（AI 识别风险一键入库）
+
+**认证安全（Refresh Token）**
+- JWT 过期后用 refresh token 续期，不需要重新登录
+- 登出时撤销所有 token，防止泄露后继续使用
+- Token 轮转机制：每次刷新生成新 refresh token，旧 token 立废
+
+**AI 增强**
+- 新增 `ai_call_logs` 表：记录每次 AI 调用的 token 消耗/延迟/成功状态
+- 新增 `ai_result_cache` 表：缓存 AI 分析结果，减少重复 LLM 调用
+- 缓存 TTL 按任务类型区分：周报简报 5min / 风险分析 3min 等
+
+**备份安全**
+- backup.sh 增加 `PRAGMA integrity_check` 验证备份完整性
+- 增加备份表数量与原库比对，不一致时备份失败退出
+
 ### v1.7.0 — 2026-04-29 · 安全加固 + 视觉动效 + AI存在感升级
 
 > 核心改动：AI安全白名单校验+可执行Action端点；CSS变量驱动动效体系；AI助手视觉存在感全面增强。
@@ -954,6 +978,7 @@ docker-compose up -d --build
 - [x] v1.6.3 周报数据摘要分层 + 数值格式化（三行分层 + fmtNum + displayUnit + 百分比→%）
 - [x] v1.6.4 五大问题全面修复 + 功能升级（月度任务DatePicker+驾驶舱KPI分层+项目筛选+周报本周关注+成果自动生成+预警数据源）
 - [x] v1.7.0 安全加固 + 视觉动效 + AI存在感升级（AI白名单校验+Action端点+roleMapper统一+CSS动效体系+AI浮动按钮+Drawer品牌化）
+- [x] v1.8.0 产品闭环 + 安全加固 + AI落地增强（行动项管理+风险台账独立体系+Refresh Token+AI调用日志+AI缓存+备份验证）
 
 ## License
 
