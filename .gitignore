@@ -38,3 +38,4 @@ backups/
 
 # User data (uploads/exports)
 backend/uploads/exports/*
+.workbuddy/
