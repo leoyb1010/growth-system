@@ -292,7 +292,9 @@ const ActionItem = sequelize.define('ActionItem', {
   tableName: 'action_items',
   timestamps: true,
   updatedAt: 'updated_at',
-  createdAt: 'created_at'
+  createdAt: 'created_at',
+  deletedAt: 'deleted_at',
+  paranoid: true
 });
 
 // 风险台账表

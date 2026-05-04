@@ -3,6 +3,7 @@ import { Card, Row, Col, Button, Modal, Form, Input, Select, DatePicker, message
 import { PlusOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { fetchActionItems, createActionItem, updateActionItem, deleteActionItem } from '../services/actionItemService';
 import { api } from '../hooks/useAuth';
+import dayjs from 'dayjs';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 
@@ -33,7 +34,7 @@ function ActionItemsPage() {
   useEffect(() => { fetchData(); }, [filters, pagination.page]);
 
   useEffect(() => {
-    api.get('/users').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
+    api.get('/users/options').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
   }, []);
 
   const fetchData = async () => {
@@ -80,7 +81,7 @@ function ActionItemsPage() {
     form.setFieldsValue({
       ...record,
       owner_id: record.owner_id || undefined,
-      due_date: record.due_date ? undefined : undefined
+      due_date: record.due_date ? dayjs(record.due_date) : undefined
     });
     setModalVisible(true);
   };

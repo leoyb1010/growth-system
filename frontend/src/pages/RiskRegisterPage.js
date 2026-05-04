@@ -34,7 +34,7 @@ function RiskRegisterPage() {
   useEffect(() => { fetchData(); }, [filters, pagination.page]);
 
   useEffect(() => {
-    api.get('/users').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
+    api.get('/users/options').then(res => { if (res.code === 0) setUsers(res.data || []); }).catch(() => {});
     api.get('/projects').then(res => { if (res.code === 0) setProjects(res.data || []); }).catch(() => {});
   }, []);
 

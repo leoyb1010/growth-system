@@ -209,10 +209,17 @@ function applyDataScope(resourceType) {
       case 'self':
         scopeWhere.dept_id = deptId;
         // 对于有 owner_user_id 的表，用 owner_user_id / creator_id 过滤
-        if (['project'].includes(resourceType)) {
+        if (['project', 'action_item'].includes(resourceType)) {
           scopeWhere[Op.or] = [
             { owner_user_id: userId },
-            { creator_id: userId }
+            { owner_id: userId },
+            { created_by: userId }
+          ];
+        }
+        if (['risk_register'].includes(resourceType)) {
+          scopeWhere[Op.or] = [
+            { owner_id: userId },
+            { created_by: userId }
           ];
         }
         // 对于只有 owner_name 的表（过渡期），后续迁移到 owner_user_id 后更新

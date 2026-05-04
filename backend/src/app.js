@@ -159,13 +159,22 @@ async function seedDatabase() {
     // 用户种子数据
     const userCount = await User.count();
     if (userCount === 0) {
-      const defaultHash = await bcrypt.hash('123456', 10);
+      const isProduction = process.env.NODE_ENV === 'production';
+      // 生产环境：随机密码 + 强制必须修改
+      const defaultPassword = isProduction
+        ? require('crypto').randomBytes(16).toString('hex')
+        : '123456';
+      const defaultHash = await bcrypt.hash(defaultPassword, 10);
       await User.bulkCreate([
-        { id: 1, username: 'admin', name: '管理员', role: 'admin', dept_id: null, password_hash: defaultHash },
-        { id: 2, username: 'expand', name: '拓展组账号', role: 'dept', dept_id: 1, password_hash: defaultHash },
-        { id: 3, username: 'ops', name: '运营组账号', role: 'dept', dept_id: 2, password_hash: defaultHash },
+        { id: 1, username: 'admin', name: '管理员', role: 'admin', dept_id: null, password_hash: defaultHash, must_change_password: isProduction },
+        { id: 2, username: 'expand', name: '拓展组账号', role: 'dept', dept_id: 1, password_hash: defaultHash, must_change_password: isProduction },
+        { id: 3, username: 'ops', name: '运营组账号', role: 'dept', dept_id: 2, password_hash: defaultHash, must_change_password: isProduction },
       ]);
-      console.log('种子数据：已插入 3 个默认用户（密码均为 123456）');
+      if (isProduction) {
+        console.log(`⚠️  生产环境：已创建3个默认用户，密码已随机化。请立即通过前端修改密码！`);
+      } else {
+        console.log('种子数据：已插入 3 个默认用户（开发环境，密码 123456）');
+      }
     }
   } catch (err) {
     console.error('种子数据初始化失败:', err.message);

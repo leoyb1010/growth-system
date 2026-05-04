@@ -120,8 +120,6 @@ async function deleteUser(req, res) {
   }
 }
 
-module.exports = { getUsers, createUser, updateUser, deleteUser, resetPassword, enableUser, disableUser };
-
 /**
  * 管理员重置他人密码
  * POST /api/users/:id/reset-password
@@ -201,3 +199,30 @@ async function disableUser(req, res) {
     error(res, '禁用用户失败', 1, 500);
   }
 }
+
+/**
+ * GET /api/users/options — 轻量用户选项
+ * 非管理员只能看到本部门成员，管理员看全部
+ */
+async function getUserOptions(req, res) {
+  try {
+    const where = { status: 'active' };
+    // 非管理员只返回本部门
+    if (req.access && req.access.role !== 'super_admin' && req.access.deptId) {
+      where.dept_id = req.access.deptId;
+    }
+    const users = await User.findAll({
+      where,
+      attributes: ['id', 'name', 'username', 'dept_id'],
+      order: [['id', 'ASC']]
+    });
+    success(res, users);
+  } catch (err) {
+    console.error('获取用户选项失败:', err);
+    error(res, '获取用户选项失败', 1, 500);
+  }
+}
+
+module.exports = {
+  getUsers, createUser, updateUser, deleteUser, resetPassword, enableUser, disableUser, getUserOptions
+};

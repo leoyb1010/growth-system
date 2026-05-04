@@ -146,15 +146,21 @@ router.get('/audit-logs/:table_name/:record_id', ...auth, requirePermission('aud
 router.get('/search', ...auth, requirePermission('search.use'), applyDataScope('search'), searchController.globalSearch);
 
 // ==================== 行动项 ====================
-router.get('/action-items', ...auth, requirePermission('action_item.read'), actionItemController.list);
-router.post('/action-items', ...auth, requirePermission('action_item.create'), actionItemController.create);
-router.patch('/action-items/:id', ...auth, requirePermission('action_item.update'), actionItemController.update);
-router.delete('/action-items/:id', ...auth, requirePermission('action_item.delete'), actionItemController.remove);
+router.get('/action-items', ...auth, requirePermission('action_item.read'), applyDataScope('action_item'), actionItemController.list);
+router.post('/action-items', ...auth, requirePermission('action_item.create'), applyDataScope('action_item'), actionItemController.create);
+router.patch('/action-items/:id', ...auth, requirePermission('action_item.update'), applyDataScope('action_item'), actionItemController.update);
+router.delete('/action-items/:id', ...auth, requirePermission('action_item.delete'), applyDataScope('action_item'), actionItemController.remove);
 
 // ==================== 风险台账 ====================
-router.get('/risk-register', ...auth, requirePermission('risk_register.read'), riskRegisterController.list);
-router.post('/risk-register', ...auth, requirePermission('risk_register.create'), riskRegisterController.create);
-router.patch('/risk-register/:id', ...auth, requirePermission('risk_register.update'), riskRegisterController.update);
+router.get('/risk-register', ...auth, requirePermission('risk_register.read'), applyDataScope('risk_register'), riskRegisterController.list);
+router.post('/risk-register', ...auth, requirePermission('risk_register.create'), applyDataScope('risk_register'), riskRegisterController.create);
+router.patch('/risk-register/:id', ...auth, requirePermission('risk_register.update'), applyDataScope('risk_register'), riskRegisterController.update);
+
+// ==================== 轻量用户选项（部门内可见用户，供行动项/风险选择负责人） ====================
+router.get('/users/options', ...auth, userController.getUserOptions);
+
+// ==================== Dashboard 增强 ====================
+router.get('/dashboard/top3', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getTop3Priorities);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截

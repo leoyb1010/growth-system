@@ -12,11 +12,31 @@ function getOperator(req) {
  */
 async function list(req, res) {
   try {
-    const { status, risk_level, project_id, page = 1, pageSize = 20 } = req.query;
+    const { status, risk_level, project_id, page = 1, pageSize = 20, aggregate } = req.query;
     const where = {};
     if (status) where.status = status;
     if (risk_level) where.risk_level = risk_level;
     if (project_id) where.project_id = parseInt(project_id);
+
+    // 数据范围过滤
+    if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
+      Object.assign(where, req.dataScope.where);
+    }
+
+    // aggregate 模式：返回总量统计
+    if (aggregate === 'true') {
+      const [agg] = await sequelize.query(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_count,
+          SUM(CASE WHEN status = 'monitoring' THEN 1 ELSE 0 END) as monitoring,
+          SUM(CASE WHEN status IN ('mitigated','closed') THEN 1 ELSE 0 END) as resolved,
+          SUM(CASE WHEN risk_level = 'critical' THEN 1 ELSE 0 END) as critical
+         FROM risk_register`,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      return success(res, { aggregate: agg[0] || { total: 0, open_count: 0, monitoring: 0, resolved: 0, critical: 0 } });
+    }
 
     const limit = Math.min(Math.max(parseInt(pageSize), 1), 100);
     const offset = (Math.max(parseInt(page), 1) - 1) * limit;

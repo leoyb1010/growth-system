@@ -525,4 +525,90 @@ async function getWeekSummary(req, res) {
   }
 }
 
-module.exports = { getDashboard, getTodayChanges, getWeekFocus, getWeekSummary };
+module.exports = { getDashboard, getTodayChanges, getWeekFocus, getWeekSummary, getTop3Priorities };
+
+/**
+ * 今日三件事
+ * GET /api/dashboard/top3
+ */
+async function getTop3Priorities(req, res) {
+  try {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+    const deptFilter = req.deptFilter ? { dept_id: req.deptFilter } : {};
+    const today = moment().format('YYYY-MM-DD');
+    const staleDate = moment().subtract(3, 'days').toDate();
+
+    const top3 = [];
+
+    // 1. 临期项目（截止日今天或已过期，未完成）
+    const overdueProjects = await Project.findAll({
+      where: { due_date: { [Op.lte]: today }, status: { [Op.notIn]: ['完成'] }, quarter: currentQuarter, ...deptFilter },
+      include: [{ model: Department, attributes: ['name'] }],
+      order: [['due_date', 'ASC']],
+      limit: 5
+    });
+    overdueProjects.forEach(p => {
+      top3.push({
+        type: 'overdue',
+        label: '临期/逾期',
+        title: p.name,
+        description: `截止日: ${p.due_date || '未设'} | 进度: ${p.progress_pct}%`,
+        project_id: p.id,
+        dept: p.Department?.name,
+        priority: 'high'
+      });
+    });
+
+    // 2. 风险项目
+    const risks = await Project.findAll({
+      where: { status: '风险', quarter: currentQuarter, ...deptFilter },
+      include: [{ model: Department, attributes: ['name'] }],
+      order: [['updated_at', 'DESC']],
+      limit: 5
+    });
+    risks.forEach(p => {
+      top3.push({
+        type: 'risk',
+        label: '风险',
+        title: p.name,
+        description: p.risk_desc ? p.risk_desc.substring(0, 60) + (p.risk_desc.length > 60 ? '...' : '') : '需关注',
+        project_id: p.id,
+        dept: p.Department?.name,
+        priority: 'high'
+      });
+    });
+
+    // 3. 长期未更新（>3天）
+    const stale = await Project.findAll({
+      where: { updated_at: { [Op.lt]: staleDate }, status: { [Op.notIn]: ['完成'] }, quarter: currentQuarter, ...deptFilter },
+      include: [{ model: Department, attributes: ['name'] }],
+      order: [['updated_at', 'ASC']],
+      limit: 5
+    });
+    stale.forEach(p => {
+      const days = Math.floor((now - new Date(p.updated_at)) / (1000 * 60 * 60 * 24));
+      top3.push({
+        type: 'stale',
+        label: `${days}天未更新`,
+        title: p.name,
+        description: `最后更新: ${moment(p.updated_at).format('MM-DD')} | 进度: ${p.progress_pct}%`,
+        project_id: p.id,
+        dept: p.Department?.name,
+        priority: days > 7 ? 'high' : 'medium'
+      });
+    });
+
+    // 合并后按优先级排序，取前6条
+    top3.sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return (order[a.priority] || 2) - (order[b.priority] || 2);
+    });
+
+    success(res, top3.slice(0, 6));
+  } catch (err) {
+    console.error('获取今日三件事失败:', err);
+    error(res, '获取今日三件事失败', 1, 500);
+  }
+}

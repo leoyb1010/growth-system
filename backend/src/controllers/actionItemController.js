@@ -8,11 +8,11 @@ function getOperator(req) {
 }
 
 /**
- * GET /api/action-items
+ * GET /api/action-items — 支持 ?aggregate=true 返回统计口径
  */
 async function list(req, res) {
   try {
-    const { status, priority, owner_id, mine, overdue, page = 1, pageSize = 20 } = req.query;
+    const { status, priority, owner_id, mine, overdue, page = 1, pageSize = 20, aggregate } = req.query;
     const where = {};
     if (status) where.status = status;
     if (priority) where.priority = priority;
@@ -21,6 +21,26 @@ async function list(req, res) {
     if (overdue === 'true') {
       where.due_date = { [Op.lt]: new Date().toISOString().slice(0, 10) };
       where.status = { [Op.notIn]: ['done', 'cancelled'] };
+    }
+
+    // 数据范围过滤（部门隔离）
+    if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
+      Object.assign(where, req.dataScope.where);
+    }
+
+    // aggregate 模式：返回总量统计（不受分页影响）
+    if (aggregate === 'true') {
+      const [agg] = await sequelize.query(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
+          SUM(CASE WHEN status NOT IN ('done','cancelled') AND due_date < date('now') THEN 1 ELSE 0 END) as overdue
+         FROM action_items WHERE deleted_at IS NULL`,
+        { type: sequelize.QueryTypes.SELECT }
+      );
+      return success(res, { aggregate: agg[0] || { total: 0, pending: 0, in_progress: 0, done: 0, overdue: 0 } });
     }
 
     const limit = Math.min(Math.max(parseInt(pageSize), 1), 100);
@@ -123,7 +143,7 @@ async function update(req, res) {
 }
 
 /**
- * DELETE /api/action-items/:id
+ * DELETE /api/action-items/:id — 软删除：标记为 cancelled
  */
 async function remove(req, res) {
   try {
@@ -131,10 +151,16 @@ async function remove(req, res) {
     const item = await ActionItem.findByPk(id);
     if (!item) return error(res, '行动项不存在', 1, 404);
 
-    await item.destroy();
+    // 数据范围校验
+    if (req.dataScope && req.dataScope.type !== 'all' && item.owner_id !== req.user?.id) {
+      return error(res, '无权删除他人行动项', 1, 403);
+    }
+
+    // 软删除：status=cancelled，非物理删除
+    await item.update({ status: 'cancelled', updated_by: getOperator(req).id });
     await logAudit('action_items', id, 'delete', getOperator(req));
 
-    success(res, null, '删除成功');
+    success(res, null, '已取消');
   } catch (err) {
     console.error('删除行动项失败:', err);
     error(res, '删除行动项失败', 1, 500);

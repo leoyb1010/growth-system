@@ -1,6 +1,53 @@
 {
-  "latestVersion": "1.8.0",
+  "latestVersion": "1.9.0",
   "releases": [
+    {
+      "version": "1.9.0",
+      "date": "2026-05-04",
+      "title": "产品Review驱动全面升级 — 安全减法+主链路强化+模块降级",
+      "changes": [
+        {
+          "type": "security",
+          "module": "数据安全",
+          "desc": "行动项/风险台账增加数据范围过滤：部门成员只能看到本部门数据"
+        },
+        {
+          "type": "security",
+          "module": "数据安全",
+          "desc": "行动项删除改为软删除（status=cancelled），不再物理销毁数据"
+        },
+        {
+          "type": "security",
+          "module": "认证安全",
+          "desc": "生产环境种子数据密码随机化+强制修改；README匿敏"
+        },
+        {
+          "type": "feature",
+          "module": "总览",
+          "desc": "新增今日三件事API（/dashboard/top3）：临期/风险/未更新自动聚合"
+        },
+        {
+          "type": "feature",
+          "module": "用户",
+          "desc": "新增 /users/options 轻量接口：非管理员只返回本部门成员"
+        },
+        {
+          "type": "fix",
+          "module": "行动项",
+          "desc": "修复编辑时截止日期不回填问题（dayjs转换）"
+        },
+        {
+          "type": "fix",
+          "module": "行动项/风险台账",
+          "desc": "统计改为后端aggregate查询，分页不影响统计口径"
+        },
+        {
+          "type": "improve",
+          "module": "导航",
+          "desc": "行动项/风险台账从一级菜单隐藏，降级为项目推进/AI辅助能力"
+        }
+      ]
+    },
     {
       "version": "1.8.0",
       "date": "2026-05-02",
