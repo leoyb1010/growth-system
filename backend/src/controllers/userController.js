@@ -27,7 +27,7 @@ async function getUsers(req, res) {
  */
 async function createUser(req, res) {
   try {
-    const { username, name, role, dept_id, password } = req.body;
+    const { username, name, role, dept_id, cps_channel_id, password } = req.body;
 
     if (!username || !name || !password) {
       return error(res, '用户名、姓名和密码不能为空');
@@ -44,6 +44,7 @@ async function createUser(req, res) {
       name,
       role: role || 'dept',
       dept_id: dept_id || null,
+      cps_channel_id: cps_channel_id || null,
       password_hash: passwordHash
     });
 
@@ -68,7 +69,7 @@ async function createUser(req, res) {
 async function updateUser(req, res) {
   try {
     const { id } = req.params;
-    const { name, role, dept_id } = req.body;
+    const { name, role, dept_id, cps_channel_id } = req.body;
 
     const user = await User.findByPk(id);
     if (!user) {
@@ -76,7 +77,7 @@ async function updateUser(req, res) {
     }
 
     const oldValues = user.toJSON();
-    await user.update({ name, role, dept_id });
+    await user.update({ name, role, dept_id, cps_channel_id: cps_channel_id !== undefined ? cps_channel_id : user.cps_channel_id });
 
     const result = await User.findByPk(id, {
       include: [{ model: Department, attributes: ['id', 'name'] }],

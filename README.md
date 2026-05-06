@@ -393,6 +393,12 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.12.0 — 2026-05-06 · 渠道账号体系
+
+> 核心改动：渠道账号(cps_channel_user)极简视图+日报录入页；用户管理绑定cps_channel_id；自动渠道数据过滤。
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.11.0 — 2026-05-06 · CPS V3/V4修复迭代
 
 > 核心改动：权限隔离重塑（三独立CPS角色+渠道账号数据隔离）；口径修正（7日滚动客诉率）；明细23列全字段；清理重复前端页面；删除Token上传改为JWT渠道录入。

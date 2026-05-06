@@ -4,7 +4,7 @@ import { DollarOutlined, RiseOutlined, FallOutlined, AlertOutlined, TeamOutlined
 import { cpsApi } from '../../services/cpsService';
 import dayjs from 'dayjs';
 
-function CpsDashboardTab() {
+function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [range, setRange] = useState([dayjs().subtract(30, 'day'), dayjs()]);
@@ -25,10 +25,12 @@ function CpsDashboardTab() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await cpsApi.getDashboard({
+      const params = {
         start_date: range[0].format('YYYY-MM-DD'),
         end_date: range[1].format('YYYY-MM-DD'),
-      });
+      };
+      if (channelId) params.channel_ids = String(channelId);
+      const res = await cpsApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
     } catch (err) { /* ignore */ }
     setLoading(false);

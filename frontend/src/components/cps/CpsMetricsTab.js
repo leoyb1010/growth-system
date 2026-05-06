@@ -6,10 +6,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
 import dayjs from 'dayjs';
 
-function CpsMetricsTab() {
+function CpsMetricsTab({ channelId }) {
   const { user } = useAuth();
   const role = user?.role || 'dept_staff';
-  const canWrite = can(role, 'cps.write');
+  const canWrite = can(role, 'cps.write') || can(role, 'cps.channel_upload');
+  const isChannelUser = role === 'cps_channel_user';
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -21,7 +22,7 @@ function CpsMetricsTab() {
   const [snapshotVisible, setSnapshotVisible] = useState(false);
   const [snapshots, setSnapshots] = useState([]);
   const [form] = Form.useForm();
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(channelId ? { channel_ids: String(channelId) } : {});
 
   useEffect(() => { cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {}); }, []);
   useEffect(() => { cpsApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
@@ -77,7 +78,7 @@ function CpsMetricsTab() {
     setModalVisible(true);
   };
 
-  const handleAdd = () => { setEditingRecord(null); form.resetFields(); form.setFieldsValue({ stat_date: dayjs() }); setModalVisible(true); };
+  const handleAdd = () => { setEditingRecord(null); form.resetFields(); form.setFieldsValue({ stat_date: dayjs(), channel_id: channelId || undefined }); setModalVisible(true); };
 
   const handleSave = async () => {
     try {
@@ -126,13 +127,13 @@ function CpsMetricsTab() {
     <div>
       <Row gutter={8} style={{ marginBottom: 16 }}>
         <Col><DatePicker.RangePicker onChange={(dates) => { if (dates) setFilters(f => ({ ...f, start_date: dates[0].format('YYYY-MM-DD'), end_date: dates[1].format('YYYY-MM-DD') })); }} /></Col>
-        <Col><Select placeholder="渠道" allowClear onChange={v => setFilters(f => ({ ...f, channel_ids: v }))} style={{ width: 150 }}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Col>
+        {!isChannelUser && <Col><Select placeholder="渠道" allowClear onChange={v => setFilters(f => ({ ...f, channel_ids: v }))} style={{ width: 150 }}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Col>}
         <Col><Select placeholder="产品" allowClear onChange={v => setFilters(f => ({ ...f, product_ids: v }))} style={{ width: 150 }}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Col>
         {canWrite && (
           <Col><Space>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增</Button>
-            <Button icon={<UploadOutlined />} onClick={handleImport}>导入Excel</Button>
-            <Button icon={<DownloadOutlined />} onClick={handleExport}>导出</Button>
+            {!isChannelUser && <><Button icon={<UploadOutlined />} onClick={handleImport}>导入Excel</Button>
+            <Button icon={<DownloadOutlined />} onClick={handleExport}>导出</Button></>}
           </Space></Col>
         )}
       </Row>
@@ -143,7 +144,7 @@ function CpsMetricsTab() {
         <Form form={form} layout="vertical">
           <Row gutter={16}>
             <Col span={12}><Form.Item name="stat_date" label="日期" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="channel_id" label="渠道" rules={[{ required: true }]}><Select>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Form.Item></Col>
+            {!isChannelUser && <Col span={12}><Form.Item name="channel_id" label="渠道" rules={[{ required: true }]}><Select>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Form.Item></Col>}
           </Row>
           <Row gutter={16}>
             <Col span={12}><Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Form.Item></Col>
