@@ -17,6 +17,7 @@ const ROLE_PERMISSIONS = {
     'department.read', 'department.create', 'department.update', 'department.delete',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use', 'ai.use',
+    'cps.read', 'cps.write', 'cps.admin', 'cps.upload',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
@@ -29,6 +30,7 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'department.read',
     'export.data', 'search.use', 'ai.use',
+    'cps.read', 'cps.write', 'cps.admin',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],

@@ -1,0 +1,197 @@
+const { Op } = require('sequelize');
+const { CpsChannel, CpsProduct, CpsDailyMetric, CpsDailyMetricSnapshot, CpsAlertEvent } = require('../models');
+const { success, error } = require('../utils/response');
+const cpsCalc = require('../services/cpsCalcService');
+const cpsDashboardService = require('../services/cpsDashboardService');
+const cpsImportService = require('../services/cpsImportService');
+const cpsExportService = require('../services/cpsExportService');
+
+function parseIds(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(Number).filter(Boolean);
+  return String(value).split(',').map(Number).filter(Boolean);
+}
+
+function buildMetricWhere(query) {
+  const where = {};
+  if (query.start_date && query.end_date) {
+    where.stat_date = { [Op.between]: [query.start_date, query.end_date] };
+  } else if (query.stat_date) {
+    where.stat_date = query.stat_date;
+  }
+  const channelIds = parseIds(query.channel_ids);
+  const productIds = parseIds(query.product_ids);
+  if (channelIds.length) where.channel_id = { [Op.in]: channelIds };
+  if (productIds.length) where.product_id = { [Op.in]: productIds };
+  if (query.source) where.source = query.source;
+  if (query.status) where.status = query.status;
+  if (reqWhere) Object.assign(where, reqWhere);
+  return where;
+}
+
+let _reqWhere = null;
+
+async function getDashboard(req, res) {
+  try {
+    const data = await cpsDashboardService.getDashboard(req.query);
+    return success(res, data);
+  } catch (err) {
+    console.error('CPS dashboard error:', err);
+    return error(res, err.message || '获取CPS看板失败');
+  }
+}
+
+async function getMetrics(req, res) {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 200);
+    const where = buildMetricWhere(req.query);
+
+    const result = await CpsDailyMetric.findAndCountAll({
+      where,
+      include: [
+        { model: CpsChannel, as: 'channel', attributes: ['id', 'name', 'code'] },
+        { model: CpsProduct, as: 'product', attributes: ['id', 'name', 'code', 'unit_price'] },
+      ],
+      order: [['stat_date', 'DESC'], ['channel_id', 'ASC'], ['product_id', 'ASC']],
+      limit: pageSize, offset: (page - 1) * pageSize,
+    });
+
+    const rows = result.rows.map(row => cpsCalc.attachRates(row.toJSON()));
+    return success(res, { rows, total: result.count, page, pageSize });
+  } catch (err) {
+    console.error('CPS getMetrics error:', err);
+    return error(res, err.message || '获取CPS明细失败');
+  }
+}
+
+async function upsertMetric(req, res) {
+  try {
+    const payload = req.body || {};
+    if (!payload.stat_date) return error(res, '缺少 stat_date', 400, 400);
+    if (!payload.channel_id) return error(res, '缺少 channel_id', 400, 400);
+    if (!payload.product_id) return error(res, '缺少 product_id', 400, 400);
+
+    const product = await CpsProduct.findByPk(payload.product_id);
+    if (!product) return error(res, '产品不存在', 404, 404);
+
+    const input = cpsCalc.sanitizeInput(payload);
+    const unitPrice = Number(payload.unit_price || product.unit_price || 0);
+    const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
+
+    const where = { stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id };
+    let row = await CpsDailyMetric.findOne({ where });
+
+    if (row) {
+      await CpsDailyMetricSnapshot.create({
+        metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
+        product_id: row.product_id, version: row.version,
+        payload_json: JSON.stringify(row.toJSON()),
+        changed_by: req.user?.id, changed_by_name: req.user?.name || req.user?.username,
+        change_reason: payload.change_reason || 'manual_update',
+      });
+      await row.update({ ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: row.version + 1, remark: payload.remark });
+    } else {
+      row = await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: 1, remark: payload.remark });
+    }
+
+    return success(res, cpsCalc.attachRates(row.toJSON()));
+  } catch (err) {
+    console.error('CPS upsertMetric error:', err);
+    return error(res, err.message || '保存CPS数据失败');
+  }
+}
+
+async function updateMetric(req, res) {
+  try {
+    const row = await CpsDailyMetric.findByPk(req.params.id);
+    if (!row) return error(res, '数据不存在', 404, 404);
+
+    const payload = req.body || {};
+    const input = cpsCalc.sanitizeInput(payload);
+    const unitPrice = Number(payload.unit_price || row.unit_price || 0);
+    const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
+
+    await CpsDailyMetricSnapshot.create({
+      metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
+      product_id: row.product_id, version: row.version,
+      payload_json: JSON.stringify(row.toJSON()),
+      changed_by: req.user?.id, changed_by_name: req.user?.name || req.user?.username,
+      change_reason: payload.change_reason || 'manual_update',
+    });
+
+    await row.update({ ...input, ...derived, unit_price: unitPrice, version: row.version + 1, remark: payload.remark, uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username });
+    return success(res, cpsCalc.attachRates(row.toJSON()));
+  } catch (err) {
+    console.error('CPS updateMetric error:', err);
+    return error(res, err.message || '更新CPS数据失败');
+  }
+}
+
+async function deleteMetric(req, res) {
+  try {
+    const row = await CpsDailyMetric.findByPk(req.params.id);
+    if (!row) return error(res, '数据不存在', 404, 404);
+    await row.destroy();
+    return success(res, true);
+  } catch (err) {
+    console.error('CPS deleteMetric error:', err);
+    return error(res, err.message || '删除CPS数据失败');
+  }
+}
+
+async function getMetricSnapshots(req, res) {
+  try {
+    const rows = await CpsDailyMetricSnapshot.findAll({ where: { metric_id: req.params.id }, order: [['created_at', 'DESC']] });
+    return success(res, rows);
+  } catch (err) { return error(res, err.message || '获取快照失败'); }
+}
+
+async function importMetrics(req, res) {
+  try {
+    if (!req.file) return error(res, '请上传Excel文件', 400, 400);
+    const result = await cpsImportService.importFromExcel(req.file.path, { stat_date: req.body.stat_date, uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username });
+    return success(res, result);
+  } catch (err) { console.error('CPS import error:', err); return error(res, err.message || '导入失败'); }
+}
+
+async function exportMetrics(req, res) {
+  try {
+    const buffer = await cpsExportService.exportToExcel(req.query);
+    res.setHeader('Content-Disposition', `attachment; filename="cps_metrics_${Date.now()}.xlsx"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buffer);
+  } catch (err) { console.error('CPS export error:', err); return error(res, err.message || '导出失败'); }
+}
+
+async function getAlerts(req, res) {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.level) where.level = req.query.level;
+    if (req.query.start_date && req.query.end_date) where.stat_date = { [Op.between]: [req.query.start_date, req.query.end_date] };
+    const channelIds = parseIds(req.query.channel_ids), productIds = parseIds(req.query.product_ids);
+    if (channelIds.length) where.channel_id = { [Op.in]: channelIds };
+    if (productIds.length) where.product_id = { [Op.in]: productIds };
+
+    const rows = await CpsAlertEvent.findAll({
+      where, include: [
+        { model: CpsChannel, as: 'channel', attributes: ['id', 'name'] },
+        { model: CpsProduct, as: 'product', attributes: ['id', 'name'] },
+      ],
+      order: [['created_at', 'DESC']], limit: Number(req.query.limit) || 100,
+    });
+    return success(res, rows);
+  } catch (err) { return error(res, err.message || '获取预警失败'); }
+}
+
+async function ackAlert(req, res) {
+  try {
+    const row = await CpsAlertEvent.findByPk(req.params.id);
+    if (!row) return error(res, '预警不存在', 404, 404);
+    await row.update({ status: 'ack', ack_by: req.user?.id, ack_by_name: req.user?.name || req.user?.username, ack_at: new Date() });
+    return success(res, row);
+  } catch (err) { return error(res, err.message || '确认预警失败'); }
+}
+
+module.exports = { getDashboard, getMetrics, upsertMetric, updateMetric, deleteMetric, getMetricSnapshots, importMetrics, exportMetrics, getAlerts, ackAlert };

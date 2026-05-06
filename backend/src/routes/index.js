@@ -21,8 +21,12 @@ const auditLogController = require('../controllers/auditLogController');
 const searchController = require('../controllers/searchController');
 const actionItemController = require('../controllers/actionItemController');
 const riskRegisterController = require('../controllers/riskRegisterController');
+const cpsController = require('../controllers/cpsController');
+const cpsAdminController = require('../controllers/cpsAdminController');
+const cpsPublicController = require('../controllers/cpsPublicController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const fileRoutes = require('./fileRoutes');
+const cpsUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/cps/'), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -161,6 +165,34 @@ router.get('/users/options', ...auth, userController.getUserOptions);
 
 // ==================== Dashboard 增强 ====================
 router.get('/dashboard/top3', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getTop3Priorities);
+
+// ==================== CPS 连包投流模块 ====================
+// 字典管理 (cps.admin)
+router.get('/cps/channels', ...auth, requirePermission('cps.admin'), cpsAdminController.getChannels);
+router.post('/cps/channels', ...auth, requirePermission('cps.admin'), cpsAdminController.createChannel);
+router.put('/cps/channels/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.updateChannel);
+router.post('/cps/channels/:id/regenerate-token', ...auth, requirePermission('cps.admin'), cpsAdminController.regenerateToken);
+router.get('/cps/products', ...auth, requirePermission('cps.admin'), cpsAdminController.getProducts);
+router.post('/cps/products', ...auth, requirePermission('cps.admin'), cpsAdminController.createProduct);
+router.put('/cps/products/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.updateProduct);
+// 预警规则
+router.get('/cps/alert-rules', ...auth, requirePermission('cps.admin'), cpsAdminController.getAlertRules);
+router.post('/cps/alert-rules', ...auth, requirePermission('cps.admin'), cpsAdminController.upsertAlertRule);
+router.delete('/cps/alert-rules/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.deleteAlertRule);
+// 看板 & 明细 (cps.read)
+router.get('/cps/dashboard', ...auth, requirePermission('cps.read'), cpsController.getDashboard);
+router.get('/cps/metrics', ...auth, requirePermission('cps.read'), cpsController.getMetrics);
+router.post('/cps/metrics', ...auth, requirePermission('cps.write'), cpsController.upsertMetric);
+router.put('/cps/metrics/:id', ...auth, requirePermission('cps.write'), cpsController.updateMetric);
+router.delete('/cps/metrics/:id', ...auth, requirePermission('cps.write'), cpsController.deleteMetric);
+router.get('/cps/metrics/:id/snapshots', ...auth, requirePermission('cps.read'), cpsController.getMetricSnapshots);
+router.post('/cps/import', ...auth, requirePermission('cps.write'), cpsUpload.single('file'), cpsController.importMetrics);
+router.get('/cps/export', ...auth, requirePermission('cps.read'), cpsController.exportMetrics);
+// 预警 (cps.read)
+router.get('/cps/alerts', ...auth, requirePermission('cps.read'), cpsController.getAlerts);
+router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), cpsController.ackAlert);
+// 渠道公开接口 (无需认证, token鉴权)
+router.post('/cps/public/upload', cpsPublicController.uploadDailyData);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截

@@ -371,6 +371,137 @@ const RefreshToken = sequelize.define('RefreshToken', {
   createdAt: 'created_at'
 });
 
+// ==================== CPS 连包投流模块 ====================
+const CpsChannel = sequelize.define('CpsChannel', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  contact_name: { type: DataTypes.STRING(100), allowNull: true },
+  contact_info: { type: DataTypes.STRING(255), allowNull: true },
+  commission_rate: { type: DataTypes.DECIMAL(8, 4), allowNull: true },
+  upload_token: { type: DataTypes.STRING(128), allowNull: true },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'cps_channels', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const CpsProduct = sequelize.define('CpsProduct', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  product_type: { type: DataTypes.STRING(64), allowNull: true },
+  unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'cps_products', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const CpsDailyMetric = sequelize.define('CpsDailyMetric', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: false },
+  channel_id: { type: DataTypes.INTEGER, allowNull: false },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  new_sign_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  new_terminate_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  new_refund_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  renewal_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  renewal_refund_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  after_sale_refund_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  complaint_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false, defaultValue: 0 },
+  new_sign_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  new_refund_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  renewal_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  renewal_refund_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  effective_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  effective_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  actual_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  actual_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  source: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'manual' },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'confirmed' },
+  uploader_id: { type: DataTypes.INTEGER, allowNull: true },
+  uploader_name: { type: DataTypes.STRING(100), allowNull: true },
+  uploader_token_hash: { type: DataTypes.STRING(128), allowNull: true },
+  version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, {
+  tableName: 'cps_daily_metrics', timestamps: true, paranoid: true,
+  createdAt: 'created_at', updatedAt: 'updated_at', deletedAt: 'deleted_at',
+  indexes: [{ unique: true, fields: ['stat_date', 'channel_id', 'product_id'] }, { fields: ['stat_date'] }, { fields: ['channel_id', 'stat_date'] }, { fields: ['product_id', 'stat_date'] }],
+});
+
+const CpsDailyMetricSnapshot = sequelize.define('CpsDailyMetricSnapshot', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  metric_id: { type: DataTypes.INTEGER, allowNull: false },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: false },
+  channel_id: { type: DataTypes.INTEGER, allowNull: false },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  version: { type: DataTypes.INTEGER, allowNull: false },
+  payload_json: { type: DataTypes.TEXT, allowNull: false },
+  changed_by: { type: DataTypes.INTEGER, allowNull: true },
+  changed_by_name: { type: DataTypes.STRING(100), allowNull: true },
+  change_reason: { type: DataTypes.STRING(255), allowNull: true },
+}, { tableName: 'cps_snapshots', timestamps: true, createdAt: 'created_at', updatedAt: false });
+
+const CpsUploadLog = sequelize.define('CpsUploadLog', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: false },
+  channel_id: { type: DataTypes.INTEGER, allowNull: false },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'pending' },
+  uploaded_at: { type: DataTypes.DATE, allowNull: true },
+  row_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  error_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  error_message: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'cps_upload_logs', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at', indexes: [{ unique: true, fields: ['stat_date', 'channel_id'] }] });
+
+const CpsAlertRule = sequelize.define('CpsAlertRule', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  level: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'warning' },
+  metric: { type: DataTypes.STRING(64), allowNull: false },
+  operator: { type: DataTypes.STRING(16), allowNull: false, defaultValue: '>=' },
+  threshold_value: { type: DataTypes.DECIMAL(15, 6), allowNull: false, defaultValue: 0 },
+  min_base_value: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+  scope_type: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'global' },
+  scope_json: { type: DataTypes.TEXT, allowNull: true },
+  enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  notify_enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  notify_emails: { type: DataTypes.TEXT, allowNull: true },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'cps_alert_rules', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const CpsAlertEvent = sequelize.define('CpsAlertEvent', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  rule_id: { type: DataTypes.INTEGER, allowNull: true },
+  rule_code: { type: DataTypes.STRING(64), allowNull: false },
+  level: { type: DataTypes.STRING(32), allowNull: false },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: true },
+  channel_id: { type: DataTypes.INTEGER, allowNull: true },
+  product_id: { type: DataTypes.INTEGER, allowNull: true },
+  metric: { type: DataTypes.STRING(64), allowNull: true },
+  metric_value: { type: DataTypes.DECIMAL(15, 6), allowNull: true },
+  threshold_value: { type: DataTypes.DECIMAL(15, 6), allowNull: true },
+  title: { type: DataTypes.STRING(255), allowNull: false },
+  message: { type: DataTypes.TEXT, allowNull: false },
+  suggestion: { type: DataTypes.TEXT, allowNull: true },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'open' },
+  ack_by: { type: DataTypes.INTEGER, allowNull: true },
+  ack_by_name: { type: DataTypes.STRING(100), allowNull: true },
+  ack_at: { type: DataTypes.DATE, allowNull: true },
+  closed_at: { type: DataTypes.DATE, allowNull: true },
+}, { tableName: 'cps_alert_events', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+// CPS 模型关联
+CpsDailyMetric.belongsTo(CpsChannel, { foreignKey: 'channel_id', as: 'channel' });
+CpsDailyMetric.belongsTo(CpsProduct, { foreignKey: 'product_id', as: 'product' });
+CpsChannel.hasMany(CpsDailyMetric, { foreignKey: 'channel_id', as: 'metrics' });
+CpsProduct.hasMany(CpsDailyMetric, { foreignKey: 'product_id', as: 'metrics' });
+CpsDailyMetricSnapshot.belongsTo(CpsDailyMetric, { foreignKey: 'metric_id', as: 'metric' });
+CpsDailyMetric.hasMany(CpsDailyMetricSnapshot, { foreignKey: 'metric_id', as: 'snapshots' });
+CpsUploadLog.belongsTo(CpsChannel, { foreignKey: 'channel_id', as: 'channel' });
+CpsAlertEvent.belongsTo(CpsChannel, { foreignKey: 'channel_id', as: 'channel' });
+CpsAlertEvent.belongsTo(CpsProduct, { foreignKey: 'product_id', as: 'product' });
+CpsAlertEvent.belongsTo(CpsAlertRule, { foreignKey: 'rule_id', as: 'rule' });
+
 // 新模型关联
 User.hasMany(ActionItem, { foreignKey: 'owner_id', as: 'OwnedActionItems' });
 ActionItem.belongsTo(User, { foreignKey: 'owner_id', as: 'Owner' });
@@ -401,5 +532,12 @@ module.exports = {
   RiskRegister,
   AiCallLog,
   AiResultCache,
-  RefreshToken
+  RefreshToken,
+  CpsChannel,
+  CpsProduct,
+  CpsDailyMetric,
+  CpsDailyMetricSnapshot,
+  CpsUploadLog,
+  CpsAlertRule,
+  CpsAlertEvent
 };

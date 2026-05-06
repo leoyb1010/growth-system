@@ -26,6 +26,7 @@ import {
   BankOutlined,
   CheckCircleOutlined,
   AlertOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
@@ -148,6 +149,7 @@ function AppLayout() {
     { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
+    { key: '/cps', icon: <DollarOutlined />, label: '连包投流' },
   ].filter(item => canSeeMenu(role, item.key));
 
   // ========== 系统管理菜单（仅 super_admin）==========

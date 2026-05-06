@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const { sequelize, Department, User } = require('./models');
 const routes = require('./routes');
 const { initCronJobs } = require('./services/cronService');
+const { initCpsCron } = require('./services/cpsCronService');
 const { dbWriteGuard, dbReadOnlyGuard, checkDbWritable, periodicCheck } = require('./middleware/dbHealthCheck');
 
 const app = express();
@@ -238,6 +239,7 @@ async function startServer() {
 
     // 启动定时任务
     initCronJobs();
+    initCpsCron();
 
     app.listen(PORT, () => {
       console.log(`增长组业务管理系统后端服务已启动，端口: ${PORT}`);

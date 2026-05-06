@@ -1,6 +1,21 @@
 {
-  "latestVersion": "1.9.0",
+  "latestVersion": "1.10.0",
   "releases": [
+    {
+      "version": "1.10.0",
+      "date": "2026-05-06",
+      "title": "CPS 连包投流模块全新上线",
+      "changes": [
+        { "type": "feature", "module": "CPS看板", "desc": "新增连包投流CPS模块：数据看板、明细、预警、字典管理" },
+        { "type": "feature", "module": "CPS数据", "desc": "7张独立DB表+8个Sequelize模型，支持日粒度时间序列" },
+        { "type": "feature", "module": "CPS计算", "desc": "cpsCalcService统一口径计算：有效签约/实际订单/退款率/解约率" },
+        { "type": "feature", "module": "CPS导入", "desc": "Excel批量导入，自动校验渠道/产品，写入快照" },
+        { "type": "feature", "module": "CPS导出", "desc": "Excel导出含全部计算指标" },
+        { "type": "feature", "module": "CPS预警", "desc": "预警规则引擎+每日09:00定时检测+确认闭环" },
+        { "type": "feature", "module": "CPS公开接口", "desc": "渠道通过Token上传日粒度数据" },
+        { "type": "feature", "module": "CPS权限", "desc": "cps.read/cps.write/cps.admin/cps.upload四级权限" }
+      ]
+    },
     {
       "version": "1.9.0",
       "date": "2026-05-04",

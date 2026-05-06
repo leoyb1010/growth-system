@@ -1,0 +1,169 @@
+import React, { useEffect, useState } from 'react';
+import { Table, Button, Space, Tag, DatePicker, Select, Modal, Form, Input, InputNumber, Popconfirm, message, Row, Col } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined, HistoryOutlined } from '@ant-design/icons';
+import { cpsApi } from '../../services/cpsService';
+import { useAuth } from '../../hooks/useAuth';
+import { can } from '../../permissions/ability';
+import dayjs from 'dayjs';
+
+function CpsMetricsTab() {
+  const { user } = useAuth();
+  const role = user?.role || 'dept_staff';
+  const canWrite = can(role, 'cps.write');
+
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
+  const [channels, setChannels] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [snapshotVisible, setSnapshotVisible] = useState(false);
+  const [snapshots, setSnapshots] = useState([]);
+  const [form] = Form.useForm();
+  const [filters, setFilters] = useState({});
+
+  useEffect(() => { cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {}); }, []);
+  useEffect(() => { cpsApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
+      .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
+      .catch(() => message.error('加载失败'))
+      .finally(() => setLoading(false));
+  }, [filters, pagination.page]);
+
+  const fmtMoney = v => Number(v).toFixed(0);
+  const fmtRate = v => (Number(v) * 100).toFixed(2) + '%';
+
+  const columns = [
+    { title: '日期', dataIndex: 'stat_date', width: 110, sorter: true },
+    { title: '渠道', dataIndex: ['channel', 'name'], width: 100 },
+    { title: '产品', dataIndex: ['product', 'name'], width: 100 },
+    { title: '新签', dataIndex: 'new_sign_count', width: 70, render: v => <Tag color="blue">{v}</Tag> },
+    { title: '解约', dataIndex: 'new_terminate_count', width: 70, render: v => <Tag color="red">{v}</Tag> },
+    { title: '续费', dataIndex: 'renewal_count', width: 70, render: v => <Tag color="green">{v}</Tag> },
+    { title: '有效签约', dataIndex: 'effective_count', width: 80 },
+    { title: '有效收入', dataIndex: 'effective_amount', width: 110, render: v => fmtMoney(v) },
+    { title: '客诉', dataIndex: 'complaint_count', width: 70, render: v => v > 0 ? <Tag color="volcano">{v}</Tag> : v },
+    { title: '来源', dataIndex: 'source', width: 90, render: v => <Tag>{v}</Tag> },
+    { title: '操作', key: 'actions', width: 200, fixed: 'right', render: (_, r) => canWrite ? (
+      <Space size="small">
+        <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(r)} />
+        <Button size="small" icon={<HistoryOutlined />} onClick={() => viewSnapshots(r.id)} />
+        <Popconfirm title="确定删除？" onConfirm={() => handleDelete(r.id)}>
+          <Button size="small" danger icon={<DeleteOutlined />} />
+        </Popconfirm>
+      </Space>
+    ) : null }
+  ];
+
+  const handleEdit = (record) => {
+    setEditingRecord(record);
+    form.setFieldsValue({ ...record, stat_date: record.stat_date ? dayjs(record.stat_date) : null });
+    setModalVisible(true);
+  };
+
+  const handleAdd = () => { setEditingRecord(null); form.resetFields(); form.setFieldsValue({ stat_date: dayjs() }); setModalVisible(true); };
+
+  const handleSave = async () => {
+    try {
+      const vals = await form.validateFields();
+      const payload = { ...vals, stat_date: vals.stat_date.format('YYYY-MM-DD'), channel_id: vals.channel_id, product_id: vals.product_id };
+      const res = editingRecord ? await cpsApi.updateMetric(editingRecord.id, payload) : await cpsApi.upsertMetric(payload);
+      if (res.code === 0) { message.success(editingRecord ? '已更新' : '已创建'); setModalVisible(false); fetchData(); }
+      else message.error(res.message);
+    } catch (e) { if (!e?.errorFields) message.error('保存失败'); }
+  };
+
+  const handleDelete = async (id) => { await cpsApi.deleteMetric(id); message.success('已删除'); fetchData(); };
+
+  const viewSnapshots = async (id) => {
+    try { const res = await cpsApi.getSnapshots(id); if (res.code === 0) setSnapshots(res.data || []); setSnapshotVisible(true); }
+    catch { message.error('获取快照失败'); }
+  };
+
+  const fetchData = () => {
+    setLoading(true);
+    cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
+      .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
+      .finally(() => setLoading(false));
+  };
+
+  const handleImport = async () => {
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const fd = new FormData(); fd.append('file', file);
+      try {
+        const res = await cpsApi.importMetrics(fd);
+        if (res.code === 0) message.success(`导入完成: 成功 ${res.data?.success || 0} 条`);
+        fetchData();
+      } catch { message.error('导入失败'); }
+    };
+    input.click();
+  };
+
+  const handleExport = async () => {
+    try { const res = await cpsApi.exportMetrics(filters); const url = window.URL.createObjectURL(new Blob([res])); const a = document.createElement('a'); a.href = url; a.download = `cps_metrics_${dayjs().format('YYYYMMDD')}.xlsx`; a.click(); }
+    catch { message.error('导出失败'); }
+  };
+
+  return (
+    <div>
+      <Row gutter={8} style={{ marginBottom: 16 }}>
+        <Col><DatePicker.RangePicker onChange={(dates) => { if (dates) setFilters(f => ({ ...f, start_date: dates[0].format('YYYY-MM-DD'), end_date: dates[1].format('YYYY-MM-DD') })); }} /></Col>
+        <Col><Select placeholder="渠道" allowClear onChange={v => setFilters(f => ({ ...f, channel_ids: v }))} style={{ width: 150 }}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Col>
+        <Col><Select placeholder="产品" allowClear onChange={v => setFilters(f => ({ ...f, product_ids: v }))} style={{ width: 150 }}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Col>
+        {canWrite && (
+          <Col><Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增</Button>
+            <Button icon={<UploadOutlined />} onClick={handleImport}>导入Excel</Button>
+            <Button icon={<DownloadOutlined />} onClick={handleExport}>导出</Button>
+          </Space></Col>
+        )}
+      </Row>
+      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} scroll={{ x: 1300 }}
+        pagination={{ current: pagination.page, pageSize: pagination.pageSize, total: pagination.total, onChange: p => setPagination(prev => ({ ...prev, page: p })) }} size="small" />
+
+      <Modal title={editingRecord ? '编辑数据' : '新增数据'} open={modalVisible} onOk={handleSave} onCancel={() => setModalVisible(false)} width={600}>
+        <Form form={form} layout="vertical">
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="stat_date" label="日期" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="channel_id" label="渠道" rules={[{ required: true }]}><Select>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Form.Item></Col>
+            <Col span={12}><Form.Item name="unit_price" label="单价"><InputNumber style={{ width: '100%' }} step={0.01} /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="new_sign_count" label="新签数"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="new_terminate_count" label="解约数"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="new_refund_count" label="新签退款"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="renewal_count" label="续费数"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="renewal_refund_count" label="续费退款"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="after_sale_refund_count" label="售后退款"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="complaint_count" label="客诉数"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="remark" label="备注"><Input /></Form.Item></Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      <Modal title="版本快照" open={snapshotVisible} onCancel={() => setSnapshotVisible(false)} footer={null} width={700}>
+        <Table dataSource={snapshots} rowKey="id" columns={[
+          { title: '版本', dataIndex: 'version', width: 70 },
+          { title: '修改人', dataIndex: 'changed_by_name', width: 100 },
+          { title: '原因', dataIndex: 'change_reason', width: 120 },
+          { title: '时间', dataIndex: 'created_at', width: 160 },
+        ]} size="small" pagination={false} />
+      </Modal>
+    </div>
+  );
+}
+
+export default CpsMetricsTab;
