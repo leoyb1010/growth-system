@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Tag } from 'antd';
-import { DollarOutlined, RiseOutlined, FallOutlined, AlertOutlined, TeamOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space } from 'antd';
+import { DollarOutlined, TeamOutlined } from '@ant-design/icons';
 import { cpsApi } from '../../services/cpsService';
 import dayjs from 'dayjs';
 
@@ -8,19 +8,20 @@ function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [range, setRange] = useState([dayjs().subtract(30, 'day'), dayjs()]);
+  const [channels, setChannels] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selChannels, setSelChannels] = useState(channelId ? [channelId] : []);
+  const [selProducts, setSelProducts] = useState([]);
 
-  const fmtMoney = (v) => {
-    const n = Number(v);
-    if (n >= 10000) return (n / 10000).toFixed(1) + '万';
-    return n.toFixed(0);
-  };
-
-  const fmtRate = (v) => (Number(v) * 100).toFixed(2) + '%';
+  useEffect(() => {
+    cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {});
+    cpsApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!range || !range[0] || !range[1]) return;
     fetchData();
-  }, [range]);
+  }, [range, selChannels, selProducts]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -29,19 +30,40 @@ function CpsDashboardTab({ channelId }) {
         start_date: range[0].format('YYYY-MM-DD'),
         end_date: range[1].format('YYYY-MM-DD'),
       };
-      if (channelId) params.channel_ids = String(channelId);
+      if (selChannels.length) params.channel_ids = selChannels.join(',');
+      if (selProducts.length) params.product_ids = selProducts.join(',');
       const res = await cpsApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
     } catch (err) { /* ignore */ }
     setLoading(false);
   };
 
+  const fmtMoney = (v) => {
+    const n = Number(v);
+    if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+    return n.toFixed(0);
+  };
+  const fmtRate = (v) => (Number(v) * 100).toFixed(2) + '%';
   const s = data?.summary || {};
 
   return (
     <Spin spinning={loading}>
       <div style={{ marginBottom: 16 }}>
-        <DatePicker.RangePicker value={range} onChange={setRange} allowClear={false} />
+        <Space wrap>
+          <DatePicker.RangePicker value={range} onChange={setRange} allowClear={false} />
+          {!channelId && (
+            <Select mode="multiple" placeholder="全部渠道" allowClear
+              value={selChannels} onChange={setSelChannels}
+              style={{ minWidth: 200 }} maxTagCount={3}>
+              {channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
+            </Select>
+          )}
+          <Select mode="multiple" placeholder="全部产品" allowClear
+            value={selProducts} onChange={setSelProducts}
+            style={{ minWidth: 200 }} maxTagCount={3}>
+            {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
+          </Select>
+        </Space>
       </div>
 
       {!data ? <Empty description="暂无数据" /> : (
