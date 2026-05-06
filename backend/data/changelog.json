@@ -1,6 +1,23 @@
 {
-  "latestVersion": "1.10.0",
+  "latestVersion": "1.11.0",
   "releases": [
+    {
+      "version": "1.11.0",
+      "date": "2026-05-06",
+      "title": "CPS V3/V4 修复迭代 — 权限隔离+口径修正+全字段+契约对齐",
+      "changes": [
+        { "type": "security", "module": "CPS权限", "desc": "新增cps_admin/cps_ops/cps_channel_user三个独立角色，department_manager不再默认有CPS权限" },
+        { "type": "security", "module": "CPS权限", "desc": "users表增加cps_channel_id字段，渠道账号只能看自己渠道数据" },
+        { "type": "security", "module": "CPS权限", "desc": "删除token公开上传路径，改为JWT渠道录入/cps/channel-entry" },
+        { "type": "fix", "module": "CPSController", "desc": "修复buildMetricWhere中reqWhere未定义导致的明细页崩溃bug" },
+        { "type": "fix", "module": "CPS口径", "desc": "客诉率改为7日滚动窗口公式(近7天客诉/近7天总成交)" },
+        { "type": "fix", "module": "CPS看板", "desc": "dashboardService补齐alerts_active/matrix/trend多指标，AI/前端/后端三方契约对齐" },
+        { "type": "fix", "module": "CPS看板", "desc": "支持day/week/month/quarter granularity聚合" },
+        { "type": "improve", "module": "CPS明细", "desc": "明细表格扩展为23列全字段(含解约率/退款率/售后率/金额等)" },
+        { "type": "improve", "module": "CPS前端", "desc": "清理pages/cps/重复页面和未引用组件，统一使用CpsPage+4Tab" },
+        { "type": "improve", "module": "CPS权限", "desc": "渠道/产品列表查询降权从cps.admin到cps.read" }
+      ]
+    },
     {
       "version": "1.10.0",
       "date": "2026-05-06",

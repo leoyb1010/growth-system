@@ -25,7 +25,6 @@ function buildMetricWhere(query) {
   if (productIds.length) where.product_id = { [Op.in]: productIds };
   if (query.source) where.source = query.source;
   if (query.status) where.status = query.status;
-  if (reqWhere) Object.assign(where, reqWhere);
   return where;
 }
 

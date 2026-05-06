@@ -167,19 +167,18 @@ router.get('/users/options', ...auth, userController.getUserOptions);
 router.get('/dashboard/top3', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getTop3Priorities);
 
 // ==================== CPS 连包投流模块 ====================
-// 字典管理 (cps.admin)
-router.get('/cps/channels', ...auth, requirePermission('cps.admin'), cpsAdminController.getChannels);
+// 字典查询 (cps.read 即可读渠道/产品列表，cps.admin 才能管理)
+router.get('/cps/channels', ...auth, requirePermission('cps.read'), cpsAdminController.getChannels);
 router.post('/cps/channels', ...auth, requirePermission('cps.admin'), cpsAdminController.createChannel);
 router.put('/cps/channels/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.updateChannel);
-router.post('/cps/channels/:id/regenerate-token', ...auth, requirePermission('cps.admin'), cpsAdminController.regenerateToken);
-router.get('/cps/products', ...auth, requirePermission('cps.admin'), cpsAdminController.getProducts);
+router.get('/cps/products', ...auth, requirePermission('cps.read'), cpsAdminController.getProducts);
 router.post('/cps/products', ...auth, requirePermission('cps.admin'), cpsAdminController.createProduct);
 router.put('/cps/products/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.updateProduct);
 // 预警规则
-router.get('/cps/alert-rules', ...auth, requirePermission('cps.admin'), cpsAdminController.getAlertRules);
+router.get('/cps/alert-rules', ...auth, requirePermission('cps.read'), cpsAdminController.getAlertRules);
 router.post('/cps/alert-rules', ...auth, requirePermission('cps.admin'), cpsAdminController.upsertAlertRule);
 router.delete('/cps/alert-rules/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.deleteAlertRule);
-// 看板 & 明细 (cps.read)
+// 看板 & 明细 (cps.read + 数据范围)
 router.get('/cps/dashboard', ...auth, requirePermission('cps.read'), cpsController.getDashboard);
 router.get('/cps/metrics', ...auth, requirePermission('cps.read'), cpsController.getMetrics);
 router.post('/cps/metrics', ...auth, requirePermission('cps.write'), cpsController.upsertMetric);
@@ -188,11 +187,11 @@ router.delete('/cps/metrics/:id', ...auth, requirePermission('cps.write'), cpsCo
 router.get('/cps/metrics/:id/snapshots', ...auth, requirePermission('cps.read'), cpsController.getMetricSnapshots);
 router.post('/cps/import', ...auth, requirePermission('cps.write'), cpsUpload.single('file'), cpsController.importMetrics);
 router.get('/cps/export', ...auth, requirePermission('cps.read'), cpsController.exportMetrics);
-// 预警 (cps.read)
+// 预警
 router.get('/cps/alerts', ...auth, requirePermission('cps.read'), cpsController.getAlerts);
 router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), cpsController.ackAlert);
-// 渠道公开接口 (无需认证, token鉴权)
-router.post('/cps/public/upload', cpsPublicController.uploadDailyData);
+// 渠道录入接口 (cps_channel_user 专属，只操作自己渠道)
+router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload'), cpsController.upsertMetric);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截

@@ -393,6 +393,12 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.11.0 — 2026-05-06 · CPS V3/V4修复迭代
+
+> 核心改动：权限隔离重塑（三独立CPS角色+渠道账号数据隔离）；口径修正（7日滚动客诉率）；明细23列全字段；清理重复前端页面；删除Token上传改为JWT渠道录入。
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.10.0 — 2026-05-06 · CPS连包投流模块全新上线
 
 > 核心改动：新增独立CPS业务模块（连包投流），含看板/明细/导入导出/预警/渠道Token公开上传；7张独立DB表不耦合现有业务；cpsCalcService统一口径计算。

@@ -17,10 +17,13 @@ const ROLE_PERMISSIONS = {
     'department.read', 'department.create', 'department.update', 'department.delete',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use', 'ai.use',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.upload',
+    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
+  cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use' ],
+  cps_ops: [ 'cps.read', 'cps.write', 'ai.use' ],
+  cps_channel_user: [ 'cps.channel_upload', 'cps.channel_read_own' ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update', 'kpi.delete',
     'project.read', 'project.create', 'project.update', 'project.delete', 'project.quick_update',
@@ -30,7 +33,6 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'department.read',
     'export.data', 'search.use', 'ai.use',
-    'cps.read', 'cps.write', 'cps.admin',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
@@ -53,14 +55,20 @@ const ROLE_COMPAT = {
   admin: 'super_admin',
   dept: 'department_manager',
   dept_manager: 'department_manager',
-  dept_staff: 'department_member'
+  dept_staff: 'department_member',
+  cps_admin: 'cps_admin',
+  cps_ops: 'cps_ops',
+  cps_channel_user: 'cps_channel_user'
 };
 
 // 数据范围映射
 const DATA_SCOPE_MAP = {
   super_admin: { type: 'all', value: null },
-  department_manager: { type: 'department', value: null }, // value 运行时注入 dept_id
-  department_member: { type: 'self', value: null }         // value 运行时注入 user.id
+  cps_admin: { type: 'all', value: null },
+  cps_ops: { type: 'all', value: null },
+  cps_channel_user: { type: 'cps_channel', value: null },
+  department_manager: { type: 'department', value: null },
+  department_member: { type: 'self', value: null }
 };
 
 /**
@@ -82,6 +90,8 @@ async function injectAccessContext(req, res, next) {
     dataScopeValue = user.dept_id;
   } else if (scopeConfig.type === 'self') {
     dataScopeValue = user.id;
+  } else if (scopeConfig.type === 'cps_channel') {
+    dataScopeValue = user.cps_channel_id;
   }
 
   req.access = {
@@ -127,7 +137,7 @@ async function authenticate(req, res, next) {
   // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
   try {
     const dbUser = await User.findByPk(decoded.id, {
-      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version'],
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id'],
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 
@@ -152,12 +162,14 @@ async function authenticate(req, res, next) {
 
     // 使用数据库中的最新角色信息，不完全信任 token 内的 role
     const role = dbUser.role || 'dept_staff';
-    const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept') ? 1 : 2;
+    const cpsRoles = ['cps_admin', 'cps_ops', 'cps_channel_user'];
+    const roleLevel = (role === 'admin' || role === 'super_admin') ? 0 : (role === 'dept_manager' || role === 'dept' || role === 'cps_admin') ? 1 : 2;
     req.user = {
       ...decoded,
       role,
       roleLevel,
       dept_id: dbUser.dept_id,
+      cps_channel_id: dbUser.cps_channel_id,
       name: dbUser.name,
       username: dbUser.username,
       status: dbUser.status,

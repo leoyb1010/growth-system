@@ -38,17 +38,29 @@ function CpsMetricsTab() {
   const fmtRate = v => (Number(v) * 100).toFixed(2) + '%';
 
   const columns = [
-    { title: '日期', dataIndex: 'stat_date', width: 110, sorter: true },
-    { title: '渠道', dataIndex: ['channel', 'name'], width: 100 },
-    { title: '产品', dataIndex: ['product', 'name'], width: 100 },
-    { title: '新签', dataIndex: 'new_sign_count', width: 70, render: v => <Tag color="blue">{v}</Tag> },
-    { title: '解约', dataIndex: 'new_terminate_count', width: 70, render: v => <Tag color="red">{v}</Tag> },
-    { title: '续费', dataIndex: 'renewal_count', width: 70, render: v => <Tag color="green">{v}</Tag> },
-    { title: '有效签约', dataIndex: 'effective_count', width: 80 },
-    { title: '有效收入', dataIndex: 'effective_amount', width: 110, render: v => fmtMoney(v) },
-    { title: '客诉', dataIndex: 'complaint_count', width: 70, render: v => v > 0 ? <Tag color="volcano">{v}</Tag> : v },
-    { title: '来源', dataIndex: 'source', width: 90, render: v => <Tag>{v}</Tag> },
-    { title: '操作', key: 'actions', width: 200, fixed: 'right', render: (_, r) => canWrite ? (
+    { title: '日期', dataIndex: 'stat_date', width: 100, sorter: true, fixed: 'left' },
+    { title: '渠道', dataIndex: ['channel', 'name'], width: 90 },
+    { title: '产品', dataIndex: ['product', 'name'], width: 90 },
+    { title: '单价', dataIndex: 'unit_price', width: 70, render: v => Number(v).toFixed(0) },
+    { title: '新签', dataIndex: 'new_sign_count', width: 60, render: v => <Tag color="blue">{v}</Tag> },
+    { title: '新签金额', dataIndex: 'new_sign_amount', width: 90, render: v => fmtMoney(v) },
+    { title: '解约', dataIndex: 'new_terminate_count', width: 60, render: v => <Tag color="red">{v}</Tag> },
+    { title: '解约率', dataIndex: 'new_terminate_rate', width: 70, render: v => fmtRate(v) },
+    { title: '退款', dataIndex: 'new_refund_count', width: 60 },
+    { title: '退款率', dataIndex: 'new_refund_rate', width: 70, render: v => fmtRate(v) },
+    { title: '续费', dataIndex: 'renewal_count', width: 60, render: v => <Tag color="green">{v}</Tag> },
+    { title: '续费金额', dataIndex: 'renewal_amount', width: 90, render: v => fmtMoney(v) },
+    { title: '续费退款', dataIndex: 'renewal_refund_count', width: 70 },
+    { title: '售后', dataIndex: 'after_sale_refund_count', width: 60 },
+    { title: '售后率', dataIndex: 'after_sale_refund_rate', width: 70, render: v => fmtRate(v) },
+    { title: '有效签约', dataIndex: 'effective_count', width: 70 },
+    { title: '有效收入', dataIndex: 'effective_amount', width: 100, render: v => <strong>{fmtMoney(v)}</strong> },
+    { title: '实际订单', dataIndex: 'actual_count', width: 70 },
+    { title: '实际金额', dataIndex: 'actual_amount', width: 90, render: v => fmtMoney(v) },
+    { title: '客诉', dataIndex: 'complaint_count', width: 60, render: v => v > 0 ? <Tag color="volcano">{v}</Tag> : v },
+    { title: '版本', dataIndex: 'version', width: 50 },
+    { title: '来源', dataIndex: 'source', width: 80, render: v => <Tag>{v}</Tag> },
+    { title: '操作', key: 'actions', width: 180, fixed: 'right', render: (_, r) => canWrite ? (
       <Space size="small">
         <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(r)} />
         <Button size="small" icon={<HistoryOutlined />} onClick={() => viewSnapshots(r.id)} />

@@ -10,6 +10,9 @@ const ROLE_COMPAT = {
   dept: 'department_manager',
   dept_manager: 'department_manager',
   dept_staff: 'department_member',
+  cps_admin: 'cps_admin',
+  cps_ops: 'cps_ops',
+  cps_channel_user: 'cps_channel_user',
 };
 
 // 角色权限定义（与后端 ROLE_PERMISSIONS 一致）
@@ -26,8 +29,11 @@ const ROLE_PERMISSIONS = {
     'import.excel', 'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.upload'
+    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'
   ],
+  cps_admin: ['cps.read', 'cps.write', 'cps.admin'],
+  cps_ops: ['cps.read', 'cps.write'],
+  cps_channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update',
     'project.read', 'project.create', 'project.update', 'project.quick_update',
@@ -37,8 +43,7 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
-    'risk_register.read', 'risk_register.create', 'risk_register.update',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.upload'
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
