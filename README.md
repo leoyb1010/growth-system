@@ -393,6 +393,26 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.10.0 — 2026-05-06 · CPS连包投流模块全新上线
+
+> 核心改动：新增独立CPS业务模块（连包投流），含看板/明细/导入导出/预警/渠道Token公开上传；7张独立DB表不耦合现有业务；cpsCalcService统一口径计算。
+
+**后端新增：**
+- 7张CPS独立表：channels / products / daily_metrics / snapshots / upload_logs / alert_rules / alert_events
+- cpsCalcService 计算服务：有效签约=新签+续费-退款，统一口径；支持退款率/解约率/售后率/客诉率
+- cpsController 10个端点：看板/明细/增删改查/快照/导入导出/预警确认
+- cpsAdminController：渠道/产品/预警规则CRUD + Token生成（SHA256防泄露）
+- cpsPublicController：渠道通过Token上传日粒度数据
+- 每日09:00定时预警检测（cpsCronService）
+
+**前端新增：**
+- `/cps` 菜单入口 → 4Tab页面（看板/明细/预警/字典管理）
+- KPI卡片+趋势图+明细表格+Excel导入导出+快照历史+预警确认
+
+**权限：** cps.read / cps.write / cps.admin / cps.upload（开放给 super_admin / department_manager）
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.9.0 — 2026-05-04 · 产品Review驱动全面升级
 
 > 核心改动：安全减法（数据范围+软删除+默认密码去敏）；总览今日三件事；行动项/风险台账降级为项目辅助能力。
