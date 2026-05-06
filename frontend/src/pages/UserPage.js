@@ -13,6 +13,9 @@ const ROLE_MAP = {
   dept: { label: '部门负责人', color: 'blue' },
   dept_staff: { label: '普通成员', color: 'default' },
   department_member: { label: '普通成员', color: 'default' },
+  cps_admin: { label: 'CPS管理员', color: 'purple' },
+  cps_ops: { label: 'CPS运营', color: 'cyan' },
+  cps_channel_user: { label: 'CPS渠道录入', color: 'orange' },
 };
 
 const STATUS_MAP = {
@@ -254,6 +257,9 @@ function UserPage() {
                   <Option value="admin">超级管理员</Option>
                   <Option value="dept_manager">部门负责人</Option>
                   <Option value="dept_staff">普通成员</Option>
+                  <Option value="cps_admin">CPS管理员</Option>
+                  <Option value="cps_ops">CPS运营</Option>
+                  <Option value="cps_channel_user">CPS渠道录入</Option>
                 </Select>
               </Form.Item>
             </Col>
