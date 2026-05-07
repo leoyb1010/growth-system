@@ -3,118 +3,97 @@ const { CpsChannel, CpsProduct, CpsDailyMetric, CpsAlertEvent, sequelize } = req
 const cpsCalc = require('./cpsCalcService');
 
 async function getDashboard(query = {}) {
-  const { start_date, end_date, channel_ids, product_ids, granularity } = query;
-  const where = {};
-  if (start_date && end_date) where.stat_date = { [Op.between]: [start_date, end_date] };
-  if (channel_ids) { const ids = parseIds(channel_ids); if (ids.length) where.channel_id = { [Op.in]: ids }; }
-  if (product_ids) { const ids = parseIds(product_ids); if (ids.length) where.product_id = { [Op.in]: ids }; }
+  const { start_date, end_date, channel_ids, product_ids } = query;
+  
+  // Helper: build channel/product filter SQL
+  const buildSqlFilter = (prefix = '') => {
+    const conditions = ['deleted_at IS NULL'];
+    const params = [];
+    if (start_date && end_date) { conditions.push('stat_date BETWEEN ? AND ?'); params.push(start_date, end_date); }
+    const chIds = parseIds(channel_ids);
+    if (chIds.length) { conditions.push(`channel_id IN (${chIds.map(() => '?').join(',')})`); params.push(...chIds); }
+    const prIds = parseIds(product_ids);
+    if (prIds.length) { conditions.push(`product_id IN (${prIds.map(() => '?').join(',')})`); params.push(...prIds); }
+    return { where: conditions.join(' AND '), params };
+  };
 
-  const rows = await CpsDailyMetric.findAll({ where, include: [
-    { model: CpsChannel, as: 'channel', attributes: ['id', 'name', 'code'] },
-    { model: CpsProduct, as: 'product', attributes: ['id', 'name', 'code', 'unit_price'] }
-  ], order: [['stat_date', 'DESC']] });
+  const filter = buildSqlFilter();
+  const cb = (sql) => sequelize.query(sql, { replacements: filter.params, type: sequelize.QueryTypes.SELECT });
 
-  const summary = cpsCalc.sumMetrics(rows);
+  // ── 全部汇总 ──
+  const [total] = await cb(`SELECT
+    COALESCE(SUM(new_sign_count),0) as new_sign, COALESCE(SUM(renewal_count),0) as renewal,
+    COALESCE(SUM(new_refund_count),0) as new_refund, COALESCE(SUM(renewal_refund_count),0) as renewal_refund,
+    COALESCE(SUM(after_sale_refund_count),0) as after_sale_refund,
+    COALESCE(SUM(complaint_count),0) as complaints,
+    COALESCE(SUM(effective_count),0) as effective_count,
+    COALESCE(SUM(effective_amount),0) as effective_amount,
+    COALESCE(SUM(new_sign_amount),0) as new_sign_amount,
+    COALESCE(SUM(renewal_amount),0) as renewal_amount,
+    COALESCE(SUM(actual_count),0) as actual_count,
+    COALESCE(SUM(actual_amount),0) as actual_amount
+    FROM cps_daily_metrics WHERE ${filter.where}`);
+
+  const all = total[0] || {};
+
+  // ── 年度 (current year) ──
+  const year = new Date().getFullYear().toString();
+  const yFilter = { ...filter };
+  yFilter.where += ` AND strftime('%Y', stat_date) = '${year}'`;
+  const [yearly] = await cb(`SELECT
+    COALESCE(SUM(effective_count),0) as effective_count, COALESCE(SUM(effective_amount),0) as effective_amount,
+    COALESCE(SUM(new_refund_count),0) as new_refund, COALESCE(SUM(new_sign_count),0) as new_sign,
+    COALESCE(SUM(renewal_count),0) as renewal
+    FROM cps_daily_metrics WHERE ${yFilter.where}`);
+
+  // ── 当季 ──
+  const m = new Date().getMonth() + 1;
+  const q = Math.ceil(m / 3);
+  const quarterFilter = { ...filter };
+  quarterFilter.where += ` AND CAST(strftime('%m', stat_date) AS INTEGER) BETWEEN ${(q-1)*3+1} AND ${q*3} AND strftime('%Y', stat_date) = '${year}'`;
+  const [quarterly] = await cb(`SELECT
+    COALESCE(SUM(effective_count),0) as effective_count, COALESCE(SUM(effective_amount),0) as effective_amount,
+    COALESCE(SUM(new_refund_count),0) as new_refund, COALESCE(SUM(new_sign_count),0) as new_sign,
+    COALESCE(SUM(renewal_count),0) as renewal, COALESCE(SUM(complaint_count),0) as complaints,
+    COALESCE(SUM(new_sign_count+renewal_count),0) as total_deals
+    FROM cps_daily_metrics WHERE ${quarterFilter.where}`);
+
+  // ── 昨日 T-1 ──
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const dFilter = { ...filter };
+  dFilter.where += ` AND stat_date = '${yesterday}'`;
+  const [daily] = await cb(`SELECT
+    COALESCE(SUM(effective_count),0) as effective_count, COALESCE(SUM(effective_amount),0) as effective_amount,
+    COALESCE(SUM(new_refund_count),0) as new_refund, COALESCE(SUM(new_sign_count),0) as new_sign,
+    COALESCE(SUM(renewal_count),0) as renewal, COALESCE(SUM(complaint_count),0) as complaints
+    FROM cps_daily_metrics WHERE ${dFilter.where}`);
+
+  // ── 预警 + 渠道数 ──
   const alertCount = await CpsAlertEvent.count({ where: { status: 'open' } });
   const channelCount = await CpsChannel.count({ where: { status: 'active' } });
-  const productCount = await CpsProduct.count({ where: { status: 'active' } });
 
-  // 7日滚动客诉率（下面P1-3带筛选的版本）
-  const today = new Date().toISOString().slice(0, 10);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-
-  // Trend with granularity
-  const granularityMap = { day: '%Y-%m-%d', week: '%Y-%W', month: '%Y-%m', quarter: '%Y-Q', half_year: '%Y-H' };
-  const dateFmt = granularityMap[granularity] || granularityMap.day;
-
-  // P1-3: trend SQL 响应渠道/产品筛选
-  const trendWhere = ['deleted_at IS NULL'];
-  const trendParams = [];
-  if (start_date && end_date) {
-    trendWhere.push('stat_date BETWEEN ? AND ?');
-    trendParams.push(start_date, end_date);
-  }
-  const trendChannelIds = parseIds(channel_ids);
-  if (trendChannelIds.length) {
-    trendWhere.push(`channel_id IN (${trendChannelIds.map(() => '?').join(',')})`);
-    trendParams.push(...trendChannelIds);
-  }
-  const trendProductIds = parseIds(product_ids);
-  if (trendProductIds.length) {
-    trendWhere.push(`product_id IN (${trendProductIds.map(() => '?').join(',')})`);
-    trendParams.push(...trendProductIds);
-  }
-
-  const trendRaw = await sequelize.query(
-    `SELECT strftime('${dateFmt}', stat_date) as period,
-      COALESCE(SUM(effective_amount),0) as effective_amt,
-      COALESCE(SUM(new_sign_count),0) as new_sign,
-      COALESCE(SUM(renewal_count),0) as renewal,
-      COALESCE(SUM(new_refund_count+renewal_refund_count),0) as refunds,
-      COALESCE(SUM(new_sign_count+renewal_count),0) as total_deals,
-      COALESCE(SUM(complaint_count),0) as complaints
-     FROM cps_daily_metrics
-     WHERE ${trendWhere.join(' AND ')}
-     GROUP BY period ORDER BY period ASC LIMIT 60`,
-    { replacements: trendParams, type: sequelize.QueryTypes.SELECT }
-  );
-
-  // 7日客诉率也响应筛选
-  const rollingWhere = ['stat_date BETWEEN ? AND ?', 'deleted_at IS NULL'];
-  const rollingParams = [sevenDaysAgo, today];
-  if (trendChannelIds.length) {
-    rollingWhere.push(`channel_id IN (${trendChannelIds.map(() => '?').join(',')})`);
-    rollingParams.push(...trendChannelIds);
-  }
-  if (trendProductIds.length) {
-    rollingWhere.push(`product_id IN (${trendProductIds.map(() => '?').join(',')})`);
-    rollingParams.push(...trendProductIds);
-  }
-
-  const [rollingData] = await sequelize.query(
-    `SELECT COALESCE(SUM(complaint_count),0) as complaints, COALESCE(SUM(new_sign_count+renewal_count),0) as total
-     FROM cps_daily_metrics WHERE ${rollingWhere.join(' AND ')}`,
-    { replacements: rollingParams, type: sequelize.QueryTypes.SELECT }
-  );
-  const complaintRate7d = rollingData?.total > 0 ? Number(rollingData.complaints / rollingData.total).toFixed(6) : 0;
-
+  // ── 趋势（60天） ──
+  const trendRaw = await cb(`SELECT strftime('%Y-%m-%d', stat_date) as date,
+    COALESCE(SUM(effective_amount),0) as effective_amt,
+    COALESCE(SUM(new_sign_count),0) as new_sign,
+    COALESCE(SUM(renewal_count),0) as renewal,
+    COALESCE(SUM(complaint_count),0) as complaints
+    FROM cps_daily_metrics WHERE ${filter.where}
+    GROUP BY date ORDER BY date ASC LIMIT 60`);
   const trend = trendRaw.map(r => ({
-    date: r.period,
-    effective_amount: Number(r.effective_amt) || 0,
-    new_sign_count: Number(r.new_sign) || 0,
-    renewal_count: Number(r.renewal) || 0,
-    refund_count: Number(r.refunds) || 0,
-    complaint_count: Number(r.complaints) || 0,
+    date: r.date, effective_amount: Number(r.effective_amt),
+    new_sign: Number(r.new_sign), renewal: Number(r.renewal),
+    complaints: Number(r.complaints),
   }));
 
-  // Alert events active for AI context
-  const alertsActive = await CpsAlertEvent.findAll({
-    where: { status: 'open' }, order: [['created_at', 'DESC']], limit: 20,
-    include: [{ model: CpsChannel, as: 'channel', attributes: ['name'] }, { model: CpsProduct, as: 'product', attributes: ['name'] }]
-  });
-
-  // Channel x Product matrix for AI context
-  const matrix = rows.reduce((acc, r) => {
-    const ch = r.channel?.name || '?'; const pr = r.product?.name || '?';
-    if (!acc[ch]) acc[ch] = {};
-    acc[ch][pr] = (acc[ch][pr] || 0) + Number(r.get('effective_amount'));
-    return acc;
-  }, {});
-
   return {
-    summary: {
-      ...summary,
-      refund_rate: cpsCalc.rate(summary.new_refund_count + summary.renewal_refund_count, summary.new_sign_count + summary.renewal_count),
-      complaint_rate: cpsCalc.rate(summary.complaint_count, summary.new_sign_count + summary.renewal_count),
-      complaint_rate_7d: Number(complaintRate7d),
-      alerts_active: alertCount,
-    },
-    alert_count: alertCount,
-    alerts_active: alertsActive.map(a => a.toJSON()),
-    channel_count: channelCount, product_count: productCount,
-    trend: trend.slice(-30),
-    matrix,
-    date_range: { start: start_date || rows[rows.length-1]?.stat_date || '', end: end_date || rows[0]?.stat_date || '' }
+    all: { new_sign: all.new_sign, renewal: all.renewal, new_refund: all.new_refund, renewal_refund: all.renewal_refund, effective_count: all.effective_count, effective_amount: all.effective_amount, new_sign_amount: all.new_sign_amount, renewal_amount: all.renewal_amount, complaints: all.complaints, after_sale_refund: all.after_sale_refund },
+    yearly: yearly[0] || {},
+    quarterly: { ...(quarterly[0] || {}), refund_rate: (quarterly[0] || {}).total_deals > 0 ? ((quarterly[0].new_refund || 0) / quarterly[0].total_deals) : 0 },
+    daily: daily[0] || {},
+    alert_count: alertCount, channel_count: channelCount,
+    trend,
+    date_range: { start: start_date || '', end: end_date || '' },
   };
 }
 
