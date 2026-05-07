@@ -30,7 +30,9 @@ const User = sequelize.define('User', {
   data_scope_type: { type: DataTypes.STRING(20), allowNull: true }, // all / department / self / custom
   data_scope_value: { type: DataTypes.TEXT, allowNull: true }, // JSON for custom
   // V6 安全字段
-  token_version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, // token版本号，修改后强制重登录
+  token_version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  cps_channel_id: { type: DataTypes.INTEGER, allowNull: true },
+  cps_role: { type: DataTypes.STRING(20), allowNull: true }, // token版本号，修改后强制重登录
 }, {
   tableName: 'users',
   timestamps: false,
