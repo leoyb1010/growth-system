@@ -43,7 +43,8 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
-    'risk_register.read', 'risk_register.create', 'risk_register.update'
+    'risk_register.read', 'risk_register.create', 'risk_register.update',
+    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
@@ -54,7 +55,8 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read',
     'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update',
-    'risk_register.read'
+    'risk_register.read',
+    'cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'
   ],
 };
 
