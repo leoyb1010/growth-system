@@ -3,33 +3,58 @@
   "releases": [
     {
       "version": "1.12.0",
-      "date": "2026-05-06",
-      "title": "渠道账号体系 — 录入权限+渠道绑定+极简录入页",
+      "date": "2026-05-07",
+      "title": "渠道账号体系 + CPS权限叠加 + 看板筛选器 + 修复",
       "changes": [
         {
           "type": "feature",
-          "module": "CPS渠道",
-          "desc": "渠道账号(cps_channel_user)登录后看到极简视图：日报录入+我的数据"
+          "module": "CPS权限",
+          "desc": "新增cps_role叠加机制：users.cps_role字段(admin/ops/channel_user)，后端injectAccessContext动态合并，前端can()支持cpsRole参数"
+        },
+        {
+          "type": "feature",
+          "module": "CPS权限",
+          "desc": "管理员(admin)始终拥有全部CPS权限，dept_manager/dept_staff不含默认CPS"
+        },
+        {
+          "type": "feature",
+          "module": "CPS看板",
+          "desc": "看板页新增渠道/产品多选筛选器，无需跳转明细页"
         },
         {
           "type": "feature",
           "module": "CPS渠道",
-          "desc": "用户管理支持绑定cps_channel_id，创建渠道录入账号"
+          "desc": "cps_channel_user极简视图(日报录入+我的数据)，表单自动带channel_id"
         },
         {
           "type": "feature",
-          "module": "CPS渠道",
-          "desc": "渠道账号自动过滤：看板/明细只显示本渠道数据"
+          "module": "用户管理",
+          "desc": "用户管理支持cps_channel_id绑定+CPS权限叠加下拉"
         },
         {
-          "type": "feature",
-          "module": "CPS渠道",
-          "desc": "渠道录入页：选产品→填日报数→提交，自动计算有效签约/收入"
+          "type": "fix",
+          "module": "项目推进",
+          "desc": "预计完成时间DatePicker清空后无法点击选择(safeMoment null→undefined)"
         },
         {
-          "type": "improve",
-          "module": "CPS渠道",
-          "desc": "渠道账号新增数据自动带channel_id，不暴露渠道选择"
+          "type": "fix",
+          "module": "CPS",
+          "desc": "表字段与Sequelize模型对齐(cps_products/cps_channels/cps_alert_rules/cps_alert_events/upload_logs)"
+        },
+        {
+          "type": "fix",
+          "module": "角色",
+          "desc": "UserPage角色下拉补齐CPS中文标签(管理员/运营/渠道录入)"
+        },
+        {
+          "type": "fix",
+          "module": "CPS",
+          "desc": "修复buildMetricWhere中reqWhere未定义导致明细页崩溃"
+        },
+        {
+          "type": "fix",
+          "module": "CPS口径",
+          "desc": "客诉率改为7日滚动窗口公式"
         }
       ]
     },
