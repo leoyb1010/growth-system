@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space, Radio, Tag, Tooltip } from 'antd';
 import { AlertOutlined, FallOutlined, InfoCircleOutlined, RiseOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
@@ -50,7 +50,11 @@ function CpsDashboardTab({ channelId }) {
     cpsApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
   }, []);
 
-  const fetchData = useCallback(async () => {
+  // 粒度/日期/渠道/产品任一变化即重新拉数据
+  useEffect(() => { fetchDashboard(); }, [granularity, range, selChannels, selProducts]);
+  useEffect(() => { const off = cpsBus.on(() => { fetchDashboard(); }); return off; }, []);
+  
+  async function fetchDashboard() {
     setLoading(true);
     try {
       const params = { granularity };
@@ -60,23 +64,11 @@ function CpsDashboardTab({ channelId }) {
       }
       if (selChannels.length) params.channel_ids = selChannels.join(',');
       if (selProducts.length) params.product_ids = selProducts.join(',');
-
       const res = await cpsApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [granularity, range, selChannels, selProducts]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => {
-    const off = cpsBus.on(event => {
-      if (event === 'metrics:changed') fetchData();
-    });
-    return off;
-  }, [fetchData]);
+    } catch { setData(null); }
+    finally { setLoading(false); }
+  }
 
   const period = data?.period || {};
   const yearly = data?.yearly || {};
@@ -232,7 +224,7 @@ function CpsDashboardTab({ channelId }) {
 
       {trendOption && (
         <Card size="small" title="实际收入与签约趋势" style={{ marginBottom: 12 }}>
-          <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 280 }} notMerge />
+          <ReactEChartsCore key={granularity + (data?.trend?.length || 0)} echarts={echarts} option={trendOption} style={{ height: 280 }} notMerge />
         </Card>
       )}
 
