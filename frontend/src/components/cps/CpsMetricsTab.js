@@ -45,13 +45,13 @@ function CpsMetricsTab({ channelId }) {
 
   useEffect(() => { fetchData(); }, [filters, pagination.page, pagination.pageSize]);
 
-  // 事件总线：Tab切换时自动刷新
+  // 事件总线：只注册一次，稳定监听所有变更
   useEffect(() => {
     const off = cpsBus.on((event) => {
       if (event === 'metrics:changed') fetchData();
     });
     return off;
-  }, [filters, pagination.page, pagination.pageSize]);
+  }, []);
 
   const columns = [
     { title: '日期', dataIndex: 'stat_date', width: 100, sorter: true, fixed: 'left' },

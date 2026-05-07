@@ -28,7 +28,7 @@ function CpsDashboardTab({ channelId }) {
       if (event === 'metrics:changed' || event === 'alerts:changed') fetchData();
     });
     return off;
-  }, [range, selChannels, selProducts]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);

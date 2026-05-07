@@ -24,7 +24,7 @@ function CpsAlertsTab() {
       if (event === 'alerts:changed' || event === 'metrics:changed') fetchData();
     });
     return off;
-  }, [status]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
