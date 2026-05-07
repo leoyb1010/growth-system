@@ -43,7 +43,7 @@ function CpsAdminTab() {
   };
 
   const saveRule = async () => {
-    try { const vals = await ruleForm.validateFields(); const res = await cpsApi.upsertAlertRule({ ...vals, id: editRule?.id }); if (res.code === 0) { setRuleModal(false); loadAll(); } }
+    try { const vals = await ruleForm.validateFields(); const code = vals.name ? String(vals.name).trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') : 'rule'; const res = await cpsApi.upsertAlertRule({ ...vals, code: code || 'rule_'+Date.now().toString(36), id: editRule?.id }); if (res.code === 0) { setRuleModal(false); loadAll(); } }
     catch (e) { if (!e?.errorFields) message.error('保存失败'); }
   };
 
@@ -52,7 +52,7 @@ function CpsAdminTab() {
       <h4>渠道管理</h4>
       <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditCh(null); chForm.resetFields(); setChModal(true); }} style={{ marginBottom: 12 }}>新增渠道</Button>
       <Table dataSource={channels} rowKey="id" size="small" pagination={false} columns={[
-        { title: '编码', dataIndex: 'code', width: 100 }, { title: '名称', dataIndex: 'name', width: 120 },
+        { title: '名称', dataIndex: 'name', width: 120 },
         { title: '联系人', dataIndex: 'contact_name', width: 100 },
         { title: '佣金率', dataIndex: 'commission_rate', width: 80, render: v => v ? (Number(v) * 100).toFixed(2) + '%' : '-' },
         { title: '状态', dataIndex: 'status', width: 80, render: v => <Tag color={v === 'active' ? 'green' : 'default'}>{v}</Tag> },
@@ -67,7 +67,7 @@ function CpsAdminTab() {
       <h4>产品管理</h4>
       <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditPr(null); prForm.resetFields(); setPrModal(true); }} style={{ marginBottom: 12 }}>新增产品</Button>
       <Table dataSource={products} rowKey="id" size="small" pagination={false} columns={[
-        { title: '编码', dataIndex: 'code', width: 100 }, { title: '名称', dataIndex: 'name', width: 120 },
+        { title: '名称', dataIndex: 'name', width: 120 },
         { title: '类型', dataIndex: 'product_type', width: 80 },
         { title: '单价', dataIndex: 'unit_price', width: 80, render: v => Number(v).toFixed(2) },
         { title: '状态', dataIndex: 'status', width: 80, render: v => <Tag color={v === 'active' ? 'green' : 'default'}>{v}</Tag> },
@@ -80,7 +80,7 @@ function CpsAdminTab() {
       <h4>预警规则</h4>
       <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditRule(null); ruleForm.resetFields(); ruleForm.setFieldsValue({ level: 'warning', operator: '>=', scope_type: 'global', enabled: true }); setRuleModal(true); }} style={{ marginBottom: 12 }}>新增规则</Button>
       <Table dataSource={rules} rowKey="id" size="small" pagination={false} columns={[
-        { title: '编码', dataIndex: 'code', width: 120 }, { title: '名称', dataIndex: 'name', width: 120 },
+        { title: '名称', dataIndex: 'name', width: 140 },
         { title: '指标', dataIndex: 'metric', width: 100 }, { title: '条件', key: 'cond', width: 100, render: (_, r) => `${r.operator} ${Number(r.threshold_value).toFixed(4)}` },
         { title: '级别', dataIndex: 'level', width: 80, render: v => <Tag color={v==='critical'?'red':'orange'}>{v}</Tag> },
         { title: '启用', dataIndex: 'enabled', width: 60, render: v => v ? '✅' : '⛔' },
@@ -116,7 +116,6 @@ function CpsAdminTab() {
       {/* Modal for rules */}
       <Modal title={editRule ? '编辑规则' : '新增规则'} open={ruleModal} onOk={saveRule} onCancel={() => setRuleModal(false)} width={500}>
         <Form form={ruleForm} layout="vertical">
-          <Form.Item name="code" label="编码" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="metric" label="监控指标" rules={[{ required: true }]}>
             <Select>
