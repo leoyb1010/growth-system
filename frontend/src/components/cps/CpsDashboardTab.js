@@ -34,6 +34,13 @@ function CpsDashboardTab({ channelId }) {
   const [range, setRange] = useState(null);
   const [granularity, setGranularity] = useState('day');
   const [channels, setChannels] = useState([]);
+
+  const handleGranularityChange = (g) => {
+    setGranularity(g);
+    if (g === 'day') setRange([dayjs().subtract(29, 'day'), dayjs()]);
+    else if (g === 'week') setRange([dayjs().startOf('week'), dayjs()]);
+    else if (g === 'month') setRange([dayjs().startOf('month'), dayjs()]);
+  };
   const [products, setProducts] = useState([]);
   const [selChannels, setSelChannels] = useState(channelId ? [channelId] : []);
   const [selProducts, setSelProducts] = useState([]);
@@ -150,7 +157,7 @@ function CpsDashboardTab({ channelId }) {
       <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap>
           <DatePicker.RangePicker value={range} onChange={setRange} allowClear placeholder={['开始','结束']} size="small" />
-          <Radio.Group value={granularity} onChange={event => setGranularity(event.target.value)} size="small">
+          <Radio.Group value={granularity} onChange={event => handleGranularityChange(event.target.value)} size="small">
             <Radio.Button value="day">按日</Radio.Button>
             <Radio.Button value="week">按周</Radio.Button>
             <Radio.Button value="month">按月</Radio.Button>
