@@ -1,8 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space, Tooltip } from 'antd';
-import { DollarOutlined, TeamOutlined, RiseOutlined, AlertOutlined, FallOutlined, FileTextOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space, Divider } from 'antd';
+import { DollarOutlined, TeamOutlined, AlertOutlined, FallOutlined, RiseOutlined, FileTextOutlined, UserAddOutlined, SyncOutlined } from '@ant-design/icons';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import { cpsApi, cpsBus } from '../../services/cpsService';
 import dayjs from 'dayjs';
+
+echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+
+function fmt(v) {
+  const n = Number(v || 0);
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万';
+  return Number(n.toFixed(0)).toLocaleString();
+}
 
 function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
@@ -12,7 +25,6 @@ function CpsDashboardTab({ channelId }) {
   const [products, setProducts] = useState([]);
   const [selChannels, setSelChannels] = useState(channelId ? [channelId] : []);
   const [selProducts, setSelProducts] = useState([]);
-  const canvasRef = useRef(null);
 
   useEffect(() => {
     cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {});
@@ -20,144 +32,93 @@ function CpsDashboardTab({ channelId }) {
   }, []);
 
   useEffect(() => { fetchData(); }, [range, selChannels, selProducts]);
-  useEffect(() => { const off = cpsBus.on((e) => { if (e === 'metrics:changed' || e === 'alerts:changed') fetchData(); }); return off; }, []);
+  useEffect(() => { const off = cpsBus.on((e) => { if (e === 'metrics:changed') fetchData(); }); return off; }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const params = {};
-      if (range && range[0] && range[1]) { params.start_date = range[0].format('YYYY-MM-DD'); params.end_date = range[1].format('YYYY-MM-DD'); }
+      if (range?.[0] && range?.[1]) { params.start_date = range[0].format('YYYY-MM-DD'); params.end_date = range[1].format('YYYY-MM-DD'); }
       if (selChannels.length) params.channel_ids = selChannels.join(',');
       if (selProducts.length) params.product_ids = selProducts.join(',');
       const res = await cpsApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
-    } catch (err) {}
-    setLoading(false);
+    } catch {} finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    if (!data?.trend?.length || !canvasRef.current) return;
-    drawTrend(canvasRef.current, data.trend);
-  }, [data]);
+  if (!data && !loading) return <Empty description="暂无数据" />;
 
-  const fmt = (v) => {
-    const n = Number(v || 0);
-    if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万';
-    return Number(n.toFixed(0)).toLocaleString();
-  };
-  const fmtRate = (v) => (Number(v || 0) * 100).toFixed(1) + '%';
+  const y = data?.yearly || {}, q = data?.quarterly || {}, d = data?.daily || {};
+  const chartOption = data?.trend?.length ? {
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, data: ['实际收入', '新签', '续费'] },
+    grid: { left: 60, right: 20, top: 10, bottom: 30 },
+    xAxis: { type: 'category', data: data.trend.map(t => t.date.slice(5)), axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'value', axisLabel: { formatter: v => (v/10000).toFixed(0)+'万' } },
+    series: [
+      { name: '实际收入', type: 'line', data: data.trend.map(t => t.amount), smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#1890ff' }, areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(24,144,255,0.3)'},{offset:1,color:'rgba(24,144,255,0.02)'}]) } },
+      { name: '新签', type: 'line', data: data.trend.map(t => t.new_sign), smooth: true, symbol: 'none', lineStyle: { width: 1.5, color: '#52c41a' } },
+      { name: '续费', type: 'line', data: data.trend.map(t => t.renewal), smooth: true, symbol: 'none', lineStyle: { width: 1.5, color: '#faad14' } },
+    ],
+  } : null;
 
-  const renderRow = (title, d, extra = null) => (
-    <Card size="small" title={<span style={{ fontSize: 13, fontWeight: 500 }}>{title}</span>} extra={extra} style={{ marginBottom: 8 }}>
-      <Row gutter={8}>
-        <Col span={4}><Statistic title="有效签约" value={fmt(d?.effective_count || 0)} valueStyle={{ fontSize: 18, fontWeight: 600 }} /></Col>
-        <Col span={4}><Statistic title="有效收入" value={fmt(d?.effective_amount)} prefix="¥" valueStyle={{ fontSize: 18, fontWeight: 600, color: '#1890ff' }} /></Col>
-        <Col span={4}><Statistic title="新签退款" value={fmt(d?.new_refund || 0)} valueStyle={{ fontSize: 18, color: '#cf1322' }} /></Col>
-        <Col span={3}><Statistic title="新签" value={fmt(d?.new_sign || 0)} valueStyle={{ fontSize: 18 }} /></Col>
-        <Col span={3}><Statistic title="续费" value={fmt(d?.renewal || 0)} valueStyle={{ fontSize: 18 }} /></Col>
-        {extra}
-      </Row>
-    </Card>
-  );
+  const cardStyle = (color) => ({ textAlign: 'center', padding: '6px 8px', background: '#fafafa', borderRadius: 6 });
+  const st = (v) => ({ fontSize: 20, fontWeight: 700, color: v > 0 ? '#1890ff' : '#999' });
 
   return (
     <Spin spinning={loading}>
-      <div style={{ marginBottom: 12 }}>
-        <Space wrap>
-          <DatePicker.RangePicker value={range} onChange={setRange} allowClear placeholder={['开始', '结束']} size="small" />
-          {!channelId && <Select mode="multiple" placeholder="渠道" allowClear size="small" value={selChannels} onChange={setSelChannels} style={{ minWidth: 150 }} maxTagCount={2}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select>}
-          <Select mode="multiple" placeholder="产品" allowClear size="small" value={selProducts} onChange={setSelProducts} style={{ minWidth: 150 }} maxTagCount={2}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select>
-        </Space>
-      </div>
+      <Space wrap style={{ marginBottom: 12 }}>
+        <DatePicker.RangePicker value={range} onChange={setRange} allowClear placeholder={['开始','结束']} size="small" />
+        {!channelId && <Select mode="multiple" placeholder="渠道" allowClear size="small" value={selChannels} onChange={setSelChannels} style={{ minWidth: 140 }} maxTagCount={2}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select>}
+        <Select mode="multiple" placeholder="产品" allowClear size="small" value={selProducts} onChange={setSelProducts} style={{ minWidth: 140 }} maxTagCount={2}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select>
+      </Space>
 
-      {!data ? <Empty description="暂无数据" /> : (
-        <>
-          {/* Row 1: 年度 */}
-          {renderRow(`📊 年度数据 (${new Date().getFullYear()})`, data.yearly,
-            <Col span={6}><Statistic title="活跃渠道" value={data.channel_count || 0} prefix={<TeamOutlined />} valueStyle={{ fontSize: 18 }} /></Col>
-          )}
+      {/* Row 1: 年度 */}
+      <Card size="small" title={`📊 年度 · ${new Date().getFullYear()}`} style={{ marginBottom: 10 }}>
+        <Row gutter={8}>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际签约</div><div style={st(y.actual_count)}>{fmt(y.actual_count)}</div></div></Col>
+          <Col span={5}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际收入</div><div style={{ fontSize: 20, fontWeight: 700, color: '#1890ff' }}>¥{fmt(y.actual_amount)}</div></div></Col>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签退款</div><div style={{ fontSize: 20, fontWeight: 700, color: '#cf1322' }}>{fmt(y.new_refund)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签</div><div style={st(y.new_sign)}>{fmt(y.new_sign)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>续费</div><div style={st(y.renewal)}>{fmt(y.renewal)}</div></div></Col>
+          <Col span={5}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>活跃渠道</div><div style={st(data?.channel_count)}>{data?.channel_count || 0}</div></div></Col>
+        </Row>
+      </Card>
 
-          {/* Row 2: 当季 */}
-          {renderRow(`📅 当季数据 (Q${Math.ceil((new Date().getMonth()+1)/3)})`, data.quarterly,
-            <>
-              <Col span={3}><Statistic title="退款率" value={fmtRate(data.quarterly?.refund_rate)} valueStyle={{ fontSize: 18, color: (data.quarterly?.refund_rate||0) > 0.05 ? '#cf1322' : '#3f8600' }} /></Col>
-              <Col span={3}><Statistic title="预警" value={data.alert_count || 0} prefix={<AlertOutlined />} valueStyle={{ fontSize: 18, color: data.alert_count > 0 ? '#cf1322' : '#3f8600' }} /></Col>
-            </>
-          )}
+      {/* Row 2: 当季 */}
+      <Card size="small" title={`📅 当季 · Q${Math.ceil((new Date().getMonth()+1)/3)}`} style={{ marginBottom: 10 }}>
+        <Row gutter={8}>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际签约</div><div style={st(q.actual_count)}>{fmt(q.actual_count)}</div></div></Col>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际收入</div><div style={{ fontSize: 18, fontWeight: 700, color: '#1890ff' }}>¥{fmt(q.actual_amount)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签退款</div><div style={{ fontSize: 18, fontWeight: 700, color: '#cf1322' }}>{fmt(q.new_refund)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签</div><div style={st(q.new_sign)}>{fmt(q.new_sign)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>续费</div><div style={st(q.renewal)}>{fmt(q.renewal)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>退款率</div><div style={{ fontSize: 18, fontWeight: 700, color: (q.refund_rate||0)>0.05?'#cf1322':'#3f8600' }}>{(Number(q.refund_rate||0)*100).toFixed(1)}%</div></div></Col>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>预警</div><div style={{ fontSize: 18, fontWeight: 700, color: data?.alert_count>0?'#cf1322':'#3f8600' }}><AlertOutlined style={{marginRight:4}}/>{data?.alert_count||0}</div></div></Col>
+        </Row>
+      </Card>
 
-          {/* Row 3: T-1 */}
-          {renderRow(`📋 昨日数据 (${dayjs().subtract(1,'day').format('MM-DD')})`, data.daily,
-            <Col span={6}><Statistic title="开放预警" value={data.alert_count || 0} prefix={<AlertOutlined />} valueStyle={{ fontSize: 18, color: data.alert_count > 0 ? '#cf1322' : '#3f8600' }} /></Col>
-          )}
+      {/* Row 3: 昨日 */}
+      <Card size="small" title={`📋 昨日 · ${dayjs().subtract(1,'day').format('MM-DD')}`} style={{ marginBottom: 10 }}>
+        <Row gutter={8}>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际签约</div><div style={st(d.actual_count)}>{fmt(d.actual_count)}</div></div></Col>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>实际收入</div><div style={{ fontSize: 18, fontWeight: 700, color: '#1890ff' }}>¥{fmt(d.actual_amount)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签退款</div><div style={{ fontSize: 18, fontWeight: 700, color: '#cf1322' }}>{fmt(d.new_refund)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>新签</div><div style={st(d.new_sign)}>{fmt(d.new_sign)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>续费</div><div style={st(d.renewal)}>{fmt(d.renewal)}</div></div></Col>
+          <Col span={3}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>客诉</div><div style={{ fontSize: 18, fontWeight: 700, color: d.complaints>0?'#cf1322':'#999' }}>{d.complaints||0}</div></div></Col>
+          <Col span={4}><div style={cardStyle()}><div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>预警</div><div style={{ fontSize: 18, fontWeight: 700, color: data?.alert_count>0?'#cf1322':'#3f8600' }}><AlertOutlined style={{marginRight:4}}/>{data?.alert_count||0}</div></div></Col>
+        </Row>
+      </Card>
 
-          {/* Trend Chart */}
-          <Card size="small" title="📈 趋势图" style={{ marginTop: 8 }}>
-            <canvas ref={canvasRef} width={760} height={200} style={{ width: '100%', maxHeight: 220 }} />
-          </Card>
-        </>
+      {/* Trend */}
+      {chartOption && (
+        <Card size="small" title="📈 实际收入趋势">
+          <ReactEChartsCore echarts={echarts} option={chartOption} style={{ height: 220 }} notMerge />
+        </Card>
       )}
     </Spin>
   );
-}
-
-function drawTrend(canvas, trend) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const pad = { top: 20, right: 20, bottom: 30, left: 70 };
-  const pw = W - pad.left - pad.right, ph = H - pad.top - pad.bottom;
-
-  ctx.clearRect(0, 0, W, H);
-
-  const amounts = trend.map(t => t.effective_amount);
-  const max = Math.max(...amounts, 1);
-  const points = trend.length;
-  const xStep = points > 1 ? pw / (points - 1) : pw;
-
-  // Grid
-  ctx.strokeStyle = '#f0f0f0';
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.top + (ph * i / 4);
-    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-    ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(Math.round(max * (4-i) / 4 / 10000) + '万', pad.left - 5, y + 3);
-  }
-
-  // Area fill
-  ctx.beginPath();
-  ctx.moveTo(pad.left, pad.top + ph);
-  trend.forEach((t, i) => {
-    const x = pad.left + i * xStep;
-    const y = pad.top + ph - (t.effective_amount / max) * ph;
-    ctx.lineTo(x, y);
-  });
-  ctx.lineTo(pad.left + (points - 1) * xStep, pad.top + ph);
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ph);
-  grad.addColorStop(0, 'rgba(24,144,255,0.3)');
-  grad.addColorStop(1, 'rgba(24,144,255,0.02)');
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = '#1890ff';
-  ctx.lineWidth = 2;
-  trend.forEach((t, i) => {
-    const x = pad.left + i * xStep;
-    const y = pad.top + ph - (t.effective_amount / max) * ph;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-
-  // Date labels (every 10th)
-  ctx.fillStyle = '#666'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-  trend.forEach((t, i) => {
-    if (i % Math.max(1, Math.floor(points / 8)) === 0 || i === points - 1) {
-      const x = pad.left + i * xStep;
-      ctx.fillText(t.date.slice(5), x, H - 5);
-    }
-  });
 }
 
 export default CpsDashboardTab;
