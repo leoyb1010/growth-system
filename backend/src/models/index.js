@@ -381,7 +381,6 @@ const CpsChannel = sequelize.define('CpsChannel', {
   contact_name: { type: DataTypes.STRING(100), allowNull: true },
   contact_info: { type: DataTypes.STRING(255), allowNull: true },
   commission_rate: { type: DataTypes.DECIMAL(8, 4), allowNull: true },
-  upload_token: { type: DataTypes.STRING(128), allowNull: true },
   status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
   remark: { type: DataTypes.TEXT, allowNull: true },
 }, { tableName: 'cps_channels', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
@@ -421,7 +420,6 @@ const CpsDailyMetric = sequelize.define('CpsDailyMetric', {
   status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'confirmed' },
   uploader_id: { type: DataTypes.INTEGER, allowNull: true },
   uploader_name: { type: DataTypes.STRING(100), allowNull: true },
-  uploader_token_hash: { type: DataTypes.STRING(128), allowNull: true },
   version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
   remark: { type: DataTypes.TEXT, allowNull: true },
 }, {

@@ -1,6 +1,38 @@
 {
-  "latestVersion": "1.12.0",
+  "latestVersion": "1.13.0",
   "releases": [
+    {
+      "version": "1.13.0",
+      "date": "2026-05-07",
+      "title": "CPS v2 看板与导入复核安全修补",
+      "changes": [
+        {
+          "type": "fix",
+          "module": "CPS看板",
+          "desc": "本期筛选与年累计/季累计/昨日固定窗口分离，避免时间筛选被静默覆盖"
+        },
+        {
+          "type": "fix",
+          "module": "CPS看板",
+          "desc": "趋势图支持日/周/月粒度，金额和笔数拆分双Y轴，长期数据优先展示最新区间"
+        },
+        {
+          "type": "fix",
+          "module": "CPS导入",
+          "desc": "Excel导入返回受影响日期和渠道，前端导入后弹出明细复核并自动筛到本次导入范围"
+        },
+        {
+          "type": "security",
+          "module": "CPS录入",
+          "desc": "移除公开Token上传代码路径，新渠道不再生成上传Token；渠道数据录入只保留登录态权限控制"
+        },
+        {
+          "type": "fix",
+          "module": "CPS字典",
+          "desc": "渠道佣金率支持清空为null，避免空值被Number(null)写成0"
+        }
+      ]
+    },
     {
       "version": "1.12.0",
       "date": "2026-05-07",
@@ -152,8 +184,8 @@
         },
         {
           "type": "feature",
-          "module": "CPS公开接口",
-          "desc": "渠道通过Token上传日粒度数据"
+          "module": "CPS录入",
+          "desc": "渠道日粒度数据录入能力；公开上传路径已在后续版本废弃并移除"
         },
         {
           "type": "feature",

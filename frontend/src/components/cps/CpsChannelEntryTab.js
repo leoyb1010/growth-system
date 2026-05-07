@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Input, InputNumber, Select, DatePicker, Button, message, Card, Space, Typography } from 'antd';
+import { Form, InputNumber, Select, DatePicker, Button, message, Card, Space, Typography } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { cpsApi } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
+import { fmtMoney } from '../../utils/cpsFormat';
+import MoneyInput from './MoneyInput';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -35,10 +37,10 @@ function CpsChannelEntryTab() {
         renewal_refund_count: vals.renewal_refund_count || 0,
         after_sale_refund_count: vals.after_sale_refund_count || 0,
         complaint_count: vals.complaint_count || 0,
-        source: 'channel_upload',
+        source: 'channel_entry',
       });
       if (res.code === 0) {
-        message.success(`数据已提交！有效签约 ${res.data?.effective_count || 0}，有效收入 ${Number(res.data?.effective_amount || 0).toFixed(0)}`);
+        message.success(`数据已提交！有效签约 ${res.data?.effective_count || 0}，有效收入 ${fmtMoney(res.data?.effective_amount, { decimals: 2 })}`);
         form.setFieldValue('stat_date', dayjs().subtract(1, 'day'));
         // 不重置字段，方便连续录入（只更新日期）
       } else {
@@ -60,10 +62,10 @@ function CpsChannelEntryTab() {
         </Form.Item>
         <Form.Item name="product_id" label="产品" rules={[{ required: true }]}>
           <Select placeholder="选择产品">
-            {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name} (￥{Number(p.unit_price).toFixed(0)})</Select.Option>)}
+            {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name} (￥{Number(p.unit_price).toFixed(2)})</Select.Option>)}
           </Select>
         </Form.Item>
-        <Form.Item name="unit_price" label="产品金额"><InputNumber style={{ width: '100%' }} step={0.01} /></Form.Item>
+        <Form.Item name="unit_price" label="产品金额"><MoneyInput /></Form.Item>
         <Space style={{ width: '100%' }} direction="vertical">
           <Space>
             <Form.Item name="new_sign_count" label="新签数" style={{ width: 110 }}><InputNumber /></Form.Item>

@@ -23,7 +23,6 @@ const actionItemController = require('../controllers/actionItemController');
 const riskRegisterController = require('../controllers/riskRegisterController');
 const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
-const cpsPublicController = require('../controllers/cpsPublicController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const fileRoutes = require('./fileRoutes');
 const cpsUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/cps/'), limits: { fileSize: 10 * 1024 * 1024 } });

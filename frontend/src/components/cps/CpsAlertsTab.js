@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Space, message, Select } from 'antd';
+import { Table, Tag, Button, message, Select } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 import { cpsApi, cpsBus } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,6 +7,12 @@ import { can } from '../../permissions/ability';
 
 const levelColors = { critical: 'red', warning: 'orange', info: 'blue' };
 const statusColors = { open: 'error', ack: 'processing', closed: 'default' };
+const RATE_METRICS = ['new_refund_rate', 'renewal_refund_rate', 'after_sale_refund_rate', 'new_terminate_rate'];
+
+function fmtThreshold(metric, value) {
+  if (RATE_METRICS.includes(metric)) return `${(Number(value || 0) * 100).toFixed(1)}%`;
+  return Number(value || 0).toFixed(0);
+}
 
 function CpsAlertsTab() {
   const { user } = useAuth();
@@ -45,7 +51,7 @@ function CpsAlertsTab() {
     { title: '渠道', dataIndex: ['channel', 'name'], width: 100 },
     { title: '产品', dataIndex: ['product', 'name'], width: 100 },
     { title: '指标', dataIndex: 'metric', width: 100 },
-    { title: '阈值', dataIndex: 'threshold_value', width: 80, render: v => Number(v).toFixed(4) },
+    { title: '阈值', dataIndex: 'threshold_value', width: 80, render: (value, record) => fmtThreshold(record.metric, value) },
     { title: '状态', dataIndex: 'status', width: 80, render: v => <Tag color={statusColors[v]}>{v}</Tag> },
     { title: '操作', key: 'actions', width: 100, render: (_, r) => r.status === 'open' && can(role, 'cps.write', cpsRole) ? (
       <Button size="small" type="primary" ghost icon={<CheckOutlined />} onClick={() => handleAck(r.id)}>确认</Button>

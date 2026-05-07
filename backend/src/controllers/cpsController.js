@@ -48,6 +48,28 @@ function assertMetricScope(req, rowOrPayload) {
   return null;
 }
 
+function todayString() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function parseUnitPrice(value, fallback) {
+  const raw = value === undefined || value === null || value === '' ? fallback : value;
+  const number = Number(raw || 0);
+  if (!Number.isFinite(number) || number < 0) return null;
+  return number;
+}
+
+function validateStatDate(value) {
+  if (!value) return '缺少 stat_date';
+  if (String(value) > todayString()) return 'stat_date 不能晚于今天';
+  return null;
+}
+
 async function getDashboard(req, res) {
   try {
     const scopedQuery = { ...req.query };
@@ -96,12 +118,15 @@ async function upsertMetric(req, res) {
     if (!payload.stat_date) return error(res, '缺少 stat_date', 400, 400);
     if (!payload.channel_id) return error(res, '缺少 channel_id', 400, 400);
     if (!payload.product_id) return error(res, '缺少 product_id', 400, 400);
+    const dateError = validateStatDate(payload.stat_date);
+    if (dateError) return error(res, dateError, 400, 400);
 
     const product = await CpsProduct.findByPk(payload.product_id);
     if (!product) return error(res, '产品不存在', 404, 404);
 
     const input = cpsCalc.sanitizeInput(payload);
-    const unitPrice = Number(payload.unit_price || product.unit_price || 0);
+    const unitPrice = parseUnitPrice(payload.unit_price, product.unit_price);
+    if (unitPrice === null) return error(res, 'unit_price 不能为负数或非法数字', 400, 400);
     const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
 
     const where = { stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id };
@@ -137,7 +162,8 @@ async function updateMetric(req, res) {
 
     const payload = req.body || {};
     const input = cpsCalc.sanitizeInput(payload);
-    const unitPrice = Number(payload.unit_price || row.unit_price || 0);
+    const unitPrice = parseUnitPrice(payload.unit_price, row.unit_price);
+    if (unitPrice === null) return error(res, 'unit_price 不能为负数或非法数字', 400, 400);
     const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
 
     await CpsDailyMetricSnapshot.create({

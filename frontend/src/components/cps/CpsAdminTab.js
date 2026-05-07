@@ -66,9 +66,11 @@ function CpsAdminTab() {
       <Table dataSource={channels} rowKey="id" size="small" pagination={false} columns={[
         { title: '名称', dataIndex: 'name', width: 120 },
         { title: '联系人', dataIndex: 'contact_name', width: 100 },
+        { title: '联系信息', dataIndex: 'contact_info', width: 160, ellipsis: true },
         { title: '佣金率', dataIndex: 'commission_rate', width: 80, render: v => v ? (Number(v) * 100).toFixed(2) + '%' : '-' },
         { title: '状态', dataIndex: 'status', width: 80, render: v => <Tag color={v === 'active' ? 'green' : 'default'}>{v}</Tag> },
-        { title: '操作', key: 'actions', width: 200, render: (_, r) => (
+        { title: '创建时间', dataIndex: 'created_at', width: 110, render: v => v ? String(v).slice(0, 10) : '-' },
+        { title: '操作', key: 'actions', width: 100, render: (_, r) => (
           <Space size="small">
             <Button size="small" icon={<EditOutlined />} onClick={() => { setEditCh(r); chForm.setFieldsValue(r); setChModal(true); }} />
           </Space>

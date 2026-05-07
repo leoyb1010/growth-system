@@ -1,5 +1,3 @@
-const crypto = require('crypto');
-const { Op } = require('sequelize');
 const { CpsChannel, CpsProduct, CpsAlertRule } = require('../models');
 const { success, error } = require('../utils/response');
 const { safeCode, isUniqueConstraintError } = require('../utils/cpsCode');
@@ -17,8 +15,6 @@ async function createChannel(req, res) {
     if (!name || !String(name).trim()) return error(res, '渠道名称必填', 400, 400);
 
     const finalCode = safeCode(inputCode || name, 'ch');
-    const token_hash = crypto.createHash('sha256').update(crypto.randomBytes(32).toString('hex')).digest('hex');
-
     const ch = await CpsChannel.create({
       code: finalCode,
       name: String(name).trim(),
@@ -26,7 +22,6 @@ async function createChannel(req, res) {
       contact_info,
       commission_rate: commission_rate !== undefined && commission_rate !== null && commission_rate !== ''
         ? Number(commission_rate) : null,
-      upload_token: token_hash,
       status: 'active',
     });
 
@@ -44,7 +39,15 @@ async function updateChannel(req, res) {
     const ch = await CpsChannel.findByPk(req.params.id);
     if (!ch) return error(res, '渠道不存在', 404, 404);
     const { name, contact_name, contact_info, commission_rate, status } = req.body || {};
-    await ch.update({ name: name || ch.name, contact_name: contact_name !== undefined ? contact_name : ch.contact_name, contact_info: contact_info !== undefined ? contact_info : ch.contact_info, commission_rate: commission_rate !== undefined ? Number(commission_rate) : ch.commission_rate, status: status || ch.status });
+    await ch.update({
+      name: name || ch.name,
+      contact_name: contact_name !== undefined ? contact_name : ch.contact_name,
+      contact_info: contact_info !== undefined ? contact_info : ch.contact_info,
+      commission_rate: commission_rate === undefined
+        ? ch.commission_rate
+        : (commission_rate === null || commission_rate === '' ? null : Number(commission_rate)),
+      status: status || ch.status,
+    });
     return success(res, ch);
   } catch (err) { return error(res, err.message || '更新渠道失败'); }
 }

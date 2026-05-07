@@ -393,6 +393,12 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.13.0 — 2026-05-07 · CPS v2看板与导入复核安全修补
+
+> 核心改动：CPS看板区分「本期筛选」与「年/季/昨日固定窗口」；趋势图改为金额/笔数双轴并支持日/周/月；Excel导入后弹出本次明细复核；移除公开Token上传代码路径，渠道录入只保留登录态权限控制。
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.12.0 — 2026-05-07 · CPS全面加固
 
 > 7项修复+4项增强，覆盖字典code/数据范围隔离/金额百分比规范/Excel导入/事件总线/看板筛选/分页重置。
@@ -414,14 +420,13 @@ docker-compose up -d --build
 
 ### v1.10.0 — 2026-05-06 · CPS连包投流模块全新上线
 
-> 核心改动：新增独立CPS业务模块（连包投流），含看板/明细/导入导出/预警/渠道Token公开上传；7张独立DB表不耦合现有业务；cpsCalcService统一口径计算。
+> 核心改动：新增独立CPS业务模块（连包投流），含看板/明细/导入导出/预警；7张独立DB表不耦合现有业务；cpsCalcService统一口径计算。早期公开Token上传路径已在后续版本废弃并移除。
 
 **后端新增：**
 - 7张CPS独立表：channels / products / daily_metrics / snapshots / upload_logs / alert_rules / alert_events
 - cpsCalcService 计算服务：有效签约=新签+续费-退款，统一口径；支持退款率/解约率/售后率/客诉率
 - cpsController 10个端点：看板/明细/增删改查/快照/导入导出/预警确认
-- cpsAdminController：渠道/产品/预警规则CRUD + Token生成（SHA256防泄露）
-- cpsPublicController：渠道通过Token上传日粒度数据
+- cpsAdminController：渠道/产品/预警规则CRUD
 - 每日09:00定时预警检测（cpsCronService）
 
 **前端新增：**

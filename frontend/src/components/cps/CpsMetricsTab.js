@@ -26,6 +26,8 @@ function CpsMetricsTab({ channelId }) {
   const [snapshots, setSnapshots] = useState([]);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState(channelId ? { channel_ids: String(channelId) } : {});
+  const [importResultModal, setImportResultModal] = useState(null);
+  const [importPreview, setImportPreview] = useState([]);
 
   useEffect(() => { cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {}); }, []);
   useEffect(() => { cpsApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
@@ -57,7 +59,7 @@ function CpsMetricsTab({ channelId }) {
     { title: '日期', dataIndex: 'stat_date', width: 100, sorter: true, fixed: 'left' },
     { title: '渠道', dataIndex: ['channel', 'name'], width: 90 },
     { title: '产品', dataIndex: ['product', 'name'], width: 90 },
-    { title: '单价', dataIndex: 'unit_price', width: 70, render: v => Number(v).toFixed(0) },
+    { title: '单价', dataIndex: 'unit_price', width: 80, render: v => fmtMoney(v, { decimals: 2 }) },
     { title: '新签', dataIndex: 'new_sign_count', width: 60, render: v => <Tag color="blue">{v}</Tag> },
     { title: '新签金额', dataIndex: 'new_sign_amount', width: 90, render: v => fmtMoney(v) },
     { title: '解约', dataIndex: 'new_terminate_count', width: 60, render: v => <Tag color="red">{v}</Tag> },
@@ -130,14 +132,37 @@ function CpsMetricsTab({ channelId }) {
       fd.append('forced_channel_id', importChannelId);
       try {
         const res = await cpsApi.importMetrics(fd);
-        if (res.code === 0) {
-          const d = res.data || {};
-          message.success(`导入完成：成功 ${d.success || 0} 条`);
-          if (d.errors?.length) {
-            Modal.warning({ title: '部分行导入失败', content: <pre style={{ whiteSpace: 'pre-wrap' }}>{d.errors.join('\n')}</pre>, width: 720 });
+        if (res.code !== 0) { message.error(res.message || '导入失败'); return; }
+
+        const result = res.data || {};
+        let preview = [];
+        if (result.affected_dates?.length) {
+          const previewRes = await cpsApi.getMetrics({
+            start_date: result.affected_dates[0],
+            end_date: result.affected_dates[result.affected_dates.length - 1],
+            channel_ids: String(importChannelId),
+            source: 'excel_import',
+            pageSize: 200,
+            page: 1,
+          });
+          if (previewRes.code === 0) {
+            preview = previewRes.data.rows || [];
           }
         }
-        fetchData();
+
+        setImportPreview(preview);
+        setImportResultModal(result);
+        message.success(`导入完成：成功 ${result.success || 0} 条`);
+
+        if (result.affected_dates?.length) {
+          updateFilters({
+            start_date: result.affected_dates[0],
+            end_date: result.affected_dates[result.affected_dates.length - 1],
+            channel_ids: String(importChannelId),
+          });
+        } else {
+          fetchData();
+        }
       } catch { message.error('导入失败'); }
     };
     input.click();
@@ -205,10 +230,65 @@ function CpsMetricsTab({ channelId }) {
       </Modal>
 
       {/* 导入渠道选择 */}
-      <Modal title="选择导入渠道" open={importModalVisible} onOk={doImport} onCancel={() => setImportModalVisible(false)}>
+      <Modal
+        title="第 1 步 / 共 2 步：选择本次导入的归属渠道"
+        open={importModalVisible}
+        okText="下一步：选择 Excel 文件"
+        onOk={doImport}
+        onCancel={() => setImportModalVisible(false)}
+      >
+        <div style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
+          系统会强制把本次 Excel 中所有行归属到此渠道，不使用 Excel 中的渠道列。
+        </div>
         <Select placeholder="请选择数据归属渠道" value={importChannelId} onChange={setImportChannelId} style={{ width: '100%' }}>
           {channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
         </Select>
+      </Modal>
+
+      <Modal
+        title={`导入复核 · 本次共 ${importResultModal?.total || 0} 行（成功 ${importResultModal?.success || 0} / 跳过 ${importResultModal?.skip || 0}）`}
+        open={!!importResultModal}
+        onCancel={() => setImportResultModal(null)}
+        footer={null}
+        width={1100}
+      >
+        {importResultModal?.created_channels?.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            自动新建渠道：{importResultModal.created_channels.map(item => item.name).join('、')}
+          </div>
+        )}
+        {importResultModal?.created_products?.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            自动新建产品：{importResultModal.created_products.map(item => item.name).join('、')}
+          </div>
+        )}
+        {importResultModal?.errors?.length > 0 && (
+          <div style={{ marginBottom: 12, color: '#cf1322' }}>
+            失败 {importResultModal.errors.length} 行：
+            <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto', background: '#fff2f0', padding: 8, borderRadius: 4 }}>
+              {importResultModal.errors.join('\n')}
+            </pre>
+          </div>
+        )}
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>导入后明细预览（前 200 行）</div>
+        <Table
+          dataSource={importPreview}
+          rowKey="id"
+          size="small"
+          scroll={{ x: 1100, y: 400 }}
+          pagination={false}
+          columns={[
+            { title: '日期', dataIndex: 'stat_date', width: 100 },
+            { title: '渠道', dataIndex: ['channel', 'name'], width: 100 },
+            { title: '产品', dataIndex: ['product', 'name'], width: 100 },
+            { title: '单价', dataIndex: 'unit_price', width: 80, render: v => fmtMoney(v, { decimals: 2 }) },
+            { title: '新签', dataIndex: 'new_sign_count', width: 70 },
+            { title: '续费', dataIndex: 'renewal_count', width: 70 },
+            { title: '退款', dataIndex: 'new_refund_count', width: 70 },
+            { title: '实际收入', dataIndex: 'actual_amount', width: 110, render: v => <strong>{fmtMoney(v)}</strong> },
+            { title: '版本', dataIndex: 'version', width: 60 },
+          ]}
+        />
       </Modal>
     </div>
   );

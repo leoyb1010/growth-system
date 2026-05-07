@@ -46,9 +46,22 @@ async function importFromExcel(filePath, opts = {}) {
   const wb = xlsx.readFile(filePath);
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
-  if (!rows.length) return { success: 0, skip: 0, error: 1, total: 0, errors: ['空文件'], created_channels: [], created_products: [] };
+  if (!rows.length) {
+    return {
+      success: 0,
+      skip: 0,
+      error: 1,
+      total: 0,
+      errors: ['空文件'],
+      created_channels: [],
+      created_products: [],
+      affected_dates: [],
+      affected_channel_ids: [],
+    };
+  }
 
   const autoCreate = opts.auto_create_dim !== false;
+  const forcedChannelId = opts.forced_channel_id ? Number(opts.forced_channel_id) : null;
   const statDate = opts.stat_date || formatDate(rows[0].stat_date || rows[0]['日期'] || rows[0]['stat_date']);
 
   let channels = await CpsChannel.findAll({ where: { status: 'active' } });
@@ -70,7 +83,7 @@ async function importFromExcel(filePath, opts = {}) {
     const dim = extractRowDim(raw);
     const hasChannel = (dim.channelCode && maps.channelByCode.has(dim.channelCode)) || (dim.channelName && maps.channelByName.has(norm(dim.channelName)));
     const hasProduct = (dim.productCode && maps.productByCode.has(dim.productCode)) || (dim.productName && maps.productByName.has(norm(dim.productName)));
-    if (!hasChannel && dim.channelName) needChannels.set(norm(dim.channelName), dim.channelName);
+    if (!forcedChannelId && !hasChannel && dim.channelName) needChannels.set(norm(dim.channelName), dim.channelName);
     if (!hasProduct && dim.productName) needProducts.set(norm(dim.productName), dim.productName);
   }
 
@@ -95,23 +108,29 @@ async function importFromExcel(filePath, opts = {}) {
   const errors = [];
   let lastChannelName = '';
   let lastChannelCode = '';
+  const affectedDates = new Set();
+  const affectedChannelIds = new Set();
 
   for (const raw of rows) {
     try {
       const dim = extractRowDim(raw);
-      // 合并行：如果当前行没有渠道信息，沿用上一行
-      if (!dim.channelName && !dim.channelCode) {
-        dim.channelName = lastChannelName;
-        dim.channelCode = lastChannelCode;
+      if (forcedChannelId) {
+        if (!dim.productName && !dim.productCode) { skip++; continue; }
       } else {
-        lastChannelName = dim.channelName;
-        lastChannelCode = dim.channelCode;
+        // 合并行：如果当前行没有渠道信息，沿用上一行
+        if (!dim.channelName && !dim.channelCode) {
+          dim.channelName = lastChannelName;
+          dim.channelCode = lastChannelCode;
+        } else {
+          lastChannelName = dim.channelName;
+          lastChannelCode = dim.channelCode;
+        }
+        // 跳过完全空行
+        if (!dim.channelName && !dim.channelCode && !dim.productName && !dim.productCode) { skip++; continue; }
       }
-      // 跳过完全空行
-      if (!dim.channelName && !dim.channelCode && !dim.productName && !dim.productCode) { skip++; continue; }
 
-      const ch = opts.forced_channel_id
-        ? channels.find(c => Number(c.id) === Number(opts.forced_channel_id))
+      const ch = forcedChannelId
+        ? channels.find(c => Number(c.id) === forcedChannelId)
         : maps.channelByCode.get(dim.channelCode) || maps.channelByName.get(norm(dim.channelName));
       const pr = maps.productByCode.get(dim.productCode) || maps.productByName.get(norm(dim.productName));
 
@@ -144,6 +163,8 @@ async function importFromExcel(filePath, opts = {}) {
       } else {
         await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: 'excel_import', uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: 1 });
       }
+      affectedDates.add(where.stat_date);
+      affectedChannelIds.add(ch.id);
       success++;
     } catch (e) {
       errors.push(`行 ${raw.__rowNum__ || '?'}: ${e.message}`);
@@ -151,7 +172,17 @@ async function importFromExcel(filePath, opts = {}) {
     }
   }
 
-  return { success, skip, error: errors.length ? 1 : 0, total: rows.length, errors: errors.slice(0, 20), created_channels, created_products };
+  return {
+    success,
+    skip,
+    error: errors.length ? 1 : 0,
+    total: rows.length,
+    errors: errors.slice(0, 20),
+    created_channels,
+    created_products,
+    affected_dates: Array.from(affectedDates).sort(),
+    affected_channel_ids: Array.from(affectedChannelIds),
+  };
 }
 
 module.exports = { importFromExcel };
