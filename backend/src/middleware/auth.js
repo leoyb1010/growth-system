@@ -250,10 +250,22 @@ function applyDataScope(resourceType) {
         break;
       default:
         scopeWhere.dept_id = deptId;
+      case 'cps_channel': {
+        if (!dataScopeValue) {
+          return error(res, '当前账号未绑定CPS渠道，禁止访问渠道数据', 403, 403);
+        }
+        if (['cps', 'cps_metric', 'cps_alert'].includes(resourceType)) {
+          scopeWhere.channel_id = dataScopeValue;
+        } else {
+          scopeWhere.dept_id = deptId;
+        }
+        break;
+      }
     }
 
     req.dataScope = {
       type: dataScopeType,
+      value: dataScopeValue,
       deptId,
       userId,
       where: scopeWhere

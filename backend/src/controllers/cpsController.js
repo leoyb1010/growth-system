@@ -28,11 +28,33 @@ function buildMetricWhere(query) {
   return where;
 }
 
-let _reqWhere = null;
+// P0-2: 数据范围工具函数
+function mergeDataScope(where, req) {
+  if (req.dataScope?.where && Object.keys(req.dataScope.where).length) {
+    Object.assign(where, req.dataScope.where);
+  }
+  return where;
+}
+
+function isCpsChannelScope(req) {
+  return req.dataScope?.type === 'cps_channel';
+}
+
+function assertMetricScope(req, rowOrPayload) {
+  if (!isCpsChannelScope(req)) return null;
+  const ownChannelId = Number(req.dataScope.value || req.user?.cps_channel_id);
+  if (!ownChannelId) return '当前账号未绑定CPS渠道';
+  if (Number(rowOrPayload.channel_id) !== ownChannelId) return '无权操作其他渠道的数据';
+  return null;
+}
 
 async function getDashboard(req, res) {
   try {
-    const data = await cpsDashboardService.getDashboard(req.query);
+    const scopedQuery = { ...req.query };
+    if (isCpsChannelScope(req)) {
+      scopedQuery.channel_ids = String(req.dataScope.value);
+    }
+    const data = await cpsDashboardService.getDashboard(scopedQuery);
     return success(res, data);
   } catch (err) {
     console.error('CPS dashboard error:', err);
@@ -44,7 +66,7 @@ async function getMetrics(req, res) {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 200);
-    const where = buildMetricWhere(req.query);
+    const where = mergeDataScope(buildMetricWhere(req.query), req);
 
     const result = await CpsDailyMetric.findAndCountAll({
       where,
@@ -66,7 +88,11 @@ async function getMetrics(req, res) {
 
 async function upsertMetric(req, res) {
   try {
-    const payload = req.body || {};
+    const payload = { ...(req.body || {}) };
+    // 渠道账号强制改写channel_id，无法伪造
+    if (isCpsChannelScope(req)) {
+      payload.channel_id = req.dataScope.value;
+    }
     if (!payload.stat_date) return error(res, '缺少 stat_date', 400, 400);
     if (!payload.channel_id) return error(res, '缺少 channel_id', 400, 400);
     if (!payload.product_id) return error(res, '缺少 product_id', 400, 400);
@@ -106,6 +132,9 @@ async function updateMetric(req, res) {
     const row = await CpsDailyMetric.findByPk(req.params.id);
     if (!row) return error(res, '数据不存在', 404, 404);
 
+    const scopeError = assertMetricScope(req, row);
+    if (scopeError) return error(res, scopeError, 403, 403);
+
     const payload = req.body || {};
     const input = cpsCalc.sanitizeInput(payload);
     const unitPrice = Number(payload.unit_price || row.unit_price || 0);
@@ -131,6 +160,8 @@ async function deleteMetric(req, res) {
   try {
     const row = await CpsDailyMetric.findByPk(req.params.id);
     if (!row) return error(res, '数据不存在', 404, 404);
+    const scopeError = assertMetricScope(req, row);
+    if (scopeError) return error(res, scopeError, 403, 403);
     await row.destroy();
     return success(res, true);
   } catch (err) {
@@ -149,7 +180,13 @@ async function getMetricSnapshots(req, res) {
 async function importMetrics(req, res) {
   try {
     if (!req.file) return error(res, '请上传Excel文件', 400, 400);
-    const result = await cpsImportService.importFromExcel(req.file.path, { stat_date: req.body.stat_date, uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username });
+    const result = await cpsImportService.importFromExcel(req.file.path, {
+      stat_date: req.body.stat_date,
+      uploader_id: req.user?.id,
+      uploader_name: req.user?.name || req.user?.username,
+      auto_create_dim: req.body.auto_create_dim !== 'false',
+      forced_channel_id: isCpsChannelScope(req) ? req.dataScope.value : null,
+    });
     return success(res, result);
   } catch (err) { console.error('CPS import error:', err); return error(res, err.message || '导入失败'); }
 }
@@ -172,6 +209,7 @@ async function getAlerts(req, res) {
     const channelIds = parseIds(req.query.channel_ids), productIds = parseIds(req.query.product_ids);
     if (channelIds.length) where.channel_id = { [Op.in]: channelIds };
     if (productIds.length) where.product_id = { [Op.in]: productIds };
+    mergeDataScope(where, req);
 
     const rows = await CpsAlertEvent.findAll({
       where, include: [

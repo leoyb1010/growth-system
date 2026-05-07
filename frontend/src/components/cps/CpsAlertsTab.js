@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Space, message, Select } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
-import { cpsApi } from '../../services/cpsService';
+import { cpsApi, cpsBus } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
 
@@ -18,6 +18,13 @@ function CpsAlertsTab() {
   const [status, setStatus] = useState('open');
 
   useEffect(() => { fetchData(); }, [status]);
+
+  useEffect(() => {
+    const off = cpsBus.on((event) => {
+      if (event === 'alerts:changed' || event === 'metrics:changed') fetchData();
+    });
+    return off;
+  }, [status]);
 
   const fetchData = async () => {
     setLoading(true);

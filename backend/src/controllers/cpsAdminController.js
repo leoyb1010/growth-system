@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { CpsChannel, CpsProduct, CpsAlertRule } = require('../models');
 const { success, error } = require('../utils/response');
+const { safeCode, isUniqueConstraintError } = require('../utils/cpsCode');
 
 function makeToken() { return crypto.randomBytes(32).toString('hex'); }
 
@@ -14,15 +15,31 @@ async function getChannels(req, res) {
 
 async function createChannel(req, res) {
   try {
-    const { name, contact_name, contact_info, commission_rate } = req.body || {};
-    if (!name) return error(res, '渠道名称必填', 400, 400);
-    const code = String(name).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const { code: inputCode, name, contact_name, contact_info, commission_rate } = req.body || {};
+    if (!name || !String(name).trim()) return error(res, '渠道名称必填', 400, 400);
+
+    const finalCode = safeCode(inputCode || name, 'ch');
     const upload_token = makeToken();
     const token_hash = crypto.createHash('sha256').update(upload_token).digest('hex');
 
-    const ch = await CpsChannel.create({ code, name: name.trim(), contact_name, contact_info, commission_rate: Number(commission_rate) || null, upload_token: token_hash, status: 'active' });
+    const ch = await CpsChannel.create({
+      code: finalCode,
+      name: String(name).trim(),
+      contact_name,
+      contact_info,
+      commission_rate: commission_rate !== undefined && commission_rate !== null && commission_rate !== ''
+        ? Number(commission_rate) : null,
+      upload_token: token_hash,
+      status: 'active',
+    });
+
     return success(res, { ...ch.toJSON(), _upload_token_plain: upload_token }, '创建成功');
-  } catch (err) { return error(res, err.message || '创建渠道失败'); }
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return error(res, '渠道编码已存在，请换一个编码或留空自动生成', 400, 400);
+    }
+    return error(res, err.message || '创建渠道失败');
+  }
 }
 
 async function updateChannel(req, res) {
@@ -55,12 +72,25 @@ async function getProducts(req, res) {
 
 async function createProduct(req, res) {
   try {
-    const { name, product_type, unit_price } = req.body || {};
-    if (!name) return error(res, '产品名称必填', 400, 400);
-    const code = String(name).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    const p = await CpsProduct.create({ code, name: name.trim(), product_type, unit_price: Number(unit_price) || 0, status: 'active' });
+    const { code: inputCode, name, product_type, unit_price } = req.body || {};
+    if (!name || !String(name).trim()) return error(res, '产品名称必填', 400, 400);
+
+    const finalCode = safeCode(inputCode || name, 'pr');
+    const p = await CpsProduct.create({
+      code: finalCode,
+      name: String(name).trim(),
+      product_type,
+      unit_price: unit_price !== undefined && unit_price !== null && unit_price !== '' ? Number(unit_price) : 0,
+      status: 'active',
+    });
+
     return success(res, p, '创建成功');
-  } catch (err) { return error(res, err.message || '创建产品失败'); }
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return error(res, '产品编码已存在，请换一个编码或留空自动生成', 400, 400);
+    }
+    return error(res, err.message || '创建产品失败');
+  }
 }
 
 async function updateProduct(req, res) {

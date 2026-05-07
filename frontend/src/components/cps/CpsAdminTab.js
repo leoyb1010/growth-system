@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, Switch, Popconfirm, message, Divider, Tag, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons';
 import { cpsApi } from '../../services/cpsService';
+import PercentInput from './PercentInput';
+import MoneyInput from './MoneyInput';
 
 const { Text, Paragraph } = Typography;
 
@@ -102,7 +104,7 @@ function CpsAdminTab() {
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="contact_name" label="联系人"><Input /></Form.Item>
           <Form.Item name="contact_info" label="联系信息"><Input /></Form.Item>
-          <Form.Item name="commission_rate" label="佣金率"><InputNumber step={0.001} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="commission_rate" label="佣金率"><PercentInput /></Form.Item>
           <Form.Item name="status" label="状态"><Select><Select.Option value="active">活跃</Select.Option><Select.Option value="inactive">停用</Select.Option></Select></Form.Item>
         </Form>
       </Modal>
@@ -112,7 +114,7 @@ function CpsAdminTab() {
         <Form form={prForm} layout="vertical">
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="product_type" label="类型"><Input /></Form.Item>
-          <Form.Item name="unit_price" label="单价"><InputNumber step={0.01} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="unit_price" label="单价"><MoneyInput /></Form.Item>
           <Form.Item name="status" label="状态"><Select><Select.Option value="active">活跃</Select.Option><Select.Option value="inactive">停用</Select.Option></Select></Form.Item>
         </Form>
       </Modal>

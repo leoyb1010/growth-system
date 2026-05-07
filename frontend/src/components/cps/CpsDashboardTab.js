@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space } from 'antd';
 import { DollarOutlined, TeamOutlined } from '@ant-design/icons';
-import { cpsApi } from '../../services/cpsService';
+import { cpsApi, cpsBus } from '../../services/cpsService';
 import dayjs from 'dayjs';
 
 function CpsDashboardTab({ channelId }) {
@@ -21,6 +21,13 @@ function CpsDashboardTab({ channelId }) {
   useEffect(() => {
     if (!range || !range[0] || !range[1]) return;
     fetchData();
+  }, [range, selChannels, selProducts]);
+
+  useEffect(() => {
+    const off = cpsBus.on((event) => {
+      if (event === 'metrics:changed' || event === 'alerts:changed') fetchData();
+    });
+    return off;
   }, [range, selChannels, selProducts]);
 
   const fetchData = async () => {

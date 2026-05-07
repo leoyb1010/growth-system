@@ -19,19 +19,31 @@ async function getDashboard(query = {}) {
   const channelCount = await CpsChannel.count({ where: { status: 'active' } });
   const productCount = await CpsProduct.count({ where: { status: 'active' } });
 
-  // 7日滚动客诉率：近7天投诉/近7天(新签+续费)
+  // 7日滚动客诉率（下面P1-3带筛选的版本）
   const today = new Date().toISOString().slice(0, 10);
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-  const [rollingData] = await sequelize.query(
-    `SELECT COALESCE(SUM(complaint_count),0) as complaints, COALESCE(SUM(new_sign_count+renewal_count),0) as total
-     FROM cps_daily_metrics WHERE stat_date BETWEEN ? AND ? AND deleted_at IS NULL`,
-    { replacements: [sevenDaysAgo, today], type: sequelize.QueryTypes.SELECT }
-  );
-  const complaintRate7d = rollingData?.total > 0 ? Number(rollingData.complaints / rollingData.total).toFixed(6) : 0;
 
   // Trend with granularity
   const granularityMap = { day: '%Y-%m-%d', week: '%Y-%W', month: '%Y-%m', quarter: '%Y-Q', half_year: '%Y-H' };
   const dateFmt = granularityMap[granularity] || granularityMap.day;
+
+  // P1-3: trend SQL 响应渠道/产品筛选
+  const trendWhere = ['deleted_at IS NULL'];
+  const trendParams = [];
+  if (start_date && end_date) {
+    trendWhere.push('stat_date BETWEEN ? AND ?');
+    trendParams.push(start_date, end_date);
+  }
+  const trendChannelIds = parseIds(channel_ids);
+  if (trendChannelIds.length) {
+    trendWhere.push(`channel_id IN (${trendChannelIds.map(() => '?').join(',')})`);
+    trendParams.push(...trendChannelIds);
+  }
+  const trendProductIds = parseIds(product_ids);
+  if (trendProductIds.length) {
+    trendWhere.push(`product_id IN (${trendProductIds.map(() => '?').join(',')})`);
+    trendParams.push(...trendProductIds);
+  }
 
   const trendRaw = await sequelize.query(
     `SELECT strftime('${dateFmt}', stat_date) as period,
@@ -41,11 +53,30 @@ async function getDashboard(query = {}) {
       COALESCE(SUM(new_refund_count+renewal_refund_count),0) as refunds,
       COALESCE(SUM(new_sign_count+renewal_count),0) as total_deals,
       COALESCE(SUM(complaint_count),0) as complaints
-     FROM cps_daily_metrics WHERE deleted_at IS NULL
-     ${Object.keys(where).length ? 'AND stat_date BETWEEN ? AND ?' : ''}
+     FROM cps_daily_metrics
+     WHERE ${trendWhere.join(' AND ')}
      GROUP BY period ORDER BY period ASC LIMIT 60`,
-    { replacements: Object.keys(where).length ? [start_date, end_date] : [], type: sequelize.QueryTypes.SELECT }
+    { replacements: trendParams, type: sequelize.QueryTypes.SELECT }
   );
+
+  // 7日客诉率也响应筛选
+  const rollingWhere = ['stat_date BETWEEN ? AND ?', 'deleted_at IS NULL'];
+  const rollingParams = [sevenDaysAgo, today];
+  if (trendChannelIds.length) {
+    rollingWhere.push(`channel_id IN (${trendChannelIds.map(() => '?').join(',')})`);
+    rollingParams.push(...trendChannelIds);
+  }
+  if (trendProductIds.length) {
+    rollingWhere.push(`product_id IN (${trendProductIds.map(() => '?').join(',')})`);
+    rollingParams.push(...trendProductIds);
+  }
+
+  const [rollingData] = await sequelize.query(
+    `SELECT COALESCE(SUM(complaint_count),0) as complaints, COALESCE(SUM(new_sign_count+renewal_count),0) as total
+     FROM cps_daily_metrics WHERE ${rollingWhere.join(' AND ')}`,
+    { replacements: rollingParams, type: sequelize.QueryTypes.SELECT }
+  );
+  const complaintRate7d = rollingData?.total > 0 ? Number(rollingData.complaints / rollingData.total).toFixed(6) : 0;
 
   const trend = trendRaw.map(r => ({
     date: r.period,

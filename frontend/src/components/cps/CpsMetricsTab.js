@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, DatePicker, Select, Modal, Form, Input, InputNumber, Popconfirm, message, Row, Col } from 'antd';
+import { Table, Button, Space, Tag, DatePicker, Select, Modal, Form, Input, Popconfirm, message, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined, HistoryOutlined } from '@ant-design/icons';
-import { cpsApi } from '../../services/cpsService';
+import { cpsApi, cpsBus } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
+import { fmtMoney, fmtRate } from '../../utils/cpsFormat';
+import MoneyInput from './MoneyInput';
 import dayjs from 'dayjs';
 
 function CpsMetricsTab({ channelId }) {
@@ -28,16 +30,28 @@ function CpsMetricsTab({ channelId }) {
   useEffect(() => { cpsApi.getChannels().then(r => { if (r.code === 0) setChannels(r.data || []); }).catch(() => {}); }, []);
   useEffect(() => { cpsApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
 
-  useEffect(() => {
+  const updateFilters = (patch) => {
+    setFilters(f => ({ ...f, ...patch }));
+    setPagination(p => ({ ...p, page: 1 }));
+  };
+
+  const fetchData = () => {
     setLoading(true);
     cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
       .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
       .catch(() => message.error('加载失败'))
       .finally(() => setLoading(false));
-  }, [filters, pagination.page]);
+  };
 
-  const fmtMoney = v => Number(v).toFixed(0);
-  const fmtRate = v => (Number(v) * 100).toFixed(2) + '%';
+  useEffect(() => { fetchData(); }, [filters, pagination.page, pagination.pageSize]);
+
+  // 事件总线：Tab切换时自动刷新
+  useEffect(() => {
+    const off = cpsBus.on((event) => {
+      if (event === 'metrics:changed') fetchData();
+    });
+    return off;
+  }, [filters, pagination.page, pagination.pageSize]);
 
   const columns = [
     { title: '日期', dataIndex: 'stat_date', width: 100, sorter: true, fixed: 'left' },
@@ -98,21 +112,20 @@ function CpsMetricsTab({ channelId }) {
     catch { message.error('获取快照失败'); }
   };
 
-  const fetchData = () => {
-    setLoading(true);
-    cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
-      .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
-      .finally(() => setLoading(false));
-  };
-
   const handleImport = async () => {
     const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls';
     input.onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
-      const fd = new FormData(); fd.append('file', file);
+      const fd = new FormData(); fd.append('file', file); fd.append('auto_create_dim', 'true');
       try {
         const res = await cpsApi.importMetrics(fd);
-        if (res.code === 0) message.success(`导入完成: 成功 ${res.data?.success || 0} 条`);
+        if (res.code === 0) {
+          const d = res.data || {};
+          message.success(`导入完成：成功 ${d.success || 0} 条，新建渠道 ${(d.created_channels || []).length} 个，产品 ${(d.created_products || []).length} 个`);
+          if (d.errors?.length) {
+            Modal.warning({ title: '部分行导入失败', content: <pre style={{ whiteSpace: 'pre-wrap' }}>{d.errors.join('\n')}</pre>, width: 720 });
+          }
+        }
         fetchData();
       } catch { message.error('导入失败'); }
     };
@@ -127,9 +140,12 @@ function CpsMetricsTab({ channelId }) {
   return (
     <div>
       <Row gutter={8} style={{ marginBottom: 16 }}>
-        <Col><DatePicker.RangePicker onChange={(dates) => { if (dates) setFilters(f => ({ ...f, start_date: dates[0].format('YYYY-MM-DD'), end_date: dates[1].format('YYYY-MM-DD') })); }} /></Col>
-        {!isChannelUser && <Col><Select placeholder="渠道" allowClear onChange={v => setFilters(f => ({ ...f, channel_ids: v }))} style={{ width: 150 }}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Col>}
-        <Col><Select placeholder="产品" allowClear onChange={v => setFilters(f => ({ ...f, product_ids: v }))} style={{ width: 150 }}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Col>
+        <Col><DatePicker.RangePicker onChange={(dates) => {
+          if (!dates) return updateFilters({ start_date: undefined, end_date: undefined });
+          updateFilters({ start_date: dates[0].format('YYYY-MM-DD'), end_date: dates[1].format('YYYY-MM-DD') });
+        }} /></Col>
+        {!isChannelUser && <Col><Select placeholder="渠道" allowClear onChange={v => updateFilters({ channel_ids: v })} style={{ width: 150 }}>{channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}</Select></Col>}
+        <Col><Select placeholder="产品" allowClear onChange={v => updateFilters({ product_ids: v })} style={{ width: 150 }}>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Col>
         {canWrite && (
           <Col><Space>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>新增</Button>
@@ -149,7 +165,7 @@ function CpsMetricsTab({ channelId }) {
           </Row>
           <Row gutter={16}>
             <Col span={12}><Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Form.Item></Col>
-            <Col span={12}><Form.Item name="unit_price" label="单价"><InputNumber style={{ width: '100%' }} step={0.01} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="unit_price" label="单价"><MoneyInput /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}><Form.Item name="new_sign_count" label="新签数"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
