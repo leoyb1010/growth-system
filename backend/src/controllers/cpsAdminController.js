@@ -4,8 +4,6 @@ const { CpsChannel, CpsProduct, CpsAlertRule } = require('../models');
 const { success, error } = require('../utils/response');
 const { safeCode, isUniqueConstraintError } = require('../utils/cpsCode');
 
-function makeToken() { return crypto.randomBytes(32).toString('hex'); }
-
 async function getChannels(req, res) {
   try {
     const rows = await CpsChannel.findAll({ order: [['id', 'ASC']] });
@@ -19,8 +17,7 @@ async function createChannel(req, res) {
     if (!name || !String(name).trim()) return error(res, '渠道名称必填', 400, 400);
 
     const finalCode = safeCode(inputCode || name, 'ch');
-    const upload_token = makeToken();
-    const token_hash = crypto.createHash('sha256').update(upload_token).digest('hex');
+    const token_hash = crypto.createHash('sha256').update(crypto.randomBytes(32).toString('hex')).digest('hex');
 
     const ch = await CpsChannel.create({
       code: finalCode,
@@ -33,7 +30,7 @@ async function createChannel(req, res) {
       status: 'active',
     });
 
-    return success(res, { ...ch.toJSON(), _upload_token_plain: upload_token }, '创建成功');
+    return success(res, ch, '创建成功');
   } catch (err) {
     if (isUniqueConstraintError(err)) {
       return error(res, '渠道编码已存在，请换一个编码或留空自动生成', 400, 400);
@@ -50,17 +47,6 @@ async function updateChannel(req, res) {
     await ch.update({ name: name || ch.name, contact_name: contact_name !== undefined ? contact_name : ch.contact_name, contact_info: contact_info !== undefined ? contact_info : ch.contact_info, commission_rate: commission_rate !== undefined ? Number(commission_rate) : ch.commission_rate, status: status || ch.status });
     return success(res, ch);
   } catch (err) { return error(res, err.message || '更新渠道失败'); }
-}
-
-async function regenerateToken(req, res) {
-  try {
-    const ch = await CpsChannel.findByPk(req.params.id);
-    if (!ch) return error(res, '渠道不存在', 404, 404);
-    const upload_token = makeToken();
-    const token_hash = crypto.createHash('sha256').update(upload_token).digest('hex');
-    await ch.update({ upload_token: token_hash });
-    return success(res, { ...ch.toJSON(), _upload_token_plain: upload_token }, 'Token已重新生成');
-  } catch (err) { return error(res, err.message || '重置Token失败'); }
 }
 
 async function getProducts(req, res) {
@@ -135,4 +121,4 @@ async function deleteAlertRule(req, res) {
   } catch (err) { return error(res, err.message || '删除规则失败'); }
 }
 
-module.exports = { getChannels, createChannel, updateChannel, regenerateToken, getProducts, createProduct, updateProduct, getAlertRules, upsertAlertRule, deleteAlertRule };
+module.exports = { getChannels, createChannel, updateChannel, getProducts, createProduct, updateProduct, getAlertRules, upsertAlertRule, deleteAlertRule };

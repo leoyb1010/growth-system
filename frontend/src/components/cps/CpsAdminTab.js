@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, Switch, Popconfirm, message, Divider, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons';
+import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, Switch, Popconfirm, message, Divider, Tag } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { cpsApi } from '../../services/cpsService';
 import PercentInput from './PercentInput';
 import MoneyInput from './MoneyInput';
-
-const { Text, Paragraph } = Typography;
 
 function CpsAdminTab() {
   const [channels, setChannels] = useState([]);
@@ -20,7 +18,6 @@ function CpsAdminTab() {
   const [chForm] = Form.useForm();
   const [prForm] = Form.useForm();
   const [ruleForm] = Form.useForm();
-  const [tokenDisplay, setTokenDisplay] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -35,7 +32,7 @@ function CpsAdminTab() {
 
   const saveChannel = async () => {
     try { const vals = await chForm.validateFields(); const res = editCh ? await cpsApi.updateChannel(editCh.id, vals) : await cpsApi.createChannel(vals);
-      if (res.code === 0) { setChModal(false); loadAll(); if (res.data?._upload_token_plain) setTokenDisplay(res.data._upload_token_plain); }
+      if (res.code === 0) { setChModal(false); loadAll(); message.success(editCh ? '已更新' : '渠道已创建'); }
     } catch (e) { if (!e?.errorFields) message.error('保存失败'); }
   };
 
@@ -50,8 +47,6 @@ function CpsAdminTab() {
     catch (e) { if (!e?.errorFields) message.error('保存失败'); }
   };
 
-  const regenToken = async (id) => { try { const res = await cpsApi.regenerateToken(id); if (res.code === 0 && res.data?._upload_token_plain) setTokenDisplay(res.data._upload_token_plain); } catch { message.error('重置失败'); } };
-
   return (
     <div>
       <h4>渠道管理</h4>
@@ -64,7 +59,6 @@ function CpsAdminTab() {
         { title: '操作', key: 'actions', width: 200, render: (_, r) => (
           <Space size="small">
             <Button size="small" icon={<EditOutlined />} onClick={() => { setEditCh(r); chForm.setFieldsValue(r); setChModal(true); }} />
-            <Button size="small" icon={<KeyOutlined />} onClick={() => regenToken(r.id)} />
           </Space>
         ) }
       ]} />
@@ -138,14 +132,6 @@ function CpsAdminTab() {
           <Form.Item name="level" label="预警级别"><Select><Select.Option value="warning">警告</Select.Option><Select.Option value="critical">严重</Select.Option></Select></Form.Item>
           <Form.Item name="enabled" label="启用" valuePropName="checked"><Switch /></Form.Item>
         </Form>
-      </Modal>
-
-      {/* Token display */}
-      <Modal title="上传Token" open={!!tokenDisplay} onCancel={() => setTokenDisplay(null)} footer={null}>
-        <Paragraph copyable style={{ fontSize: 14, wordBreak: 'break-all', background: '#f5f5f5', padding: 12, borderRadius: 8 }}>
-          {tokenDisplay}
-        </Paragraph>
-        <Text type="danger">⚠️ Token 仅显示一次，请立即复制并安全保存</Text>
       </Modal>
     </div>
   );

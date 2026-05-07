@@ -51,7 +51,6 @@ export const cpsApi = {
   getChannels: () => api.get('/cps/channels'),
   createChannel: (data) => api.post('/cps/channels', data),
   updateChannel: (id, data) => api.put(`/cps/channels/${id}`, data),
-  regenerateToken: (id) => api.post(`/cps/channels/${id}/regenerate-token`),
   getProducts: () => api.get('/cps/products'),
   createProduct: (data) => api.post('/cps/products', data),
   updateProduct: (id, data) => api.put(`/cps/products/${id}`, data),

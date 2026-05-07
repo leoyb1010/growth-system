@@ -85,6 +85,9 @@ async function importFromExcel(filePath, opts = {}) {
   for (const raw of rows) {
     try {
       const dim = extractRowDim(raw);
+      // 跳过空行：渠道和产品名都为空
+      if (!dim.channelName && !dim.channelCode && !dim.productName && !dim.productCode) { skip++; continue; }
+
       const ch = opts.forced_channel_id
         ? channels.find(c => Number(c.id) === Number(opts.forced_channel_id))
         : maps.channelByCode.get(dim.channelCode) || maps.channelByName.get(norm(dim.channelName));

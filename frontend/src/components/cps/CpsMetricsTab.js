@@ -39,7 +39,7 @@ function CpsMetricsTab({ channelId }) {
     setLoading(true);
     cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
       .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
-      .catch(() => message.error('加载失败'))
+      .catch(() => { /* 不弹错误，空态自然展示 */ })
       .finally(() => setLoading(false));
   };
 
