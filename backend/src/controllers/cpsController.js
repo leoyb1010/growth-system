@@ -185,7 +185,7 @@ async function importMetrics(req, res) {
       uploader_id: req.user?.id,
       uploader_name: req.user?.name || req.user?.username,
       auto_create_dim: req.body.auto_create_dim !== 'false',
-      forced_channel_id: isCpsChannelScope(req) ? req.dataScope.value : null,
+      forced_channel_id: req.body.forced_channel_id || (isCpsChannelScope(req) ? req.dataScope.value : null),
     });
     return success(res, result);
   } catch (err) { console.error('CPS import error:', err); return error(res, err.message || '导入失败'); }

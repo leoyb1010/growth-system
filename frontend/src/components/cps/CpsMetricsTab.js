@@ -112,16 +112,27 @@ function CpsMetricsTab({ channelId }) {
     catch { message.error('获取快照失败'); }
   };
 
+  const [importChannelId, setImportChannelId] = useState(null);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+
   const handleImport = async () => {
+    // 先选渠道再上传文件
+    setImportModalVisible(true);
+  };
+
+  const doImport = async () => {
+    if (!importChannelId) { message.warning('请选择导入渠道'); return; }
+    setImportModalVisible(false);
     const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls';
     input.onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
       const fd = new FormData(); fd.append('file', file); fd.append('auto_create_dim', 'true');
+      fd.append('forced_channel_id', importChannelId);
       try {
         const res = await cpsApi.importMetrics(fd);
         if (res.code === 0) {
           const d = res.data || {};
-          message.success(`导入完成：成功 ${d.success || 0} 条，新建渠道 ${(d.created_channels || []).length} 个，产品 ${(d.created_products || []).length} 个`);
+          message.success(`导入完成：成功 ${d.success || 0} 条`);
           if (d.errors?.length) {
             Modal.warning({ title: '部分行导入失败', content: <pre style={{ whiteSpace: 'pre-wrap' }}>{d.errors.join('\n')}</pre>, width: 720 });
           }
@@ -191,6 +202,13 @@ function CpsMetricsTab({ channelId }) {
           { title: '原因', dataIndex: 'change_reason', width: 120 },
           { title: '时间', dataIndex: 'created_at', width: 160 },
         ]} size="small" pagination={false} />
+      </Modal>
+
+      {/* 导入渠道选择 */}
+      <Modal title="选择导入渠道" open={importModalVisible} onOk={doImport} onCancel={() => setImportModalVisible(false)}>
+        <Select placeholder="请选择数据归属渠道" value={importChannelId} onChange={setImportChannelId} style={{ width: '100%' }}>
+          {channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
+        </Select>
       </Modal>
     </div>
   );
