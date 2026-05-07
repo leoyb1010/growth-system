@@ -75,8 +75,9 @@ function ProjectPage() {
         params.sort = 'priority';
       }
       const res = await api.get('/projects', { params });
-      if (res.code === 0) setData(res.data);
+      if (res.code === 0) setData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
+      setData([]);
       message.error('获取数据失败');
     } finally {
       setLoading(false);
@@ -222,6 +223,7 @@ function ProjectPage() {
 
   // ===== 看板视图 — 按状态分组 =====
   const renderKanbanView = () => {
+    const safeData = Array.isArray(data) ? data : [];
     const columns = [
       { key: '未启动', label: '未启动', color: '#9CA3AF', bg: '#F9FAFB' },
       { key: '进行中', label: '进行中', color: '#3B5AFB', bg: '#EFF6FF' },
