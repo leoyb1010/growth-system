@@ -26,8 +26,20 @@ function extractRowDim(raw) {
 
 function formatDate(v) {
   if (!v) return new Date().toISOString().slice(0, 10);
+  // Excel serial date number (e.g. 45117)
+  if (typeof v === 'number' && v > 40000 && v < 60000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    const d = new Date(excelEpoch.getTime() + v * 86400000);
+    return d.toISOString().slice(0, 10);
+  }
+  // Standard date strings
   const d = new Date(v);
-  return isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  // Chinese date: "2026年5月" or "5月1日"
+  const m = String(v).match(/(\d{4})[年\-\/](\d{1,2})[月\-\/](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // Fallback: try slice
+  return String(v).slice(0, 10);
 }
 
 async function importFromExcel(filePath, opts = {}) {
@@ -81,11 +93,21 @@ async function importFromExcel(filePath, opts = {}) {
 
   let success = 0, skip = 0;
   const errors = [];
+  let lastChannelName = '';
+  let lastChannelCode = '';
 
   for (const raw of rows) {
     try {
       const dim = extractRowDim(raw);
-      // 跳过空行：渠道和产品名都为空
+      // 合并行：如果当前行没有渠道信息，沿用上一行
+      if (!dim.channelName && !dim.channelCode) {
+        dim.channelName = lastChannelName;
+        dim.channelCode = lastChannelCode;
+      } else {
+        lastChannelName = dim.channelName;
+        lastChannelCode = dim.channelCode;
+      }
+      // 跳过完全空行
       if (!dim.channelName && !dim.channelCode && !dim.productName && !dim.productCode) { skip++; continue; }
 
       const ch = opts.forced_channel_id
