@@ -27,6 +27,7 @@ const ROLE_PERMISSIONS = {
     'user.read', 'user.create', 'user.update', 'user.disable', 'user.reset_password',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use',
+    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
