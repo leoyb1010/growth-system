@@ -5,6 +5,18 @@ import { cpsApi } from '../../services/cpsService';
 import PercentInput from './PercentInput';
 import MoneyInput from './MoneyInput';
 
+const METRIC_LABELS = {
+  new_refund_rate: '新签退款率', renewal_refund_rate: '续费退款率',
+  after_sale_refund_rate: '售后退款率', new_terminate_rate: '解约率',
+  complaint_count: '客诉数', effective_amount: '有效收入',
+};
+const RATE_METRICS = ['new_refund_rate', 'renewal_refund_rate', 'after_sale_refund_rate', 'new_terminate_rate'];
+
+function fmtThreshold(metric, threshold) {
+  if (RATE_METRICS.includes(metric)) return `${(Number(threshold) * 100).toFixed(1)}%`;
+  return Number(threshold).toFixed(0);
+}
+
 function CpsAdminTab() {
   const [channels, setChannels] = useState([]);
   const [products, setProducts] = useState([]);
@@ -81,7 +93,8 @@ function CpsAdminTab() {
       <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditRule(null); ruleForm.resetFields(); ruleForm.setFieldsValue({ level: 'warning', operator: '>=', scope_type: 'global', enabled: true }); setRuleModal(true); }} style={{ marginBottom: 12 }}>新增规则</Button>
       <Table dataSource={rules} rowKey="id" size="small" pagination={false} columns={[
         { title: '名称', dataIndex: 'name', width: 140 },
-        { title: '指标', dataIndex: 'metric', width: 100 }, { title: '条件', key: 'cond', width: 100, render: (_, r) => `${r.operator} ${Number(r.threshold_value).toFixed(4)}` },
+        { title: '指标', dataIndex: 'metric', width: 110, render: v => METRIC_LABELS[v] || v },
+        { title: '条件', key: 'cond', width: 100, render: (_, r) => `${r.operator} ${fmtThreshold(r.metric, r.threshold_value)}` },
         { title: '级别', dataIndex: 'level', width: 80, render: v => <Tag color={v==='critical'?'red':'orange'}>{v}</Tag> },
         { title: '启用', dataIndex: 'enabled', width: 60, render: v => v ? '✅' : '⛔' },
         { title: '操作', key: 'actions', width: 120, render: (_, r) => (
@@ -127,7 +140,17 @@ function CpsAdminTab() {
             </Select>
           </Form.Item>
           <Form.Item name="operator" label="操作符"><Select><Select.Option value=">=">大于等于</Select.Option><Select.Option value=">">大于</Select.Option><Select.Option value="<">小于</Select.Option><Select.Option value="<=">小于等于</Select.Option></Select></Form.Item>
-          <Form.Item name="threshold_value" label="阈值"><InputNumber step={0.001} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.metric !== cur.metric}>
+            {({ getFieldValue }) => {
+              const metric = getFieldValue('metric');
+              const isRate = RATE_METRICS.includes(metric);
+              return (
+                <Form.Item name="threshold_value" label="阈值" tooltip={isRate ? '百分比，如输入30表示30%' : '直接输入数值'}>
+                  {isRate ? <PercentInput /> : <InputNumber step={1} min={0} style={{ width: '100%' }} />}
+                </Form.Item>
+              );
+            }}
+          </Form.Item>
           <Form.Item name="level" label="预警级别"><Select><Select.Option value="warning">警告</Select.Option><Select.Option value="critical">严重</Select.Option></Select></Form.Item>
           <Form.Item name="enabled" label="启用" valuePropName="checked"><Switch /></Form.Item>
         </Form>
