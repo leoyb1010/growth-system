@@ -114,9 +114,9 @@ function ProjectPage() {
     setEditingRecord(record);
     // 字段白名单，防止脏数据导致白屏
     const safeMoment = (v) => {
-      if (!v) return null;
+      if (!v) return undefined;
       const m = moment(v);
-      return m.isValid() ? m : null;
+      return m.isValid() ? m : undefined;
     };
     form.setFieldsValue({
       dept_id: record.dept_id,
