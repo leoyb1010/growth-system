@@ -49,18 +49,22 @@ function CpsDashboardTab({ channelId }) {
   if (!data && !loading) return <Empty description="暂无数据" />;
 
   const y = data?.yearly || {}, q = data?.quarterly || {}, d = data?.daily || {};
-  const chartOption = data?.trend?.length ? {
+  const chartOption = data?.trend?.length ? (() => {
+    const dates = data.trend.map(t => t.date.slice(5));
+    const step = Math.max(1, Math.floor(dates.length / 10));
+    return {
     tooltip: { trigger: 'axis' },
     legend: { bottom: 0, data: ['实际收入', '新签', '续费'] },
-    grid: { left: 60, right: 20, top: 10, bottom: 30 },
-    xAxis: { type: 'category', data: data.trend.map(t => t.date.slice(5)), axisLabel: { fontSize: 10 } },
-    yAxis: { type: 'value', axisLabel: { formatter: v => (v/10000).toFixed(0)+'万' } },
+    grid: { left: 60, right: 20, top: 10, bottom: 35 },
+    xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 10, interval: step, rotate: 30 } },
+    yAxis: { type: 'value', axisLabel: { formatter: v => (v/10000).toFixed(0)+'万' }, splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
     series: [
       { name: '实际收入', type: 'line', data: data.trend.map(t => t.amount), smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#1890ff' }, areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(24,144,255,0.3)'},{offset:1,color:'rgba(24,144,255,0.02)'}]) } },
       { name: '新签', type: 'line', data: data.trend.map(t => t.new_sign), smooth: true, symbol: 'none', lineStyle: { width: 1.5, color: '#52c41a' } },
       { name: '续费', type: 'line', data: data.trend.map(t => t.renewal), smooth: true, symbol: 'none', lineStyle: { width: 1.5, color: '#faad14' } },
     ],
-  } : null;
+  };
+  })() : null;
 
   const cardStyle = (color) => ({ textAlign: 'center', padding: '6px 8px', background: '#fafafa', borderRadius: 6 });
   const st = (v) => ({ fontSize: 20, fontWeight: 700, color: v > 0 ? '#1890ff' : '#999' });

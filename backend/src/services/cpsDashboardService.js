@@ -1,51 +1,73 @@
-const { Op, fn, col } = require('sequelize');
+const { Op, fn, col, literal, where } = require('sequelize');
 const { CpsChannel, CpsProduct, CpsDailyMetric, CpsAlertEvent, sequelize } = require('../models');
 
 async function getDashboard(query = {}) {
   const { start_date, end_date, channel_ids, product_ids } = query;
 
-  const buildFilter = () => {
-    const c = ['deleted_at IS NULL'];
-    const p = [];
-    if (start_date && end_date) { c.push('stat_date BETWEEN ? AND ?'); p.push(start_date, end_date); }
-    const ch = parseIds(channel_ids); if (ch.length) { c.push(`channel_id IN (${ch.map(()=>'?').join(',')})`); p.push(...ch); }
-    const pr = parseIds(product_ids); if (pr.length) { c.push(`product_id IN (${pr.map(()=>'?').join(',')})`); p.push(...pr); }
-    return { where: c.join(' AND '), params: p };
+  const buildWhere = (extra = null) => {
+    const w = { deleted_at: null };
+    if (start_date && end_date) w.stat_date = { [Op.between]: [start_date, end_date] };
+    const ch = parseIds(channel_ids); if (ch.length) w.channel_id = { [Op.in]: ch };
+    const pr = parseIds(product_ids); if (pr.length) w.product_id = { [Op.in]: pr };
+    if (extra && Array.isArray(extra)) extra.forEach(e => Object.assign(w, e));
+    return w;
   };
-  const filter = buildFilter();
-  const q = (s) => sequelize.query(s, { replacements: filter.params, type: sequelize.QueryTypes.SELECT });
-  const sumFields = `COALESCE(SUM(actual_count),0) as actual_count, COALESCE(SUM(actual_amount),0) as actual_amount,
-    COALESCE(SUM(new_refund_count),0) as new_refund, COALESCE(SUM(new_sign_count),0) as new_sign,
-    COALESCE(SUM(renewal_count),0) as renewal, COALESCE(SUM(complaint_count),0) as complaints,
-    COALESCE(SUM(effective_count),0) as effective_count, COALESCE(SUM(effective_amount),0) as effective_amount,
-    COALESCE(SUM(new_sign_count+renewal_count),0) as total_deals`;
 
-  const [all] = await q(`SELECT ${sumFields} FROM cps_daily_metrics WHERE ${filter.where}`);
-  const total = all[0] || {};
+  const now = new Date();
+  const year = now.getFullYear();
+  const qn = Math.ceil((now.getMonth() + 1) / 3);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const quarterStart = `${year}-${String((qn-1)*3+1).padStart(2,'0')}-01`;
+  const yearStart = `${year}-01-01`;
 
-  const year = new Date().getFullYear().toString();
-  const [yearly] = await q(`SELECT actual_count, actual_amount, new_refund, new_sign, renewal FROM (SELECT ${sumFields} FROM cps_daily_metrics WHERE ${filter.where} AND strftime('%Y',stat_date)='${year}')`);
+  const aggr = async (whereClause) => {
+    const r = await CpsDailyMetric.findAll({
+      where: whereClause,
+      attributes: [
+        [fn('COALESCE', fn('SUM', col('actual_count')), 0), 'ac'],
+        [fn('COALESCE', fn('SUM', col('actual_amount')), 0), 'aa'],
+        [fn('COALESCE', fn('SUM', col('new_refund_count')), 0), 'nr'],
+        [fn('COALESCE', fn('SUM', col('new_sign_count')), 0), 'ns'],
+        [fn('COALESCE', fn('SUM', col('renewal_count')), 0), 'rn'],
+        [fn('COALESCE', fn('SUM', col('complaint_count')), 0), 'cp'],
+        [fn('COALESCE', fn('SUM', literal('new_sign_count + renewal_count')), 0), 'td'],
+      ],
+      raw: true,
+    });
+    return r[0] || {};
+  };
 
-  const m = new Date().getMonth() + 1, qn = Math.ceil(m/3);
-  const [quarterly] = await q(`SELECT actual_count, actual_amount, new_refund, new_sign, renewal, complaints, total_deals FROM (SELECT ${sumFields} FROM cps_daily_metrics WHERE ${filter.where} AND CAST(strftime('%m',stat_date) AS INTEGER) BETWEEN ${(qn-1)*3+1} AND ${qn*3} AND strftime('%Y',stat_date)='${year}')`);
-
-  const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
-  const [daily] = await q(`SELECT actual_count, actual_amount, new_refund, new_sign, renewal, complaints FROM (SELECT ${sumFields} FROM cps_daily_metrics WHERE ${filter.where} AND stat_date='${yesterday}')`);
+  const all = await aggr(buildWhere());
+  const yearly = await aggr(buildWhere([{ stat_date: { [Op.gte]: yearStart } }]));
+  const quarterly = await aggr(buildWhere([{ stat_date: { [Op.gte]: quarterStart } }, { stat_date: { [Op.lte]: `${year}-12-31` } }]));
+  const daily = await aggr(buildWhere([{ stat_date: yesterday }]));
 
   const alertCount = await CpsAlertEvent.count({ where: { status: 'open' } });
   const channelCount = await CpsChannel.count({ where: { status: 'active' } });
 
-  const trendRaw = await q(`SELECT strftime('%Y-%m-%d',stat_date) as date,
-    COALESCE(SUM(actual_amount),0) as amt, COALESCE(SUM(new_sign_count),0) as ns,
-    COALESCE(SUM(renewal_count),0) as rn, COALESCE(SUM(complaint_count),0) as cp
-    FROM cps_daily_metrics WHERE ${filter.where} GROUP BY date ORDER BY date ASC LIMIT 60`);
-  const trend = trendRaw.map(r => ({ date: r.date, amount: Number(r.amt), new_sign: Number(r.ns), renewal: Number(r.rn), complaints: Number(r.cp) }));
+  const trendWhere = buildWhere();
+  const trendRaw = await CpsDailyMetric.findAll({
+    where: trendWhere,
+    attributes: [
+      'stat_date',
+      [fn('SUM', col('actual_amount')), 'amt'],
+      [fn('SUM', col('new_sign_count')), 'ns'],
+      [fn('SUM', col('renewal_count')), 'rn'],
+      [fn('SUM', col('complaint_count')), 'cp'],
+    ],
+    group: ['stat_date'],
+    order: [['stat_date', 'ASC']],
+    limit: 60,
+    raw: true,
+  });
+  const trend = trendRaw.map(r => ({ date: r.stat_date, amount: Number(r.amt) || 0, new_sign: Number(r.ns) || 0, renewal: Number(r.rn) || 0, complaints: Number(r.cp) || 0 }));
 
   return {
-    all: { actual_count: total.actual_count, actual_amount: total.actual_amount, effective_count: total.effective_count, effective_amount: total.effective_amount, new_sign: total.new_sign, renewal: total.renewal, new_refund: total.new_refund, complaints: total.complaints },
-    yearly: yearly[0] || {}, quarterly: { ...(quarterly[0] || {}), refund_rate: (quarterly[0]||{}).total_deals > 0 ? ((quarterly[0].new_refund||0) / quarterly[0].total_deals) : 0 }, daily: daily[0] || {},
+    all: { actual_count: Number(all.ac)||0, actual_amount: Number(all.aa)||0, new_sign: Number(all.ns)||0, renewal: Number(all.rn)||0, new_refund: Number(all.nr)||0, complaints: Number(all.cp)||0 },
+    yearly: { actual_count: Number(yearly.ac)||0, actual_amount: Number(yearly.aa)||0, new_sign: Number(yearly.ns)||0, renewal: Number(yearly.rn)||0, new_refund: Number(yearly.nr)||0 },
+    quarterly: { actual_count: Number(quarterly.ac)||0, actual_amount: Number(quarterly.aa)||0, new_sign: Number(quarterly.ns)||0, renewal: Number(quarterly.rn)||0, new_refund: Number(quarterly.nr)||0, refund_rate: Number(quarterly.td)>0 ? Number(quarterly.nr||0)/Number(quarterly.td) : 0, complaints: Number(quarterly.cp)||0 },
+    daily: { actual_count: Number(daily.ac)||0, actual_amount: Number(daily.aa)||0, new_sign: Number(daily.ns)||0, renewal: Number(daily.rn)||0, new_refund: Number(daily.nr)||0, complaints: Number(daily.cp)||0 },
     alert_count: alertCount, channel_count: channelCount, trend,
-    date_range: { start: start_date || '', end: end_date || '' },
   };
 }
 
