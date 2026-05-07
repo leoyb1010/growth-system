@@ -37,7 +37,7 @@ function CpsDashboardTab({ channelId }) {
 
   const handleGranularityChange = (g) => {
     setGranularity(g);
-    if (g === 'day') setRange([dayjs().subtract(29, 'day'), dayjs()]);
+    if (g === 'day') setRange([dayjs().subtract(6, 'day'), dayjs()]);
     else if (g === 'week') setRange([dayjs().startOf('week'), dayjs()]);
     else if (g === 'month') setRange([dayjs().startOf('month'), dayjs()]);
   };
