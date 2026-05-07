@@ -34,11 +34,11 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      // 自定义降级 UI
       if (this.props.fallback) {
         return this.props.fallback(this.state.error, this.handleReload);
       }
 
+      const errMsg = this.state.error?.message || String(this.state.error);
       return (
         <div style={{ padding: '48px 24px', display: 'flex', justifyContent: 'center' }}>
           <Result
@@ -46,29 +46,18 @@ class ErrorBoundary extends React.Component {
             title="页面出了点问题"
             subTitle="抱歉，页面遇到了一个错误。你可以尝试恢复或刷新页面。"
             extra={[
-              <Button key="recover" type="primary" onClick={this.handleReload}>
-                恢复页面
-              </Button>,
-              <Button key="refresh" onClick={this.handleRefresh}>
-                刷新
-              </Button>,
+              <Button key="recover" type="primary" onClick={this.handleReload}>恢复页面</Button>,
+              <Button key="refresh" onClick={this.handleRefresh}>刷新</Button>,
             ]}
           >
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div style={{ textAlign: 'left', maxWidth: 600, margin: '0 auto' }}>
-                <details style={{ whiteSpace: 'pre-wrap' }}>
-                  <summary style={{ cursor: 'pointer', color: '#999' }}>
-                    错误详情（仅开发环境可见）
-                  </summary>
-                  <p style={{ color: '#ff4d4f', fontSize: 12 }}>
-                    {this.state.error.toString()}
-                  </p>
-                  <p style={{ color: '#999', fontSize: 11 }}>
-                    {this.state.errorInfo?.componentStack}
-                  </p>
-                </details>
-              </div>
-            )}
+            <div style={{ textAlign: 'left', maxWidth: 600, margin: '0 auto', background: '#fef2f2', padding: 12, borderRadius: 8 }}>
+              <div style={{ color: '#dc2626', fontSize: 13, fontWeight: 500 }}>{errMsg}</div>
+              {this.state.errorInfo?.componentStack && (
+                <pre style={{ color: '#666', fontSize: 11, whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                  {this.state.errorInfo.componentStack.slice(0, 500)}
+                </pre>
+              )}
+            </div>
           </Result>
         </div>
       );
