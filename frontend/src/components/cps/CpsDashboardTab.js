@@ -31,7 +31,7 @@ function MiniStat({ label, value, color }) {
 function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
-  const [range, setRange] = useState([dayjs().subtract(29, 'day'), dayjs().subtract(1, 'day')]);
+  const [range, setRange] = useState(null);
   const [granularity, setGranularity] = useState('day');
   const [channels, setChannels] = useState([]);
   const [products, setProducts] = useState([]);
@@ -149,7 +149,7 @@ function CpsDashboardTab({ channelId }) {
     <Spin spinning={loading}>
       <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap>
-          <DatePicker.RangePicker value={range} onChange={setRange} allowClear={false} />
+          <DatePicker.RangePicker value={range} onChange={setRange} allowClear placeholder={['开始','结束']} size="small" />
           <Radio.Group value={granularity} onChange={event => setGranularity(event.target.value)} size="small">
             <Radio.Button value="day">按日</Radio.Button>
             <Radio.Button value="week">按周</Radio.Button>
