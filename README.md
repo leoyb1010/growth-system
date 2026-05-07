@@ -393,14 +393,16 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
-### v1.12.0 — 2026-05-06/07 · 渠道账号体系+CPS权限叠加
+### v1.12.0 — 2026-05-07 · CPS全面加固
 
-> 核心改动：渠道账号极简视图+日报录入；cps_role字段精确叠加CPS权限（不污染角色定义）；看板渠道/产品筛选器；DatePicker清空bug修复。
+> 7项修复+4项增强，覆盖字典code/数据范围隔离/金额百分比规范/Excel导入/事件总线/看板筛选/分页重置。
 
-**渠道账号：** cps_channel_user登录后看到日报录入+我的数据极简视图；用户管理支持绑定cps_channel_id
-**权限叠加：** users表cps_role字段(admin/ops/channel_user)，后端injectAccessContext动态合并CPS权限，前端can()支持cpsRole参数
-**看板增强：** 渠道/产品多选筛选器，无需跳明细页即可切换视角
-**修复：** due_date清空后无法重新点选；表字段与模型对齐
+**修复：** 中文渠道/产品名code自动生成；cps_channel数据范围后端兜底；佣金率70%→0.7；趋势SQL响应筛选；空code字典修复
+**增强：** PercentInput/MoneyInput/cpsFormat统一输入输出；cpsBus事件总线Tab切换自动刷新；Excel导入支持name匹配+自动建字典；筛选变化重置分页
+**权限叠加：** cps_role字段精确控制，管理员始终具备全部CPS权限
+**渠道账号：** 极简视图(日报录入+我的数据)，渠道账号强制写入不可伪造
+
+详见 [changelog.json](backend/data/changelog.json)
 
 详见 [changelog.json](backend/data/changelog.json)
 
