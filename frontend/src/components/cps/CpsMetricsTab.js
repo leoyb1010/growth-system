@@ -9,7 +9,8 @@ import dayjs from 'dayjs';
 function CpsMetricsTab({ channelId }) {
   const { user } = useAuth();
   const role = user?.role || 'dept_staff';
-  const canWrite = can(role, 'cps.write') || can(role, 'cps.channel_upload');
+  const cpsRole = user?.cps_role;
+  const canWrite = can(role, 'cps.write', cpsRole) || can(role, 'cps.channel_upload', cpsRole);
   const isChannelUser = role === 'cps_channel_user';
 
   const [loading, setLoading] = useState(false);

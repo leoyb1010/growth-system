@@ -11,6 +11,7 @@ const statusColors = { open: 'error', ack: 'processing', closed: 'default' };
 function CpsAlertsTab() {
   const { user } = useAuth();
   const role = user?.role || 'dept_staff';
+  const cpsRole = user?.cps_role;
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ function CpsAlertsTab() {
     { title: '指标', dataIndex: 'metric', width: 100 },
     { title: '阈值', dataIndex: 'threshold_value', width: 80, render: v => Number(v).toFixed(4) },
     { title: '状态', dataIndex: 'status', width: 80, render: v => <Tag color={statusColors[v]}>{v}</Tag> },
-    { title: '操作', key: 'actions', width: 100, render: (_, r) => r.status === 'open' && can(role, 'cps.write') ? (
+    { title: '操作', key: 'actions', width: 100, render: (_, r) => r.status === 'open' && can(role, 'cps.write', cpsRole) ? (
       <Button size="small" type="primary" ghost icon={<CheckOutlined />} onClick={() => handleAck(r.id)}>确认</Button>
     ) : null },
   ];
