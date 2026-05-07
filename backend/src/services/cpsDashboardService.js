@@ -127,9 +127,7 @@ async function getDashboard(query = {}) {
   const quarterEnd = getQuarterEnd(year, quarter);
 
   const usePeriodFilter = !!(start_date && end_date);
-  const periodStart = start_date || toDateString(new Date(Date.now() - 30 * 86400000));
-  const periodEnd = end_date || yesterday;
-  const periodWhere = usePeriodFilter ? { ...baseDim, stat_date: { [Op.between]: [periodStart, periodEnd] } } : baseDim;
+  const periodWhere = usePeriodFilter ? { ...baseDim, stat_date: { [Op.between]: [start_date, end_date] } } : baseDim;
 
   const [period, yearly, quarterly, daily, total] = await Promise.all([
     aggregate(periodWhere),
@@ -187,7 +185,7 @@ async function getDashboard(query = {}) {
     trend,
     alert_count: alertCount,
     channel_count: channelCount,
-    period_range: { start: periodStart, end: periodEnd },
+    period_range: usePeriodFilter ? { start: start_date, end: end_date } : null,
     fixed_ranges: {
       yearly: { start: yearStart, end: yearEnd },
       quarterly: { start: quarterStart, end: quarterEnd },

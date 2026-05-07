@@ -182,7 +182,7 @@ function CpsDashboardTab({ channelId }) {
       </Card>
 
       <div style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
-        <Tag color="blue">本期</Tag>{data?.period_range?.start} ~ {data?.period_range?.end}
+        <Tag color="blue">本期</Tag>{data?.period_range ? `${data.period_range.start} ~ ${data.period_range.end}` : `全部数据 · 共${data?.total?.actual_count || 0}单 ¥${fmtMoney(data?.total?.actual_amount || 0)}`}
       </div>
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col xs={24} sm={12} lg={6}>
