@@ -28,8 +28,7 @@ const ROLE_PERMISSIONS = {
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
-    'risk_register.read', 'risk_register.create', 'risk_register.update',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   cps_admin: ['cps.read', 'cps.write', 'cps.admin'],
   cps_ops: ['cps.read', 'cps.write'],
@@ -43,8 +42,7 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
-    'risk_register.read', 'risk_register.create', 'risk_register.update',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
@@ -55,9 +53,15 @@ const ROLE_PERMISSIONS = {
     'weekly_report.read',
     'export.data', 'search.use',
     'action_item.read', 'action_item.create', 'action_item.update',
-    'risk_register.read',
-    'cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'
+    'risk_register.read'
   ],
+};
+
+// CPS 权限叠加映射
+const CPS_ROLE_PERMS = {
+  admin: ['cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'],
+  ops: ['cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'],
+  channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
 };
 
 /**
@@ -81,8 +85,12 @@ export function getPermissions(role) {
  * @param {string} permission - 权限点，如 'kpi.create'
  * @returns {boolean}
  */
-export function can(role, permission) {
+export function can(role, permission, cpsRole) {
   const permissions = getPermissions(role);
+  // CPS权限叠加
+  if (cpsRole && CPS_ROLE_PERMS[cpsRole] && CPS_ROLE_PERMS[cpsRole].includes(permission)) {
+    return true;
+  }
   return permissions.includes(permission);
 }
 
@@ -117,15 +125,19 @@ export const MENU_PERMISSIONS = {
   '/archives': 'archive.read',
   '/action-items': 'action_item.read',
   '/risks': 'risk_register.read',
+  '/cps': 'cps.read',
 };
 
 /**
  * 判断菜单是否可见
+ * @param {string} role
+ * @param {string} menuKey 
+ * @param {string} cpsRole - 可选，CPS权限叠加
  */
-export function canSeeMenu(role, menuKey) {
+export function canSeeMenu(role, menuKey, cpsRole) {
   const permission = MENU_PERMISSIONS[menuKey];
-  if (!permission) return true; // 未定义权限的菜单默认可见
-  return can(role, permission);
+  if (!permission) return true;
+  return can(role, permission, cpsRole);
 }
 
 export default { can, getCanonicalRole, getPermissions, useAbility, canSeeMenu, MENU_PERMISSIONS };

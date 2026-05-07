@@ -34,8 +34,7 @@ const ROLE_PERMISSIONS = {
     'department.read',
     'export.data', 'search.use', 'ai.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
-    'risk_register.read', 'risk_register.create', 'risk_register.update',
-    'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'
+    'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   department_member: [
     'dashboard.read', 'kpi.read',
@@ -47,8 +46,7 @@ const ROLE_PERMISSIONS = {
     'department.read',
     'export.data', 'search.use', 'ai.use',
     'action_item.read', 'action_item.create', 'action_item.update',
-    'risk_register.read',
-    'cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'
+    'risk_register.read'
   ]
 };
 
@@ -84,6 +82,15 @@ async function injectAccessContext(req, res, next) {
   // 兼容旧角色
   const canonicalRole = ROLE_COMPAT[user.role] || user.role;
   const permissions = ROLE_PERMISSIONS[canonicalRole] || [];
+  // CPS权限叠加：用户 cps_role 不为空时，叠加对应CPS权限
+  const CPS_ROLE_PERMS = {
+    admin: ['cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'],
+    ops: ['cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'],
+    channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
+  };
+  if (user.cps_role && CPS_ROLE_PERMS[user.cps_role]) {
+    CPS_ROLE_PERMS[user.cps_role].forEach(p => { if (!permissions.includes(p)) permissions.push(p); });
+  }
   const scopeConfig = DATA_SCOPE_MAP[canonicalRole] || DATA_SCOPE_MAP.department_member;
 
   // 数据范围值注入
@@ -139,7 +146,7 @@ async function authenticate(req, res, next) {
   // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
   try {
     const dbUser = await User.findByPk(decoded.id, {
-      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id'],
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id', 'cps_role'],
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 
@@ -172,6 +179,7 @@ async function authenticate(req, res, next) {
       roleLevel,
       dept_id: dbUser.dept_id,
       cps_channel_id: dbUser.cps_channel_id,
+      cps_role: dbUser.cps_role,
       name: dbUser.name,
       username: dbUser.username,
       status: dbUser.status,

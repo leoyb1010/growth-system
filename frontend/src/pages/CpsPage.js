@@ -14,6 +14,7 @@ import CpsChannelEntryTab from '../components/cps/CpsChannelEntryTab';
 function CpsPage() {
   const { user } = useAuth();
   const role = user?.role || 'dept_staff';
+  const cpsRole = user?.cps_role;
   const channelId = user?.cps_channel_id;
   const isChannelUser = role === 'cps_channel_user';
 
@@ -37,7 +38,7 @@ function CpsPage() {
     { key: 'metrics', label: '明细数据', children: <CpsMetricsTab channelId={channelId} /> },
     { key: 'alerts', label: <span><AlertOutlined /> 预警</span>, children: <CpsAlertsTab /> },
   ];
-  if (can(role, 'cps.admin')) {
+  if (can(role, 'cps.admin', cpsRole)) {
     tabItems.push({ key: 'admin', label: <span><SettingOutlined /> 字典管理</span>, children: <CpsAdminTab /> });
   }
 

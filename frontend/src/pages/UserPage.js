@@ -271,6 +271,15 @@ function UserPage() {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
+              <Form.Item name="cps_role" label="CPS权限叠加">
+                <Select allowClear placeholder="不叠加CPS权限">
+                  <Option value="admin">CPS管理员</Option>
+                  <Option value="ops">CPS运营</Option>
+                  <Option value="channel_user">CPS渠道录入</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item name="status" label="账号状态" initialValue="active">
                 <Select>
                   <Option value="active">启用</Option>
