@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
-  const [range, setRange] = useState([dayjs().subtract(30, 'day'), dayjs()]);
+  const [range, setRange] = useState(null);
   const [channels, setChannels] = useState([]);
   const [products, setProducts] = useState([]);
   const [selChannels, setSelChannels] = useState(channelId ? [channelId] : []);
@@ -19,7 +19,6 @@ function CpsDashboardTab({ channelId }) {
   }, []);
 
   useEffect(() => {
-    if (!range || !range[0] || !range[1]) return;
     fetchData();
   }, [range, selChannels, selProducts]);
 
@@ -33,10 +32,11 @@ function CpsDashboardTab({ channelId }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = {
-        start_date: range[0].format('YYYY-MM-DD'),
-        end_date: range[1].format('YYYY-MM-DD'),
-      };
+      const params = {};
+      if (range && range[0] && range[1]) {
+        params.start_date = range[0].format('YYYY-MM-DD');
+        params.end_date = range[1].format('YYYY-MM-DD');
+      }
       if (selChannels.length) params.channel_ids = selChannels.join(',');
       if (selProducts.length) params.product_ids = selProducts.join(',');
       const res = await cpsApi.getDashboard(params);
@@ -57,7 +57,7 @@ function CpsDashboardTab({ channelId }) {
     <Spin spinning={loading}>
       <div style={{ marginBottom: 16 }}>
         <Space wrap>
-          <DatePicker.RangePicker value={range} onChange={setRange} allowClear={false} />
+          <DatePicker.RangePicker value={range} onChange={setRange} allowClear placeholder={['开始', '结束']} />
           {!channelId && (
             <Select mode="multiple" placeholder="全部渠道" allowClear
               value={selChannels} onChange={setSelChannels}
