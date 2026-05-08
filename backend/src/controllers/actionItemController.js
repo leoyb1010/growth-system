@@ -30,6 +30,22 @@ async function list(req, res) {
 
     // aggregate 模式：返回总量统计（不受分页影响）
     if (aggregate === 'true') {
+      // 从 dataScope 构建 SQL WHERE 条件，与列表查询保持一致
+      const scopeConditions = [];
+      const scopeReplacements = {};
+      if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
+        const sw = req.dataScope.where;
+        if (sw.dept_id) { scopeConditions.push('dept_id = :scopeDeptId'); scopeReplacements.scopeDeptId = sw.dept_id; }
+        if (sw[Op.or]) {
+          const orParts = sw[Op.or].map((cond, i) => {
+            const keys = Object.keys(cond);
+            const parts = keys.map(k => { const pk = `scopeOr_${i}_${k}`; scopeReplacements[pk] = cond[k]; return `${k} = :${pk}`; });
+            return `(${parts.join(' OR ')})`;
+          });
+          scopeConditions.push(`(${orParts.join(' OR ')})`);
+        }
+      }
+      const scopeWhere = scopeConditions.length > 0 ? `AND ${scopeConditions.join(' AND ')}` : '';
       const [agg] = await sequelize.query(
         `SELECT
           COUNT(*) as total,
@@ -37,8 +53,8 @@ async function list(req, res) {
           SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
           SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
           SUM(CASE WHEN status NOT IN ('done','cancelled') AND due_date < date('now') THEN 1 ELSE 0 END) as overdue
-         FROM action_items WHERE deleted_at IS NULL`,
-        { type: sequelize.QueryTypes.SELECT }
+         FROM action_items WHERE deleted_at IS NULL ${scopeWhere}`,
+        { type: sequelize.QueryTypes.SELECT, replacements: scopeReplacements }
       );
       return success(res, { aggregate: agg[0] || { total: 0, pending: 0, in_progress: 0, done: 0, overdue: 0 } });
     }

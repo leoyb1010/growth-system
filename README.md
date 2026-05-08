@@ -393,6 +393,30 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.15.1 — 2026-05-08 · 权限完善+导出增强+dataScope修复+ASO修正
+
+> 21文件覆盖：渠道用户权限升级、导出筛选增强、数据范围补漏、ASO看板/导入修正。
+
+**权限与用户管理**
+- `cps_channel_user` 角色新增 `cps.read` 权限，渠道用户可查看自己渠道数据
+- 创建用户 API 支持 `aso_role` / `email` / `mobile` / `status` / `must_change_password` 全字段
+- UserPage 新增 ASO 角色颜色标签 + CPS 渠道下拉选择
+
+**CPS 增强**
+- 导出 API 支持渠道/产品/来源筛选，并应用 dataScope 确保渠道用户仅导出自己数据
+- 看板预警数跟随时间窗口过滤，不再统计历史遗留 open 事件
+- CpsMetricsTab 区分 403 权限拒绝与网络异常
+
+**dataScope 修复**
+- 行动项/风险台账聚合统计补充 dataScope 部门过滤
+- auth.js self scope 移除 action_item（改用控制器自身逻辑）
+
+**ASO 修正**
+- 看板 T1-2 排名改用 `current_rank` [1,2] 范围判断（之前用不存在的 `is_t1` 字段）
+- 导入改为每行独立解析产品，支持同一 Excel 多产品混合导入
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.15.0 — 2026-05-08 · ASO苹果商店优化模块 + CPS预警增强 + 生产Sync修复
 
 > 核心改动：全新ASO业务模块上线；CPS新增手动触发预警；生产环境启用模型同步自动建表。

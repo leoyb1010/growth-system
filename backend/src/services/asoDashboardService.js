@@ -50,9 +50,9 @@ async function getDashboard(query = {}) {
     col: 'keyword_id',
   });
 
-  // T1-2到榜词数
-  const t1KeywordCount = await AsoDailyKeywordMetric.count({
-    where: { ...metricWhere, is_t1: true },
+  // T1-2到榜词数：排名在 1-2 之间的去重关键词
+  const t1_2KeywordCount = await AsoDailyKeywordMetric.count({
+    where: { ...metricWhere, current_rank: { [Op.gte]: 1, [Op.lte]: 2 } },
     distinct: true,
     col: 'keyword_id',
   });
@@ -61,8 +61,8 @@ async function getDashboard(query = {}) {
     optimized_keywords: optimizedKeywords,
     t3_keywords: t3KeywordCount,
     t3_rate: optimizedKeywords > 0 ? Number((t3KeywordCount / optimizedKeywords).toFixed(4)) : 0,
-    t1_2_keywords: t1KeywordCount,
-    t1_2_rate: optimizedKeywords > 0 ? Number((t1KeywordCount / optimizedKeywords).toFixed(4)) : 0,
+    t1_2_keywords: t1_2KeywordCount,
+    t1_2_rate: optimizedKeywords > 0 ? Number((t1_2KeywordCount / optimizedKeywords).toFixed(4)) : 0,
     total_volume: Number(agg.total_volume) || 0,
     total_cost: Number(agg.total_cost) || 0,
   };

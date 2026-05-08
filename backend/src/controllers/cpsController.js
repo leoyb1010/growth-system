@@ -234,7 +234,7 @@ async function importMetrics(req, res) {
 
 async function exportMetrics(req, res) {
   try {
-    const buffer = await cpsExportService.exportToExcel(req.query);
+    const buffer = await cpsExportService.exportToExcel(req.query, req.dataScope);
     res.setHeader('Content-Disposition', `attachment; filename="cps_metrics_${Date.now()}.xlsx"`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     return res.send(buffer);

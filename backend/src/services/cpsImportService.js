@@ -35,9 +35,20 @@ function formatDate(v) {
   // Standard date strings
   const d = new Date(v);
   if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  // Chinese date: "2026年5月" or "5月1日"
-  const m = String(v).match(/(\d{4})[年\-\/](\d{1,2})[月\-\/](\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // Chinese date with day: "2026年5月7日" or "5月7日"
+  const mDay = String(v).match(/(\d{4})?[年\-\/]?(\d{1,2})[月\-\/](\d{1,2})[日号]?/);
+  if (mDay && mDay[1]) return `${mDay[1]}-${mDay[2].padStart(2,'0')}-${mDay[3].padStart(2,'0')}`;
+  if (mDay) {
+    const y = new Date().getFullYear();
+    return `${y}-${mDay[2].padStart(2,'0')}-${mDay[3].padStart(2,'0')}`;
+  }
+  // Chinese date month-level: "2026年1月" or "1月" or "2026-01"
+  const mMth = String(v).match(/^(\d{4})?[年\-\/]?(\d{1,2})[月]?$/);
+  if (mMth && mMth[1]) return `${mMth[1]}-${mMth[2].padStart(2,'0')}-01`;
+  if (mMth) {
+    const y = new Date().getFullYear();
+    return `${y}-${mMth[2].padStart(2,'0')}-01`;
+  }
   // Fallback: try slice
   return String(v).slice(0, 10);
 }
@@ -150,7 +161,7 @@ async function importFromExcel(filePath, opts = {}) {
       const input = cpsCalc.sanitizeInput(payload);
       const unitPrice = Number(raw.unit_price || raw['单价'] || raw['产品金额'] || pr.unit_price || 0);
       const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
-      const where = { stat_date: formatDate(raw.stat_date || raw['日期'] || statDate), channel_id: ch.id, product_id: pr.id };
+      const where = { stat_date: formatDate(raw.stat_date || raw['日期'] || raw['月份'] || statDate), channel_id: ch.id, product_id: pr.id };
       let row = await CpsDailyMetric.findOne({ where });
 
       if (row) {

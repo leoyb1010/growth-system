@@ -43,25 +43,23 @@ async function importDailyMetrics(filePath, opts = {}) {
   const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
   if (!rows.length) return { success: 0, skip: 0, error: 1, total: 0, errors: ['空文件'] };
 
-  let product = null;
-  const productName = getCell(rows[0], ['product_name', '产品', '产品名称']);
-  const productCode = getCell(rows[0], ['product_code', '产品编码']);
-  if (productName || productCode) {
-    product = await ensureProduct(productName, productCode);
-  }
-  if (!product) {
-    const products = await AsoProduct.findAll({ where: { status: 'active' }, limit: 1 });
-    if (products.length) product = products[0];
-  }
-  if (!product) {
-    return { success: 0, skip: 0, error: rows.length, total: rows.length, errors: ['没有找到有效产品，请先在字典管理中创建ASO产品'] };
-  }
-
   let success = 0, skip = 0;
   const errors = [];
 
   for (const raw of rows) {
     try {
+      // 每行独立解析产品，避免多产品导入错归属
+      const rowProductName = getCell(raw, ['product_name', '产品', '产品名称']);
+      const rowProductCode = getCell(raw, ['product_code', '产品编码']);
+      let product = null;
+      if (rowProductName || rowProductCode) {
+        product = await ensureProduct(rowProductName, rowProductCode);
+      }
+      if (!product) {
+        errors.push(`行 ${success + skip + 1}: 产品"${rowProductName || rowProductCode || '(空)'}"不存在且自动创建失败`);
+        skip++; continue;
+      }
+
       const keywordStr = String(getCell(raw, ['keyword', '关键词'])).trim();
       if (!keywordStr) { skip++; continue; }
 
@@ -147,7 +145,7 @@ async function importDailyMetrics(filePath, opts = {}) {
 
   await AsoImportLog.create({
     import_type: 'daily_metrics',
-    product_id: product.id,
+    product_id: null,
     file_name: opts.file_name || 'unknown',
     status: errors.length ? 'partial' : 'success',
     row_count: rows.length,

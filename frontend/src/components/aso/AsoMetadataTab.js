@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, Select, Modal, Form, Input, InputNumber, message, Row, Col } from 'antd';
+import { Table, Button, Space, Tag, Select, DatePicker, Modal, Form, Input, InputNumber, message, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import { asoApi } from '../../services/asoService';
 import { useAuth } from '../../hooks/useAuth';
@@ -38,7 +38,7 @@ function AsoMetadataTab() {
   const handleSave = async () => {
     try {
       const vals = await form.validateFields();
-      const payload = { ...vals, version_date: vals.version_date ? vals.version_date.format('YYYY-MM-DD') : undefined };
+      const payload = { ...vals, version_date: vals.version_date ? (typeof vals.version_date === 'string' ? vals.version_date : vals.version_date.format('YYYY-MM-DD')) : undefined };
       const res = editingRecord ? await asoApi.updateMetadataVersion(editingRecord.id, payload) : await asoApi.createMetadataVersion(payload);
       if (res.code === 0) { message.success(editingRecord ? '已更新' : '已创建'); setModalVisible(false); fetchData(); }
       else message.error(res.message);
@@ -79,7 +79,7 @@ function AsoMetadataTab() {
             <Col span={12}><Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select>{products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}</Select></Form.Item></Col>
             <Col span={12}><Form.Item name="locale" label="语言" rules={[{ required: true }]}><Select><Select.Option value="简体中文">简体中文</Select.Option><Select.Option value="英国英语">英国英语</Select.Option><Select.Option value="韩语">韩语</Select.Option><Select.Option value="日语">日语</Select.Option></Select></Form.Item></Col>
           </Row>
-          <Form.Item name="version_date" label="版本日期" rules={[{ required: true }]}><Input placeholder="如 2026-05-01" /></Form.Item>
+          <Form.Item name="version_date" label="版本日期" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="change_type" label="调整类型" initialValue="update"><Select>
             <Select.Option value="add">新增</Select.Option>
             <Select.Option value="update">修改</Select.Option>

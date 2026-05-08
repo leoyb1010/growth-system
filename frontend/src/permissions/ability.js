@@ -13,6 +13,9 @@ const ROLE_COMPAT = {
   cps_admin: 'cps_admin',
   cps_ops: 'cps_ops',
   cps_channel_user: 'cps_channel_user',
+  aso_admin: 'aso_admin',
+  aso_ops: 'aso_ops',
+  aso_viewer: 'aso_viewer',
 };
 
 // 角色权限定义（与后端 ROLE_PERMISSIONS 一致）
@@ -34,7 +37,7 @@ const ROLE_PERMISSIONS = {
   ],
   cps_admin: ['cps.read', 'cps.write', 'cps.admin'],
   cps_ops: ['cps.read', 'cps.write'],
-  cps_channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
+  cps_channel_user: ['cps.read', 'cps.channel_upload', 'cps.channel_read_own'],
   aso_admin: ['aso.read', 'aso.write', 'aso.admin'],
   aso_ops: ['aso.read', 'aso.write'],
   aso_viewer: ['aso.read'],
@@ -66,7 +69,7 @@ const ROLE_PERMISSIONS = {
 const CPS_ROLE_PERMS = {
   admin: ['cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'],
   ops: ['cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'],
-  channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
+  channel_user: ['cps.read', 'cps.channel_upload', 'cps.channel_read_own'],
 };
 
 // ASO 权限叠加映射

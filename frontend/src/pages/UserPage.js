@@ -16,6 +16,9 @@ const ROLE_MAP = {
   cps_admin: { label: 'CPS管理员', color: 'purple' },
   cps_ops: { label: 'CPS运营', color: 'cyan' },
   cps_channel_user: { label: 'CPS渠道录入', color: 'orange' },
+  aso_admin: { label: 'ASO管理员', color: 'magenta' },
+  aso_ops: { label: 'ASO运营', color: 'geekblue' },
+  aso_viewer: { label: 'ASO查看者', color: 'green' },
 };
 
 const STATUS_MAP = {
@@ -33,10 +36,19 @@ function UserPage() {
   const [resetPwdUser, setResetPwdUser] = useState(null);
   const [form] = Form.useForm();
   const [resetPwdForm] = Form.useForm();
+  const [cpsChannels, setCpsChannels] = useState([]);
 
   useEffect(() => {
     fetchUsers();
+    loadCpsChannels();
   }, []);
+
+  const loadCpsChannels = async () => {
+    try {
+      const res = await api.get('/cps/channels');
+      if (res.code === 0) setCpsChannels(res.data || []);
+    } catch {}
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -260,6 +272,9 @@ function UserPage() {
                   <Option value="cps_admin">CPS管理员</Option>
                   <Option value="cps_ops">CPS运营</Option>
                   <Option value="cps_channel_user">CPS渠道录入</Option>
+                  <Option value="aso_admin">ASO管理员</Option>
+                  <Option value="aso_ops">ASO运营</Option>
+                  <Option value="aso_viewer">ASO查看者</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -280,6 +295,24 @@ function UserPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
+              <Form.Item name="cps_channel_id" label="绑定CPS渠道">
+                <Select allowClear placeholder="选择渠道">
+                  {(cpsChannels || []).map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="aso_role" label="ASO权限叠加">
+                <Select allowClear placeholder="不叠加ASO权限">
+                  <Option value="admin">ASO管理员</Option>
+                  <Option value="ops">ASO运营</Option>
+                  <Option value="viewer">ASO查看者</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item name="status" label="账号状态" initialValue="active">
                 <Select>
                   <Option value="active">启用</Option>
@@ -288,8 +321,10 @@ function UserPage() {
                 </Select>
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="must_change_password" label="首次登录改密" valuePropName="checked" initialValue={false}>
+              <Form.Item name="must_change_password" label="首次登录改密" initialValue={false}>
                 <Select>
                   <Option value={false}>否</Option>
                   <Option value={true}>是</Option>

@@ -27,7 +27,7 @@ async function getUsers(req, res) {
  */
 async function createUser(req, res) {
   try {
-    const { username, name, role, dept_id, cps_channel_id, cps_role, password } = req.body;
+    const { username, name, role, dept_id, cps_channel_id, cps_role, aso_role, email, mobile, status, must_change_password, password } = req.body;
 
     if (!username || !name || !password) {
       return error(res, '用户名、姓名和密码不能为空');
@@ -46,6 +46,11 @@ async function createUser(req, res) {
       dept_id: dept_id || null,
       cps_channel_id: cps_channel_id || null,
       cps_role: cps_role || null,
+      aso_role: aso_role || null,
+      email: email || null,
+      mobile: mobile || null,
+      status: status || 'active',
+      must_change_password: must_change_password || false,
       password_hash: passwordHash
     });
 
@@ -70,7 +75,7 @@ async function createUser(req, res) {
 async function updateUser(req, res) {
   try {
     const { id } = req.params;
-    const { name, role, dept_id, cps_channel_id, cps_role } = req.body;
+    const { name, role, dept_id, cps_channel_id, cps_role, aso_role, email, mobile, status, must_change_password } = req.body;
 
     const user = await User.findByPk(id);
     if (!user) {
@@ -78,7 +83,15 @@ async function updateUser(req, res) {
     }
 
     const oldValues = user.toJSON();
-    await user.update({ name, role, dept_id, cps_channel_id: cps_channel_id !== undefined ? cps_channel_id : user.cps_channel_id, cps_role: cps_role !== undefined ? (cps_role || null) : user.cps_role });
+    const updateData = { name, role, dept_id };
+    if (cps_channel_id !== undefined) updateData.cps_channel_id = cps_channel_id || null;
+    if (cps_role !== undefined) updateData.cps_role = cps_role || null;
+    if (aso_role !== undefined) updateData.aso_role = aso_role || null;
+    if (email !== undefined) updateData.email = email || null;
+    if (mobile !== undefined) updateData.mobile = mobile || null;
+    if (status !== undefined) updateData.status = status;
+    if (must_change_password !== undefined) updateData.must_change_password = must_change_password;
+    await user.update(updateData);
 
     const result = await User.findByPk(id, {
       include: [{ model: Department, attributes: ['id', 'name'] }],
@@ -143,7 +156,7 @@ async function resetPassword(req, res) {
 
     const newHash = await bcrypt.hash(new_password, 10);
     const oldValues = user.toJSON();
-    await user.update({ password_hash: newHash });
+    await user.update({ password_hash: newHash, must_change_password: true, token_version: (user.token_version || 0) + 1 });
 
     await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { reset_password: true });
 

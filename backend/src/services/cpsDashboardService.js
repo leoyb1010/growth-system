@@ -172,6 +172,10 @@ async function getDashboard(query = {}) {
   const products = parseIds(product_ids);
   if (channels.length) alertWhere.channel_id = { [Op.in]: channels };
   if (products.length) alertWhere.product_id = { [Op.in]: products };
+  // 预警数跟随看板时间窗口，不统计窗口外的历史遗留 open 事件
+  if (usePeriodFilter) {
+    alertWhere.stat_date = { [Op.between]: [start_date, end_date] };
+  }
 
   const [alertCount, channelCount] = await Promise.all([
     CpsAlertEvent.count({ where: alertWhere }),

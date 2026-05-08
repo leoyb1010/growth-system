@@ -25,7 +25,7 @@ function CpsChannelEntryTab() {
       const vals = await form.validateFields();
       if (!channelId) { message.error('未绑定渠道，请联系管理员'); return; }
       setSaving(true);
-      const res = await cpsApi.upsertMetric({
+      const res = await cpsApi.channelEntry({
         stat_date: vals.stat_date.format('YYYY-MM-DD'),
         channel_id: channelId,
         product_id: vals.product_id,

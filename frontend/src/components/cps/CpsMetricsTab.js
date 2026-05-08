@@ -16,6 +16,7 @@ function CpsMetricsTab({ channelId }) {
   const isChannelUser = role === 'cps_channel_user';
 
   const [loading, setLoading] = useState(false);
+  const [errorState, setErrorState] = useState(null); // null | 'forbidden' | 'error'
   const [data, setData] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
   const [channels, setChannels] = useState([]);
@@ -39,9 +40,13 @@ function CpsMetricsTab({ channelId }) {
 
   const fetchData = () => {
     setLoading(true);
+    setErrorState(null);
     cpsApi.getMetrics({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
       .then(res => { if (res.code === 0) { setData(res.data.rows || []); setPagination(p => ({ ...p, total: res.data.total || 0 })); } })
-      .catch(() => { /* 不弹错误，空态自然展示 */ })
+      .catch(err => {
+        if (err?.response?.status === 403) { setErrorState('forbidden'); }
+        else { setErrorState('error'); message.error('加载数据失败，请刷新重试'); }
+      })
       .finally(() => setLoading(false));
   };
 
@@ -125,7 +130,7 @@ function CpsMetricsTab({ channelId }) {
   const doImport = async () => {
     if (!importChannelId) { message.warning('请选择导入渠道'); return; }
     setImportModalVisible(false);
-    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls';
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls,.csv';
     input.onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
       const fd = new FormData(); fd.append('file', file); fd.append('auto_create_dim', 'true');
@@ -190,6 +195,16 @@ function CpsMetricsTab({ channelId }) {
           </Space></Col>
         )}
       </Row>
+      {errorState === 'forbidden' && (
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fff7e6', borderRadius: 6, fontSize: 13, color: '#ad6800' }}>
+          当前账号无权查看该数据范围，请联系管理员
+        </div>
+      )}
+      {errorState === 'error' && (
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fff2f0', borderRadius: 6, fontSize: 13, color: '#cf1322' }}>
+          数据加载失败，请<Button type="link" size="small" onClick={fetchData} style={{ padding: 0 }}>重试</Button>
+        </div>
+      )}
       <Table columns={columns} dataSource={data} rowKey="id" loading={loading} scroll={{ x: 1300 }}
         pagination={{ current: pagination.page, pageSize: pagination.pageSize, total: pagination.total, onChange: p => setPagination(prev => ({ ...prev, page: p })) }} size="small" />
 

@@ -55,6 +55,12 @@ export const cpsApi = {
   getProducts: () => api.get('/cps/products'),
   createProduct: (data) => api.post('/cps/products', data),
   updateProduct: (id, data) => api.put(`/cps/products/${id}`, data),
+  // 渠道录入（cps_channel_user 专属，channel_id 由后端强制从 data scope 取）
+  channelEntry: async (data) => {
+    const res = await api.post('/cps/channel-entry', data);
+    if (res.code === 0) cpsBus.emit('metrics:changed', res.data);
+    return res;
+  },
   // 预警规则
   getAlertRules: () => api.get('/cps/alert-rules'),
   upsertAlertRule: (data) => api.post('/cps/alert-rules', data),

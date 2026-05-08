@@ -45,8 +45,7 @@ function AsoAdminTab() {
     } catch (e) { if (!e?.errorFields) message.error('保存失败'); }
   };
 
-  const deleteKeyword = async (id) => { await asoApi.deleteDailyMetric(id); /* soft delete not available for keywords, reuse by disabling */
-    /* for now, just update status */
+  const deactivateKeyword = async (id) => {
     try {
       await asoApi.updateKeyword(id, { status: 'inactive' });
       message.success('已停用'); loadAll();
@@ -84,7 +83,7 @@ function AsoAdminTab() {
         { title: '操作', key: 'actions', width: 130, render: (_, r) => (
           <Space size="small">
             <Button size="small" icon={<EditOutlined />} onClick={() => { setEditKw(r); kwForm.setFieldsValue(r); setKwModal(true); }} />
-            <Popconfirm title="停用此关键词？" onConfirm={() => deleteKeyword(r.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
+            <Popconfirm title="停用此关键词？" onConfirm={() => deactivateKeyword(r.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
           </Space>
         ) },
       ]} />

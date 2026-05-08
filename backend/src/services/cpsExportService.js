@@ -1,12 +1,28 @@
+const { Op } = require('sequelize');
 const xlsx = require('xlsx');
 const { CpsChannel, CpsProduct, CpsDailyMetric } = require('../models');
 const cpsCalc = require('./cpsCalcService');
 
-async function exportToExcel(query = {}) {
+function parseIds(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(Number).filter(Boolean);
+  return String(value).split(',').map(Number).filter(Boolean);
+}
+
+async function exportToExcel(query = {}, dataScope = null) {
   const where = {};
   if (query.start_date && query.end_date) {
-    const { Op } = require('sequelize');
     where.stat_date = { [Op.between]: [query.start_date, query.end_date] };
+  }
+  const channelIds = parseIds(query.channel_ids);
+  const productIds = parseIds(query.product_ids);
+  if (channelIds.length) where.channel_id = { [Op.in]: channelIds };
+  if (productIds.length) where.product_id = { [Op.in]: productIds };
+  if (query.source) where.source = query.source;
+
+  // 应用 dataScope，确保渠道用户只能导出自己渠道数据
+  if (dataScope && dataScope.where && Object.keys(dataScope.where).length) {
+    Object.assign(where, dataScope.where);
   }
 
   const rows = await CpsDailyMetric.findAll({

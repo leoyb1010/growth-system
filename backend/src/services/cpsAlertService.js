@@ -10,7 +10,13 @@ function shouldTrigger(value, operator, threshold) {
 }
 
 async function raiseAlert(payload) {
-  const exists = await CpsAlertEvent.findOne({ where: { rule_code: payload.rule_code, stat_date: payload.stat_date || null, channel_id: payload.channel_id || null, product_id: payload.product_id || null, status: 'open' } });
+  // 查重：同规则+同日期+同渠道+同产品，任意状态都算已存在（不管open/ack/closed）
+  const exists = await CpsAlertEvent.findOne({ where: {
+    rule_code: payload.rule_code,
+    stat_date: payload.stat_date || null,
+    channel_id: payload.channel_id ?? null,
+    product_id: payload.product_id ?? null,
+  } });
   if (exists) return exists;
   return CpsAlertEvent.create({ rule_id: payload.rule_id, rule_code: payload.rule_code, level: payload.level || 'warning', stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id, metric: payload.metric, metric_value: Number(payload.metric_value) || 0, threshold_value: Number(payload.threshold_value) || 0, title: payload.title, message: payload.message, suggestion: payload.suggestion || '', status: 'open' });
 }

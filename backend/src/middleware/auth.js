@@ -24,7 +24,7 @@ const ROLE_PERMISSIONS = {
   ],
   cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use' ],
   cps_ops: [ 'cps.read', 'cps.write', 'ai.use' ],
-  cps_channel_user: [ 'cps.channel_upload', 'cps.channel_read_own' ],
+  cps_channel_user: [ 'cps.read', 'cps.channel_upload', 'cps.channel_read_own' ],
   aso_admin: [ 'aso.read', 'aso.write', 'aso.admin', 'ai.use' ],
   aso_ops: [ 'aso.read', 'aso.write', 'ai.use' ],
   aso_viewer: [ 'aso.read', 'ai.use' ],
@@ -96,7 +96,7 @@ async function injectAccessContext(req, res, next) {
   const CPS_ROLE_PERMS = {
     admin: ['cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own'],
     ops: ['cps.read', 'cps.write', 'cps.channel_upload', 'cps.channel_read_own'],
-    channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
+    channel_user: ['cps.read', 'cps.channel_upload', 'cps.channel_read_own'],
   };
   if (user.cps_role && CPS_ROLE_PERMS[user.cps_role]) {
     CPS_ROLE_PERMS[user.cps_role].forEach(p => { if (!permissions.includes(p)) permissions.push(p); });
@@ -251,10 +251,15 @@ function applyDataScope(resourceType) {
         break;
       case 'self':
         scopeWhere.dept_id = deptId;
-        // 对于有 owner_user_id 的表，用 owner_user_id / creator_id 过滤
-        if (['project', 'action_item'].includes(resourceType)) {
+        if (['project'].includes(resourceType)) {
           scopeWhere[Op.or] = [
             { owner_user_id: userId },
+            { owner_id: userId },
+            { created_by: userId }
+          ];
+        }
+        if (['action_item'].includes(resourceType)) {
+          scopeWhere[Op.or] = [
             { owner_id: userId },
             { created_by: userId }
           ];
@@ -265,10 +270,10 @@ function applyDataScope(resourceType) {
             { created_by: userId }
           ];
         }
-        // 对于只有 owner_name 的表（过渡期），后续迁移到 owner_user_id 后更新
         break;
       default:
-        scopeWhere.dept_id = deptId;
+        // 未知 data scope 类型，拒绝访问以确保安全
+        return error(res, '数据范围配置异常，请联系管理员', 403, 403);
       case 'cps_channel': {
         if (!dataScopeValue) {
           return error(res, '当前账号未绑定CPS渠道，禁止访问渠道数据', 403, 403);

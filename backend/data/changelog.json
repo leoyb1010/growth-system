@@ -1,6 +1,22 @@
 {
-  "latestVersion": "1.15.0",
+  "latestVersion": "1.15.1",
   "releases": [
+    {
+      "version": "1.15.1",
+      "date": "2026-05-08",
+      "title": "权限完善 + 导出增强 + dataScope修复 + ASO/预警修正",
+      "changes": [
+        { "type": "enhance", "module": "CPS权限", "desc": "cps_channel_user角色新增cps.read权限，可查看自己的渠道数据" },
+        { "type": "enhance", "module": "CPS导出", "desc": "导出支持渠道/产品/来源筛选+dataScope数据范围控制，渠道用户仅导出自己数据" },
+        { "type": "enhance", "module": "用户管理", "desc": "创建用户支持aso_role/email/mobile/status/must_change_password全字段；UserPage新增ASO角色颜色标签" },
+        { "type": "fix", "module": "dataScope", "desc": "actionItem/riskRegister聚合统计补充dataScope部门过滤，解决跨部门数据泄露" },
+        { "type": "fix", "module": "CPS看板", "desc": "预警数跟随看板时间窗口过滤，不再统计窗口外的历史遗留open事件" },
+        { "type": "fix", "module": "ASO看板", "desc": "T1-2排名改用current_rank[1,2]判断（替代不存在is_t1字段），修复到榜词数始终为0" },
+        { "type": "fix", "module": "ASO导入", "desc": "每行独立解析产品，支持同一Excel多产品混合导入" },
+        { "type": "fix", "module": "CPS明细", "desc": "CpsMetricsTab区分403权限拒绝与网络异常，避免空态误导" },
+        { "type": "fix", "module": "auth", "desc": "dataScope self模式移除action_item表（改用自己的控制器逻辑），避免重复过滤" }
+      ]
+    },
     {
       "version": "1.15.0",
       "date": "2026-05-08",

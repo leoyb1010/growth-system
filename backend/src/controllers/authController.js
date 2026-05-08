@@ -68,6 +68,11 @@ async function login(req, res) {
         role: user.role,
         roleLevel,
         dept_id: user.dept_id,
+        cps_channel_id: user.cps_channel_id,
+        cps_role: user.cps_role,
+        aso_role: user.aso_role,
+        status: user.status,
+        must_change_password: user.must_change_password,
         department: user.Department
       }
     }, '登录成功');
