@@ -1,6 +1,15 @@
 {
-  "latestVersion": "1.15.1",
+  "latestVersion": "1.15.2",
   "releases": [
+    {
+      "version": "1.15.2",
+      "date": "2026-05-08",
+      "title": "CPS渠道用户Excel批量导入",
+      "changes": [
+        { "type": "feat", "module": "CPS渠道", "desc": "cps_channel_user角色新增Excel批量导入能力，后端自动强制归属本渠道，前端CpsChannelEntryTab增加导入按钮" },
+        { "type": "security", "module": "CPS渠道", "desc": "forced_channel_id由后端从dataScope取，前端无法伪造，applyDataScope双重保障" }
+      ]
+    },
     {
       "version": "1.15.1",
       "date": "2026-05-08",

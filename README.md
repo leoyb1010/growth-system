@@ -393,6 +393,16 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.15.2 — 2026-05-08 · CPS渠道用户Excel批量导入
+
+> `cps_channel_user` 角色新增 Excel 批量导入能力，后端自动强制归属本渠道。
+
+- 后端新增 `/cps/channel-import` 路由（权限 `cps.channel_upload`），中间件自动注入 `forced_channel_id` 取自 `dataScope`
+- 前端 `CpsChannelEntryTab` 新增「Excel 批量导入」按钮，Upload 组件直接提交
+- `cpsService.channelImportMetrics` 调用专属端点，无需传渠道参数
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.15.1 — 2026-05-08 · 权限完善+导出增强+dataScope修复+ASO修正
 
 > 21文件覆盖：渠道用户权限升级、导出筛选增强、数据范围补漏、ASO看板/导入修正。

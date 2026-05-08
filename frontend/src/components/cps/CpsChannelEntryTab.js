@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Form, InputNumber, Select, DatePicker, Button, message, Card, Space, Typography } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { Form, InputNumber, Select, DatePicker, Button, message, Card, Space, Typography, Upload } from 'antd';
+import { SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import { cpsApi } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
 import { fmtMoney } from '../../utils/cpsFormat';
@@ -13,6 +13,7 @@ function CpsChannelEntryTab() {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [form] = Form.useForm();
   const channelId = user?.cps_channel_id;
 
@@ -53,6 +54,27 @@ function CpsChannelEntryTab() {
     }
   };
 
+  const handleImport = async (file) => {
+    if (!channelId) { message.error('未绑定渠道'); return; }
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await cpsApi.channelImportMetrics(formData);
+      if (res.code === 0) {
+        const d = res.data;
+        message.success(`导入完成：成功${d.success || 0}，跳过${d.skip || 0}${d.errors?.length ? '，错误' + d.errors.length : ''}`);
+        if (d.errors?.length) message.warning(d.errors.slice(0, 3).join('；'), 6);
+      } else {
+        message.error(res.message || '导入失败');
+      }
+    } catch (e) {
+      message.error('导入请求失败');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <Card style={{ maxWidth: 600 }}>
       <Title level={5}>渠道日报录入</Title>
@@ -79,9 +101,14 @@ function CpsChannelEntryTab() {
           </Space>
         </Space>
         <Form.Item name="complaint_count" label="客诉数"><InputNumber style={{ width: 120 }} /></Form.Item>
-        <Button type="primary" icon={<SaveOutlined />} onClick={handleSubmit} loading={saving} size="large" block>
-          提交数据
-        </Button>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button type="primary" icon={<SaveOutlined />} onClick={handleSubmit} loading={saving} size="large" block>
+            提交数据
+          </Button>
+          <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleImport} disabled={importing}>
+            <Button icon={<UploadOutlined />} loading={importing} block>Excel 批量导入</Button>
+          </Upload>
+        </Space>
       </Form>
     </Card>
   );

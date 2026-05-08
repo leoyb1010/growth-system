@@ -61,6 +61,12 @@ export const cpsApi = {
     if (res.code === 0) cpsBus.emit('metrics:changed', res.data);
     return res;
   },
+  // 渠道 Excel 导入（cps_channel_user 专属，channel_id 由后端强制取 dataScope）
+  channelImportMetrics: async (formData) => {
+    const res = await api.post('/cps/channel-import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    if (res.code === 0) cpsBus.emit('metrics:changed', res.data);
+    return res;
+  },
   // 预警规则
   getAlertRules: () => api.get('/cps/alert-rules'),
   upsertAlertRule: (data) => api.post('/cps/alert-rules', data),

@@ -196,6 +196,11 @@ router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), appl
 	router.post('/cps/alerts/check', ...auth, requirePermission('cps.admin'), cpsController.checkAlertsNow);
 // 渠道录入接口 (cps_channel_user 专属，只操作自己渠道)
 router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), cpsController.upsertMetric);
+// 渠道 Excel 导入 (cps_channel_user 专属，自动锁定自己渠道)
+router.post('/cps/channel-import', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), (req, res, next) => {
+  req.body.forced_channel_id = req.dataScope?.value;
+  next();
+}, cpsUpload.single('file'), cpsController.importMetrics);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截
