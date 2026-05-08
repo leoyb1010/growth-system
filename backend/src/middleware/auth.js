@@ -111,8 +111,8 @@ async function injectAccessContext(req, res, next) {
   }
   let scopeConfig = DATA_SCOPE_MAP[canonicalRole] || DATA_SCOPE_MAP.department_member;
 
-  // CPS角色叠加时，数据范围必须切换为渠道范围
-  if (user.cps_role === 'channel_user') {
+  // CPS角色叠加时，数据范围必须切换为渠道范围（兼容 role=cps_channel_user 和 cps_role=channel_user）
+  if (user.cps_role === 'channel_user' || user.role === 'cps_channel_user') {
     scopeConfig = { type: 'cps_channel', value: user.cps_channel_id };
   }
 

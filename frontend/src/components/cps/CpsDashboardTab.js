@@ -32,7 +32,8 @@ function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   // 按日=今天 / 按周=本周 / 按月=本月 — 三个 Radio 是快速日期筛选器
-  const [range, setRange] = useState([dayjs(), dayjs()]);
+  // 初始加载默认展示近7天，用户导入的历史数据自动可见
+  const [range, setRange] = useState([dayjs().subtract(6, 'day'), dayjs()]);
   const [granularity, setGranularity] = useState('day');
   const [channels, setChannels] = useState([]);
 
