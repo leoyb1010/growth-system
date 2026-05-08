@@ -441,7 +441,7 @@ function DashboardPage() {
             <FlagOutlined style={{ fontSize: 14, color: '#7C3AED' }} /> 各组指标
           </div>
           <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
-            {secondaryKpiCards.map((card, idx) => (
+            {secondaryKpiCards.filter(card => card.title !== '广告组 GMV').map((card, idx) => (
               <Col xs={24} sm={12} xl={6} key={idx}>
                 <Card className="surface-card-secondary hover-lift" bodyStyle={{ padding: 16 }} style={{ '--stagger-index': idx + 2 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
