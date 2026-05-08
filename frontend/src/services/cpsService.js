@@ -47,6 +47,7 @@ export const cpsApi = {
     if (res.code === 0) cpsBus.emit('alerts:changed', res.data);
     return res;
   },
+  checkAlertsNow: (date) => api.post('/cps/alerts/check', {}, { params: date ? { date } : undefined }),
   // 字典
   getChannels: () => api.get('/cps/channels'),
   createChannel: (data) => api.post('/cps/channels', data),

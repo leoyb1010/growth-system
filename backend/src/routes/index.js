@@ -25,7 +25,10 @@ const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const fileRoutes = require('./fileRoutes');
+const asoController = require('../controllers/asoController');
+const asoAdminController = require('../controllers/asoAdminController');
 const cpsUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/cps/'), limits: { fileSize: 10 * 1024 * 1024 } });
+const asoUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/aso/'), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -190,6 +193,7 @@ router.get('/cps/export', ...auth, requirePermission('cps.read'), applyDataScope
 // 预警
 router.get('/cps/alerts', ...auth, requirePermission('cps.read'), applyDataScope('cps_alert'), cpsController.getAlerts);
 router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), applyDataScope('cps_alert'), cpsController.ackAlert);
+	router.post('/cps/alerts/check', ...auth, requirePermission('cps.admin'), cpsController.checkAlertsNow);
 // 渠道录入接口 (cps_channel_user 专属，只操作自己渠道)
 router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), cpsController.upsertMetric);
 
@@ -202,6 +206,31 @@ router.use('/ai', aiLimiter || [], aiRoutes);
 
 // ==================== 文件下载（鉴权） ====================
 router.use('/files', fileRoutes);
+
+	// ==================== ASO 苹果商店优化模块 ====================
+	router.get('/aso/products', ...auth, requirePermission('aso.read'), asoAdminController.getProducts);
+	router.post('/aso/products', ...auth, requirePermission('aso.admin'), asoAdminController.createProduct);
+	router.put('/aso/products/:id', ...auth, requirePermission('aso.admin'), asoAdminController.updateProduct);
+	router.get('/aso/keywords', ...auth, requirePermission('aso.read'), asoAdminController.getKeywords);
+	router.post('/aso/keywords', ...auth, requirePermission('aso.admin'), asoAdminController.createKeyword);
+	router.put('/aso/keywords/:id', ...auth, requirePermission('aso.admin'), asoAdminController.updateKeyword);
+	router.get('/aso/dashboard', ...auth, requirePermission('aso.read'), asoController.getDashboard);
+	router.get('/aso/daily-metrics', ...auth, requirePermission('aso.read'), asoController.getDailyMetrics);
+	router.post('/aso/daily-metrics', ...auth, requirePermission('aso.write'), asoController.upsertDailyMetric);
+	router.put('/aso/daily-metrics/:id', ...auth, requirePermission('aso.write'), asoController.updateDailyMetric);
+	router.delete('/aso/daily-metrics/:id', ...auth, requirePermission('aso.write'), asoController.deleteDailyMetric);
+	router.get('/aso/daily-metrics/:id/snapshots', ...auth, requirePermission('aso.read'), asoController.getMetricSnapshots);
+	router.post('/aso/import/daily-metrics', ...auth, requirePermission('aso.write'), asoUpload.single('file'), asoController.importDailyMetrics);
+	router.get('/aso/export/daily-metrics', ...auth, requirePermission('aso.read'), asoController.exportDailyMetrics);
+	router.get('/aso/campaigns', ...auth, requirePermission('aso.read'), asoController.getCampaigns);
+	router.post('/aso/campaigns', ...auth, requirePermission('aso.write'), asoController.createCampaign);
+	router.put('/aso/campaigns/:id', ...auth, requirePermission('aso.write'), asoController.updateCampaign);
+	router.delete('/aso/campaigns/:id', ...auth, requirePermission('aso.write'), asoController.deleteCampaign);
+	router.get('/aso/metadata-versions', ...auth, requirePermission('aso.read'), asoController.getMetadataVersions);
+	router.post('/aso/metadata-versions', ...auth, requirePermission('aso.write'), asoController.createMetadataVersion);
+	router.put('/aso/metadata-versions/:id', ...auth, requirePermission('aso.write'), asoController.updateMetadataVersion);
+	router.get('/aso/baseline-metrics', ...auth, requirePermission('aso.read'), asoController.getBaselineMetrics);
+	router.post('/aso/baseline-metrics', ...auth, requirePermission('aso.write'), asoController.upsertBaselineMetric);
 
   return router;
 };

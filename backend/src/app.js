@@ -229,16 +229,15 @@ async function startServer() {
       console.warn('[DB] 写入自检警告（非致命）:', dbWriteErr.message);
     }
 
-    // 同步模型（开发环境自动建表，生产环境建议用迁移）
+    // 同步模型：始终以 force:false 运行，确保新增表被创建且不影响已有表
+    // SQLite: force:false 只创建不存在的表
+    // PostgreSQL: 生产环境 force:false（不修改已有表结构），开发环境 alter:true（自动添加新列）
     const dialect = process.env.DB_DIALECT || 'postgres';
-    if (process.env.NODE_ENV !== 'production') {
-      // SQLite: force:false 只创建不存在的表 | PostgreSQL: 生产环境 force:false，开发环境 alter:true
-      const syncOptions = (dialect === 'sqlite' || process.env.NODE_ENV === 'production')
-        ? { force: false }
-        : { alter: true };
-      await sequelize.sync(syncOptions);
-      console.log('数据库模型同步完成');
-    }
+    const syncOptions = (dialect === 'sqlite' || process.env.NODE_ENV === 'production')
+      ? { force: false }
+      : { alter: true };
+    await sequelize.sync(syncOptions);
+    console.log('数据库模型同步完成');
 
     // 种子数据：确保部门和初始用户存在
     await seedDatabase();

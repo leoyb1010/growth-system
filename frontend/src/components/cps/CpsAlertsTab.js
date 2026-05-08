@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, message, Select } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
+import { Table, Tag, Button, message, Select, Space } from 'antd';
+import { CheckOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { cpsApi, cpsBus } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
@@ -18,9 +18,11 @@ function CpsAlertsTab() {
   const { user } = useAuth();
   const role = user?.role || 'dept_staff';
   const cpsRole = user?.cps_role;
+  const isAdmin = can(role, 'cps.admin', cpsRole);
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState('open');
 
   useEffect(() => { fetchData(); }, [status]);
@@ -34,14 +36,31 @@ function CpsAlertsTab() {
 
   const fetchData = async () => {
     setLoading(true);
-    try { const res = await cpsApi.getAlerts({ status, limit: 200 }); if (res.code === 0) setData(res.data || []); }
-    catch { message.error('加载预警失败'); }
+    try {
+      const res = await cpsApi.getAlerts({ status, limit: 200 });
+      if (res.code === 0) setData(res.data || []);
+      else message.error(res.message || '加载预警失败');
+    } catch (e) { message.error(typeof e === 'string' ? e : '加载预警失败'); }
     setLoading(false);
+  };
+
+  const handleCheckNow = async () => {
+    setChecking(true);
+    try {
+      const res = await cpsApi.checkAlertsNow();
+      if (res.code === 0) {
+        message.success(`预警检查完成，昨日产生了 ${res.data?.events_count || 0} 条预警`);
+        fetchData();
+      } else {
+        message.error(res.message || '检查失败');
+      }
+    } catch (e) { message.error(typeof e === 'string' ? e : '预警检查失败'); }
+    setChecking(false);
   };
 
   const handleAck = async (id) => {
     try { await cpsApi.ackAlert(id); message.success('已确认'); fetchData(); }
-    catch { message.error('确认失败'); }
+    catch (e) { message.error(typeof e === 'string' ? e : '确认失败'); }
   };
 
   const columns = [
@@ -60,11 +79,18 @@ function CpsAlertsTab() {
 
   return (
     <div>
-      <Select value={status} onChange={setStatus} style={{ width: 120, marginBottom: 16 }}>
-        <Select.Option value="open">未处理</Select.Option>
-        <Select.Option value="ack">已确认</Select.Option>
-        <Select.Option value="closed">已关闭</Select.Option>
-      </Select>
+      <Space style={{ marginBottom: 16 }}>
+        <Select value={status} onChange={setStatus} style={{ width: 120 }}>
+          <Select.Option value="open">未处理</Select.Option>
+          <Select.Option value="ack">已确认</Select.Option>
+          <Select.Option value="closed">已关闭</Select.Option>
+        </Select>
+        {isAdmin && (
+          <Button icon={<ThunderboltOutlined />} onClick={handleCheckNow} loading={checking}>
+            检查昨日预警
+          </Button>
+        )}
+      </Space>
       <Table columns={columns} dataSource={data} rowKey="id" loading={loading} size="small" pagination={{ pageSize: 20 }} />
     </div>
   );

@@ -32,7 +32,9 @@ const User = sequelize.define('User', {
   // V6 安全字段
   token_version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   cps_channel_id: { type: DataTypes.INTEGER, allowNull: true },
-  cps_role: { type: DataTypes.STRING(20), allowNull: true }, // token版本号，修改后强制重登录
+  cps_role: { type: DataTypes.STRING(20), allowNull: true },
+  aso_role: { type: DataTypes.STRING(20), allowNull: true },
+  // token版本号，修改后强制重登录
 }, {
   tableName: 'users',
   timestamps: false,
@@ -502,6 +504,188 @@ CpsAlertEvent.belongsTo(CpsChannel, { foreignKey: 'channel_id', as: 'channel' })
 CpsAlertEvent.belongsTo(CpsProduct, { foreignKey: 'product_id', as: 'product' });
 CpsAlertEvent.belongsTo(CpsAlertRule, { foreignKey: 'rule_id', as: 'rule' });
 
+// ==================== ASO 苹果商店优化模块 ====================
+const AsoProduct = sequelize.define('AsoProduct', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  app_store_id: { type: DataTypes.STRING(64), allowNull: true },
+  bundle_id: { type: DataTypes.STRING(128), allowNull: true },
+  category: { type: DataTypes.STRING(100), allowNull: true },
+  owner_name: { type: DataTypes.STRING(100), allowNull: true },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'aso_products', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const AsoKeyword = sequelize.define('AsoKeyword', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  keyword: { type: DataTypes.STRING(255), allowNull: false },
+  keyword_type: { type: DataTypes.STRING(32), allowNull: true },
+  keyword_group: { type: DataTypes.STRING(100), allowNull: true },
+  language: { type: DataTypes.STRING(50), allowNull: true },
+  search_index: { type: DataTypes.INTEGER, allowNull: true },
+  popularity: { type: DataTypes.INTEGER, allowNull: true },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, {
+  tableName: 'aso_keywords', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at',
+  indexes: [{ unique: true, fields: ['product_id', 'keyword'] }],
+});
+
+const AsoDailyKeywordMetric = sequelize.define('AsoDailyKeywordMetric', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: false },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  keyword_id: { type: DataTypes.INTEGER, allowNull: false },
+  keyword_status: { type: DataTypes.STRING(100), allowNull: true },
+  search_index: { type: DataTypes.INTEGER, allowNull: true },
+  popularity: { type: DataTypes.INTEGER, allowNull: true },
+  initial_rank: { type: DataTypes.INTEGER, allowNull: true },
+  yesterday_rank: { type: DataTypes.INTEGER, allowNull: true },
+  current_rank: { type: DataTypes.INTEGER, allowNull: true },
+  best_rank: { type: DataTypes.INTEGER, allowNull: true },
+  yesterday_volume: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  today_volume: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  cost_amount: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  rank_delta: { type: DataTypes.INTEGER, allowNull: true },
+  is_t1: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  is_t3: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  is_t10: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  is_covered: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  source: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'manual' },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'confirmed' },
+  uploader_id: { type: DataTypes.INTEGER, allowNull: true },
+  uploader_name: { type: DataTypes.STRING(100), allowNull: true },
+  version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, {
+  tableName: 'aso_daily_keyword_metrics', timestamps: true, paranoid: true,
+  createdAt: 'created_at', updatedAt: 'updated_at', deletedAt: 'deleted_at',
+  indexes: [
+    { unique: true, fields: ['stat_date', 'product_id', 'keyword_id'] },
+    { fields: ['product_id', 'stat_date'] },
+    { fields: ['keyword_id', 'stat_date'] },
+    { fields: ['stat_date'] },
+  ],
+});
+
+const AsoCampaign = sequelize.define('AsoCampaign', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  campaign_month: { type: DataTypes.STRING(7), allowNull: false },
+  name: { type: DataTypes.STRING(200), allowNull: false },
+  total_plan_volume: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  total_plan_cost: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+  objective: { type: DataTypes.TEXT, allowNull: true },
+  strategy: { type: DataTypes.TEXT, allowNull: true },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'draft' },
+  owner_name: { type: DataTypes.STRING(100), allowNull: true },
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
+  updated_by: { type: DataTypes.INTEGER, allowNull: true },
+}, {
+  tableName: 'aso_campaigns', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at',
+  indexes: [{ unique: true, fields: ['product_id', 'campaign_month', 'name'] }],
+});
+
+const AsoCampaignKeyword = sequelize.define('AsoCampaignKeyword', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  campaign_id: { type: DataTypes.INTEGER, allowNull: false },
+  keyword_id: { type: DataTypes.INTEGER, allowNull: false },
+  stage: { type: DataTypes.STRING(64), allowNull: true },
+  target_rank: { type: DataTypes.STRING(32), allowNull: true },
+  start_rank: { type: DataTypes.INTEGER, allowNull: true },
+  plan_start_date: { type: DataTypes.DATEONLY, allowNull: true },
+  plan_end_date: { type: DataTypes.DATEONLY, allowNull: true },
+  plan_volume: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  strategy: { type: DataTypes.TEXT, allowNull: true },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: 'aso_campaign_keywords', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const AsoCampaignDailyPlan = sequelize.define('AsoCampaignDailyPlan', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  campaign_keyword_id: { type: DataTypes.INTEGER, allowNull: false },
+  plan_date: { type: DataTypes.DATEONLY, allowNull: false },
+  plan_volume: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  plan_cost: { type: DataTypes.DECIMAL(15, 2), allowNull: false, defaultValue: 0 },
+}, {
+  tableName: 'aso_campaign_daily_plans', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at',
+  indexes: [{ unique: true, fields: ['campaign_keyword_id', 'plan_date'] }],
+});
+
+const AsoProductBaselineMetric = sequelize.define('AsoProductBaselineMetric', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  stat_date: { type: DataTypes.DATEONLY, allowNull: false },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  keyword_coverage: { type: DataTypes.INTEGER, allowNull: true },
+  effective_keyword_coverage: { type: DataTypes.INTEGER, allowNull: true },
+  effective_t3_keywords: { type: DataTypes.INTEGER, allowNull: true },
+  effective_t10_keywords: { type: DataTypes.INTEGER, allowNull: true },
+  overall_rank: { type: DataTypes.INTEGER, allowNull: true },
+  category_rank: { type: DataTypes.INTEGER, allowNull: true },
+  rating: { type: DataTypes.DECIMAL(4, 2), allowNull: true },
+  rating_count: { type: DataTypes.INTEGER, allowNull: true },
+  source: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'manual' },
+  remark: { type: DataTypes.TEXT, allowNull: true },
+}, {
+  tableName: 'aso_product_baseline_metrics', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at',
+  indexes: [{ unique: true, fields: ['stat_date', 'product_id'] }],
+});
+
+const AsoMetadataVersion = sequelize.define('AsoMetadataVersion', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  product_id: { type: DataTypes.INTEGER, allowNull: false },
+  version_date: { type: DataTypes.DATEONLY, allowNull: false },
+  locale: { type: DataTypes.STRING(64), allowNull: false },
+  before_keywords: { type: DataTypes.TEXT, allowNull: true },
+  after_keywords: { type: DataTypes.TEXT, allowNull: true },
+  change_type: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'update' },
+  expected_effect: { type: DataTypes.TEXT, allowNull: true },
+  actual_effect: { type: DataTypes.TEXT, allowNull: true },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'draft' },
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
+  updated_by: { type: DataTypes.INTEGER, allowNull: true },
+}, { tableName: 'aso_metadata_versions', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+const AsoSnapshot = sequelize.define('AsoSnapshot', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  record_type: { type: DataTypes.STRING(64), allowNull: false },
+  record_id: { type: DataTypes.INTEGER, allowNull: false },
+  version: { type: DataTypes.INTEGER, allowNull: false },
+  payload_json: { type: DataTypes.TEXT, allowNull: false },
+  changed_by: { type: DataTypes.INTEGER, allowNull: true },
+  changed_by_name: { type: DataTypes.STRING(100), allowNull: true },
+  change_reason: { type: DataTypes.STRING(255), allowNull: true },
+}, { tableName: 'aso_snapshots', timestamps: true, createdAt: 'created_at', updatedAt: false });
+
+const AsoImportLog = sequelize.define('AsoImportLog', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  import_type: { type: DataTypes.STRING(64), allowNull: false },
+  product_id: { type: DataTypes.INTEGER, allowNull: true },
+  file_name: { type: DataTypes.STRING(255), allowNull: true },
+  status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'pending' },
+  row_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  success_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  error_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  error_message: { type: DataTypes.TEXT, allowNull: true },
+  uploaded_by: { type: DataTypes.INTEGER, allowNull: true },
+  uploaded_by_name: { type: DataTypes.STRING(100), allowNull: true },
+}, { tableName: 'aso_import_logs', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' });
+
+// ASO 模型关联
+AsoDailyKeywordMetric.belongsTo(AsoProduct, { foreignKey: 'product_id', as: 'product' });
+AsoDailyKeywordMetric.belongsTo(AsoKeyword, { foreignKey: 'keyword_id', as: 'keyword' });
+AsoProduct.hasMany(AsoKeyword, { foreignKey: 'product_id', as: 'keywords' });
+AsoProduct.hasMany(AsoDailyKeywordMetric, { foreignKey: 'product_id', as: 'dailyMetrics' });
+AsoKeyword.hasMany(AsoDailyKeywordMetric, { foreignKey: 'keyword_id', as: 'dailyMetrics' });
+AsoCampaign.belongsTo(AsoProduct, { foreignKey: 'product_id', as: 'product' });
+AsoCampaignKeyword.belongsTo(AsoCampaign, { foreignKey: 'campaign_id', as: 'campaign' });
+AsoCampaignKeyword.belongsTo(AsoKeyword, { foreignKey: 'keyword_id', as: 'keyword' });
+AsoCampaignDailyPlan.belongsTo(AsoCampaignKeyword, { foreignKey: 'campaign_keyword_id', as: 'campaignKeyword' });
+AsoProductBaselineMetric.belongsTo(AsoProduct, { foreignKey: 'product_id', as: 'product' });
+AsoMetadataVersion.belongsTo(AsoProduct, { foreignKey: 'product_id', as: 'product' });
+AsoSnapshot.belongsTo(AsoDailyKeywordMetric, { foreignKey: 'record_id', constraints: false });
+
 // 新模型关联
 User.hasMany(ActionItem, { foreignKey: 'owner_id', as: 'OwnedActionItems' });
 ActionItem.belongsTo(User, { foreignKey: 'owner_id', as: 'Owner' });
@@ -539,5 +723,15 @@ module.exports = {
   CpsDailyMetricSnapshot,
   CpsUploadLog,
   CpsAlertRule,
-  CpsAlertEvent
+  CpsAlertEvent,
+  AsoProduct,
+  AsoKeyword,
+  AsoDailyKeywordMetric,
+  AsoCampaign,
+  AsoCampaignKeyword,
+  AsoCampaignDailyPlan,
+  AsoProductBaselineMetric,
+  AsoMetadataVersion,
+  AsoSnapshot,
+  AsoImportLog
 };

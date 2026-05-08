@@ -28,12 +28,16 @@ const ROLE_PERMISSIONS = {
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use',
     'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own',
+    'aso.read', 'aso.write', 'aso.admin',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   cps_admin: ['cps.read', 'cps.write', 'cps.admin'],
   cps_ops: ['cps.read', 'cps.write'],
   cps_channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
+  aso_admin: ['aso.read', 'aso.write', 'aso.admin'],
+  aso_ops: ['aso.read', 'aso.write'],
+  aso_viewer: ['aso.read'],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update',
     'project.read', 'project.create', 'project.update', 'project.quick_update',
@@ -65,6 +69,13 @@ const CPS_ROLE_PERMS = {
   channel_user: ['cps.channel_upload', 'cps.channel_read_own'],
 };
 
+// ASO 权限叠加映射
+const ASO_ROLE_PERMS = {
+  admin: ['aso.read', 'aso.write', 'aso.admin'],
+  ops: ['aso.read', 'aso.write'],
+  viewer: ['aso.read'],
+};
+
 /**
  * 获取规范角色名
  */
@@ -86,10 +97,14 @@ export function getPermissions(role) {
  * @param {string} permission - 权限点，如 'kpi.create'
  * @returns {boolean}
  */
-export function can(role, permission, cpsRole) {
+export function can(role, permission, cpsRole, asoRole) {
   const permissions = getPermissions(role);
   // CPS权限叠加
   if (cpsRole && CPS_ROLE_PERMS[cpsRole] && CPS_ROLE_PERMS[cpsRole].includes(permission)) {
+    return true;
+  }
+  // ASO权限叠加
+  if (asoRole && ASO_ROLE_PERMS[asoRole] && ASO_ROLE_PERMS[asoRole].includes(permission)) {
     return true;
   }
   return permissions.includes(permission);
@@ -127,6 +142,7 @@ export const MENU_PERMISSIONS = {
   '/action-items': 'action_item.read',
   '/risks': 'risk_register.read',
   '/cps': 'cps.read',
+  '/aso': 'aso.read',
 };
 
 /**
@@ -135,10 +151,10 @@ export const MENU_PERMISSIONS = {
  * @param {string} menuKey 
  * @param {string} cpsRole - 可选，CPS权限叠加
  */
-export function canSeeMenu(role, menuKey, cpsRole) {
+export function canSeeMenu(role, menuKey, cpsRole, asoRole) {
   const permission = MENU_PERMISSIONS[menuKey];
   if (!permission) return true;
-  return can(role, permission, cpsRole);
+  return can(role, permission, cpsRole, asoRole);
 }
 
 export default { can, getCanonicalRole, getPermissions, useAbility, canSeeMenu, MENU_PERMISSIONS };

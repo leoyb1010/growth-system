@@ -393,6 +393,28 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.15.0 — 2026-05-08 · ASO苹果商店优化模块 + CPS预警增强 + 生产Sync修复
+
+> 核心改动：全新ASO业务模块上线；CPS新增手动触发预警；生产环境启用模型同步自动建表。
+
+**ASO 苹果商店优化模块（全新）**
+- 10 张独立表：`aso_products` / `aso_keywords` / `aso_daily_keyword_metrics` / `aso_campaigns` / `aso_campaign_keywords` / `aso_campaign_daily_plans` / `aso_product_baseline_metrics` / `aso_metadata_versions` / `aso_snapshots` / `aso_import_logs`
+- 23 个 API 端点：产品CRUD / 关键词CRUD / 看板 / 日指标 / 投放计划 / 元数据版本 / 基线指标 / 导入导出
+- 前端 6 个 Tab：看板 / 关键词管理 / 投放管理 / 日导入 / 元数据 / 管理配置
+- 三独立 ASO 角色：`aso_admin` / `aso_ops` / `aso_viewer`，权限叠加体系与前缀匹配策略一致
+- 用户表新增 `aso_role` 字段；菜单新增 ASO优化入口（`AppleOutlined` 图标）
+
+**CPS 增强**
+- 预警页新增「立即检查」按钮，管理员可随时手动触发生成最新预警
+- 渠道用户数据范围改为显式 `where.channel_id` 处理，避免 `mergeDataScope` 中 `dept_id` 等无关字段污染 CPS 表查询
+- CpsAlertsTab 错误处理增强：区分 API 错误与网络异常
+
+**基础设施修复**
+- `app.js` 移除 `NODE_ENV !== 'production'` sync 跳过条件，生产环境也跑 `sequelize.sync({ force: false })` 以确保新模块表自动创建
+- auth.js 新增 ASO 角色权限定义与数据范围映射
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.14.0 — 2026-05-07 · 安全兜底+性能优化+缓存修复+DataFrame增强
 
 > 12文件覆盖：数据库密码安全、并发乐观锁、仪表盘N+1优化、Cloudflare缓存修复、CPS事务化、AI落地字段校验、Excel逐sheet独立事务。

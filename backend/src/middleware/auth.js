@@ -18,12 +18,16 @@ const ROLE_PERMISSIONS = {
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
     'import.excel', 'export.data', 'search.use', 'ai.use',
     'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own',
+    'aso.read', 'aso.write', 'aso.admin',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
   cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use' ],
   cps_ops: [ 'cps.read', 'cps.write', 'ai.use' ],
   cps_channel_user: [ 'cps.channel_upload', 'cps.channel_read_own' ],
+  aso_admin: [ 'aso.read', 'aso.write', 'aso.admin', 'ai.use' ],
+  aso_ops: [ 'aso.read', 'aso.write', 'ai.use' ],
+  aso_viewer: [ 'aso.read', 'ai.use' ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update', 'kpi.delete',
     'project.read', 'project.create', 'project.update', 'project.delete', 'project.quick_update',
@@ -58,7 +62,10 @@ const ROLE_COMPAT = {
   dept_staff: 'department_member',
   cps_admin: 'cps_admin',
   cps_ops: 'cps_ops',
-  cps_channel_user: 'cps_channel_user'
+  cps_channel_user: 'cps_channel_user',
+  aso_admin: 'aso_admin',
+  aso_ops: 'aso_ops',
+  aso_viewer: 'aso_viewer'
 };
 
 // 数据范围映射
@@ -67,6 +74,9 @@ const DATA_SCOPE_MAP = {
   cps_admin: { type: 'all', value: null },
   cps_ops: { type: 'all', value: null },
   cps_channel_user: { type: 'cps_channel', value: null },
+  aso_admin: { type: 'all', value: null },
+  aso_ops: { type: 'all', value: null },
+  aso_viewer: { type: 'all', value: null },
   department_manager: { type: 'department', value: null },
   department_member: { type: 'self', value: null }
 };
@@ -90,6 +100,14 @@ async function injectAccessContext(req, res, next) {
   };
   if (user.cps_role && CPS_ROLE_PERMS[user.cps_role]) {
     CPS_ROLE_PERMS[user.cps_role].forEach(p => { if (!permissions.includes(p)) permissions.push(p); });
+  }
+  const ASO_ROLE_PERMS = {
+    admin: ['aso.read', 'aso.write', 'aso.admin'],
+    ops: ['aso.read', 'aso.write'],
+    viewer: ['aso.read'],
+  };
+  if (user.aso_role && ASO_ROLE_PERMS[user.aso_role]) {
+    ASO_ROLE_PERMS[user.aso_role].forEach(p => { if (!permissions.includes(p)) permissions.push(p); });
   }
   const scopeConfig = DATA_SCOPE_MAP[canonicalRole] || DATA_SCOPE_MAP.department_member;
 
@@ -146,7 +164,7 @@ async function authenticate(req, res, next) {
   // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
   try {
     const dbUser = await User.findByPk(decoded.id, {
-      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id', 'cps_role'],
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id', 'cps_role', 'aso_role'],
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 
@@ -180,6 +198,7 @@ async function authenticate(req, res, next) {
       dept_id: dbUser.dept_id,
       cps_channel_id: dbUser.cps_channel_id,
       cps_role: dbUser.cps_role,
+      aso_role: dbUser.aso_role,
       name: dbUser.name,
       username: dbUser.username,
       status: dbUser.status,

@@ -1,6 +1,19 @@
 {
-  "latestVersion": "1.14.0",
+  "latestVersion": "1.15.0",
   "releases": [
+    {
+      "version": "1.15.0",
+      "date": "2026-05-08",
+      "title": "ASO苹果商店优化模块上线 + CPS预警手动触发 + 数据范围修正",
+      "changes": [
+        { "type": "feat", "module": "ASO模块", "desc": "全新ASO（App Store Optimization）模块上线：10张独立表+23个API+6个前端Tab（看板/关键词/投放计划/日导入/元数据/管理）" },
+        { "type": "feat", "module": "ASO权限", "desc": "三独立ASO角色（aso_admin/aso_ops/aso_viewer）+权限叠加体系+菜单可见控制" },
+        { "type": "feat", "module": "CPS预警", "desc": "新增手动触发预警检查按钮（ThunderboltOutlined），管理员可即时生成最新预警" },
+        { "type": "fix", "module": "CPS数据范围", "desc": "渠道用户数据范围改为显式where处理，避免mergeDataScope中dept_id等无关字段污染CPS表查询" },
+        { "type": "fix", "module": "数据库同步", "desc": "生产环境启用sequelize.sync(force:false)，确保新模块表自动创建（之前生产环境跳过sync）" },
+        { "type": "fix", "module": "CPS预警加载", "desc": "CpsAlertsTab错误处理增强：区分API错误和网络异常，显示具体错误信息" }
+      ]
+    },
     {
       "version": "1.14.0",
       "date": "2026-05-07",

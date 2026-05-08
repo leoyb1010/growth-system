@@ -27,6 +27,7 @@ import {
   CheckCircleOutlined,
   AlertOutlined,
   DollarOutlined,
+  AppleOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
@@ -57,6 +58,7 @@ function AppLayout() {
   const location = useLocation();
   const role = user?.role || 'dept_staff';
   const cpsRole = user?.cps_role;
+  const asoRole = user?.aso_role;
 
   // ===== 更新日志弹窗 =====
   const [changelogVisible, setChangelogVisible] = useState(false);
@@ -151,7 +153,8 @@ function AppLayout() {
     { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     { key: '/cps', icon: <DollarOutlined />, label: '连包投流' },
-  ].filter(item => canSeeMenu(role, item.key, cpsRole));
+    { key: '/aso', icon: <AppleOutlined />, label: 'ASO优化' },
+  ].filter(item => canSeeMenu(role, item.key, cpsRole, asoRole));
 
   // ========== 系统管理菜单（仅 super_admin）==========
   const systemMenuItems = can(role, 'user.read') ? [

@@ -5,6 +5,7 @@ const cpsCalc = require('../services/cpsCalcService');
 const cpsDashboardService = require('../services/cpsDashboardService');
 const cpsImportService = require('../services/cpsImportService');
 const cpsExportService = require('../services/cpsExportService');
+const cpsAlertService = require('../services/cpsAlertService');
 
 function parseIds(value) {
   if (!value) return [];
@@ -88,7 +89,11 @@ async function getMetrics(req, res) {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.pageSize) || 20, 1), 200);
-    const where = mergeDataScope(buildMetricWhere(req.query), req);
+    const where = buildMetricWhere(req.query);
+    // 显式处理渠道用户数据范围，不用 mergeDataScope（避免 dept_id 等不相关字段污染 CPS 表查询）
+    if (isCpsChannelScope(req)) {
+      where.channel_id = req.dataScope.value;
+    }
 
     const result = await CpsDailyMetric.findAndCountAll({
       where,
@@ -245,7 +250,10 @@ async function getAlerts(req, res) {
     const channelIds = parseIds(req.query.channel_ids), productIds = parseIds(req.query.product_ids);
     if (channelIds.length) where.channel_id = { [Op.in]: channelIds };
     if (productIds.length) where.product_id = { [Op.in]: productIds };
-    mergeDataScope(where, req);
+    // 显式处理渠道用户数据范围（不用 mergeDataScope，避免非 CPS 字段污染查询）
+    if (isCpsChannelScope(req)) {
+      where.channel_id = req.dataScope.value;
+    }
 
     const rows = await CpsAlertEvent.findAll({
       where, include: [
@@ -255,7 +263,10 @@ async function getAlerts(req, res) {
       order: [['created_at', 'DESC']], limit: Number(req.query.limit) || 100,
     });
     return success(res, rows);
-  } catch (err) { return error(res, err.message || '获取预警失败'); }
+  } catch (err) {
+    console.error('CPS getAlerts error:', err);
+    return error(res, err.message || '获取预警失败');
+  }
 }
 
 async function ackAlert(req, res) {
@@ -267,4 +278,17 @@ async function ackAlert(req, res) {
   } catch (err) { return error(res, err.message || '确认预警失败'); }
 }
 
-module.exports = { getDashboard, getMetrics, upsertMetric, updateMetric, deleteMetric, getMetricSnapshots, importMetrics, exportMetrics, getAlerts, ackAlert };
+// 手动触发预警检查（不用等 cron，立即检查昨天的数据）
+async function checkAlertsNow(req, res) {
+  try {
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const date = req.query.date || yesterday.toISOString().slice(0, 10);
+    const events = await cpsAlertService.checkAlertsForDate(date);
+    return success(res, { date, events_count: events.length });
+  } catch (err) {
+    console.error('CPS checkAlertsNow error:', err);
+    return error(res, err.message || '执行预警检查失败');
+  }
+}
+
+module.exports = { getDashboard, getMetrics, upsertMetric, updateMetric, deleteMetric, getMetricSnapshots, importMetrics, exportMetrics, getAlerts, ackAlert, checkAlertsNow };
