@@ -26,10 +26,10 @@ function extractRowDim(raw) {
 
 function formatDate(v) {
   if (!v) return new Date().toISOString().slice(0, 10);
-  // Excel serial date number (e.g. 45117)
+  // Excel serial date number (e.g. 46143 = 2026-05-01)
+  // 标准公式：(序列号 - 25569) * 86400000，25569 = 1900-01-01与1970-01-01的天数差
   if (typeof v === 'number' && v > 40000 && v < 60000) {
-    const excelEpoch = new Date(1899, 11, 30);
-    const d = new Date(excelEpoch.getTime() + v * 86400000);
+    const d = new Date((v - 25569) * 86400000);
     return d.toISOString().slice(0, 10);
   }
   // Standard date strings
