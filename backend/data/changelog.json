@@ -1,6 +1,23 @@
 {
-  "latestVersion": "1.13.0",
+  "latestVersion": "1.14.0",
   "releases": [
+    {
+      "version": "1.14.0",
+      "date": "2026-05-07",
+      "title": "安全兜底 + 性能优化 + 缓存修复 + DataFrame增强",
+      "changes": [
+        { "type": "security", "module": "数据库", "desc": "生产环境移除默认明文密码，JWT密钥统一来源移除硬编码fallback" },
+        { "type": "security", "module": "项目更新", "desc": "乐观锁(updated_at校验)防止并发编辑覆盖，冲突返回409提示刷新重试" },
+        { "type": "perf", "module": "仪表盘", "desc": "今日变更批量查询替代N+1，同表ID聚合后单次SQL返回" },
+        { "type": "fix", "module": "CDN缓存", "desc": "/static强制Cache-Control: no-store，根治Cloudflare边缘缓存致chunk版本不一致" },
+        { "type": "fix", "module": "CPS看板", "desc": "按日快捷选择从近7天修正为仅当天；趋势图按日不限数据集" },
+        { "type": "fix", "module": "CPS录入", "desc": "upsertMetric事务化：快照创建+数据更新原子提交，异常自动回滚" },
+        { "type": "fix", "module": "AI落地", "desc": "AI生成action/risk字段长度截断+枚举值白名单校验，防止脏数据入库" },
+        { "type": "fix", "module": "Excel导入", "desc": "逐sheet独立事务：单sheet失败不影响其他sheet，适配大数据量分批导入" },
+        { "type": "feat", "module": "变更日志", "desc": "changelog API 内存缓存，避免每次请求读磁盘" },
+        { "type": "chore", "module": "前端", "desc": "dayjs 全局中文locale配置；移除app.js中未使用bcryptjs引入" }
+      ]
+    },
     {
       "version": "1.13.0",
       "date": "2026-05-07",

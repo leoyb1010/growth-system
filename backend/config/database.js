@@ -33,7 +33,7 @@ if (dialect === 'sqlite') {
   sequelize = new Sequelize(
     process.env.DB_NAME || 'growth_system',
     process.env.DB_USER || 'growth',
-    dbPassword || 'growth123',
+    dbPassword || (process.env.NODE_ENV === 'production' ? null : 'growth_dev_2026'),
     {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,

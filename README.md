@@ -393,6 +393,32 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.14.0 — 2026-05-07 · 安全兜底+性能优化+缓存修复+DataFrame增强
+
+> 12文件覆盖：数据库密码安全、并发乐观锁、仪表盘N+1优化、Cloudflare缓存修复、CPS事务化、AI落地字段校验、Excel逐sheet独立事务。
+
+**安全加固**
+- 生产环境数据库移除默认明文密码（`database.js`），JWT密钥统一来源移除硬编码fallback（`refreshTokenService.js`）。
+- 项目更新增加乐观锁：`updated_at` 校验防止并发编辑覆盖，冲突返回 409 提示刷新重试（`projectController.js`）。
+
+**性能优化**
+- 仪表盘今日变更批量查询替代 N+1：同表 ID 聚合后单次 `WHERE id IN (...)` 返回（`dashboardController.js`）。
+- changelog API 运行时内存缓存，避免每次请求读磁盘文件（`routes/index.js`）。
+
+**CDN缓存修复**
+- `/static` 路径强制 `Cache-Control: no-cache, no-store, must-revalidate`，根治 Cloudflare 边缘缓存导致 `main.js` 与 chunk hash 版本不一致的加载失败问题（`app.js`）。
+
+**CPS增强**
+- 按日快捷选择从「近7天」修正为「仅当天」；趋势图按日不限数据集，避免截断（`CpsDashboardTab.js`、`cpsDashboardService.js`）。
+- `upsertMetric` 事务化：快照创建+数据更新原子提交，异常自动回滚（`cpsController.js`）。
+- Excel 导入逐 sheet 独立事务：单 sheet 失败不影响其他 sheet，适配大数据量分批导入（`importController.js`）。
+
+**AI落地 + 前端补丁**
+- AI 生成 action/risk 字段长度截断+枚举值白名单校验，防止脏数据入库（`aiController.js`）。
+- dayjs 全局中文 locale 配置；移除 `app.js` 中未使用的 bcryptjs 引入。
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.13.0 — 2026-05-07 · CPS v2看板与导入复核安全修补
 
 > 核心改动：CPS看板区分「本期筛选」与「年/季/昨日固定窗口」；趋势图改为金额/笔数双轴并支持日/周/月；Excel导入后弹出本次明细复核；移除公开Token上传代码路径，渠道录入只保留登录态权限控制。

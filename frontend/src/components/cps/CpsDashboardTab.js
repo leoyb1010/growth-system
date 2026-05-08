@@ -31,13 +31,14 @@ function MiniStat({ label, value, color }) {
 function CpsDashboardTab({ channelId }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
-  const [range, setRange] = useState(null);
+  // 按日=今天 / 按周=本周 / 按月=本月 — 三个 Radio 是快速日期筛选器
+  const [range, setRange] = useState([dayjs(), dayjs()]);
   const [granularity, setGranularity] = useState('day');
   const [channels, setChannels] = useState([]);
 
   const handleGranularityChange = (g) => {
     setGranularity(g);
-    if (g === 'day') setRange([dayjs().subtract(6, 'day'), dayjs()]);
+    if (g === 'day') setRange([dayjs(), dayjs()]);
     else if (g === 'week') setRange([dayjs().startOf('week'), dayjs()]);
     else if (g === 'month') setRange([dayjs().startOf('month'), dayjs()]);
   };
@@ -182,7 +183,7 @@ function CpsDashboardTab({ channelId }) {
       </Card>
 
       <div style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
-        <Tag color="blue">本期</Tag>{data?.period_range ? `${data.period_range.start} ~ ${data.period_range.end}` : `全部数据 · 共${data?.total?.actual_count || 0}单 ¥${fmtMoney(data?.total?.actual_amount || 0)}`}
+        <Tag color="blue">{granularity === 'day' ? '按日' : granularity === 'week' ? '按周' : '按月'}</Tag>{data?.period_range ? `${data.period_range.start} ~ ${data.period_range.end}` : `全部数据 · 共${data?.total?.actual_count || 0}单 ¥${fmtMoney(data?.total?.actual_amount || 0)}`}
       </div>
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col xs={24} sm={12} lg={6}>

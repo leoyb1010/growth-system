@@ -32,20 +32,21 @@ async function importExcel(req, res) {
     const deptMap = {};
     departments.forEach(d => { deptMap[d.name] = d.id; });
 
-    // 使用事务包裹整个导入过程，确保原子性（全部成功或全部回滚）
-    const importResults = await sequelize.transaction(async (t) => {
-      const results = { sheets: [], errors: [], skipped: [] };
+    // 逐 sheet 独立事务：每个 sheet 成功/失败互不影响
+    // 避免单 sheet 异常导致全部回滚，适合生产环境大数据量分批导入
+    const results = { sheets: [], errors: [], skipped: [] };
 
-      for (const sheetName of sheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+    for (const sheetName of sheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (jsonData.length < 2) continue;
+      if (jsonData.length < 2) continue;
 
-        const headers = jsonData[0];
-        const rows = jsonData.slice(1);
+      const headers = jsonData[0];
+      const rows = jsonData.slice(1);
 
-        try {
+      try {
+        await sequelize.transaction(async (t) => {
           const sheetLower = sheetName.toLowerCase();
           const headersLower = headers.map(h => String(h).toLowerCase());
 
@@ -62,13 +63,12 @@ async function importExcel(req, res) {
           } else {
             results.skipped.push({ sheet: sheetName, reason: '未识别到对应模块' });
           }
-        } catch (sheetErr) {
-          results.errors.push({ sheet: sheetName, error: sheetErr.message });
-        }
+        });
+        results.sheets.push({ sheet: sheetName, status: 'success' });
+      } catch (sheetErr) {
+        results.errors.push({ sheet: sheetName, error: sheetErr.message });
       }
-
-      return results;
-    });
+    }
 
     // 删除临时文件
     fs.unlinkSync(req.file.path);

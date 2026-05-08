@@ -3,7 +3,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const bcrypt = require('bcryptjs');
 
 const { sequelize, Department, User } = require('./models');
 const routes = require('./routes');
@@ -113,6 +112,13 @@ app.get('/', (req, res) => {
   } else {
     res.status(404).send('Frontend not built');
   }
+});
+// 静态资源：强制 no-cache 防止 Cloudflare 边缘缓存导致 chunk 版本不一致
+app.use('/static', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
 });
 app.use(express.static(frontendBuildPath));
 // SPA 回退：所有非 API、非静态文件的 GET 请求返回 index.html

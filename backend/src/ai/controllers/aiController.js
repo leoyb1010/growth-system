@@ -440,10 +440,10 @@ async function materializeActions(req, res) {
     for (const action of actions) {
       if (!action.title) continue;
       const item = await ActionItem.create({
-        title: action.title,
-        description: action.description || action.reason || '',
+        title: String(action.title).slice(0, 200),
+        description: String(action.description || action.reason || '').slice(0, 2000),
         owner_id: action.owner_id || null,
-        priority: action.priority || 'medium',
+        priority: ['low', 'medium', 'high', 'urgent'].includes(action.priority) ? action.priority : 'medium',
         status: 'pending',
         due_date: action.due_date || null,
         source_type: source_type || 'ai',
@@ -479,13 +479,13 @@ async function materializeRisks(req, res) {
     for (const risk of risks) {
       if (!risk.title && !risk.description) continue;
       const item = await RiskRegister.create({
-        title: risk.title || (risk.description || '').slice(0, 60),
-        description: risk.description || '',
-        risk_level: risk.risk_level || risk.level || 'medium',
+        title: String(risk.title || (risk.description || '')).slice(0, 200),
+        description: String(risk.description || '').slice(0, 2000),
+        risk_level: ['low', 'medium', 'high', 'critical'].includes(risk.risk_level || risk.level) ? (risk.risk_level || risk.level) : 'medium',
         risk_type: risk.risk_type || risk.type || null,
-        impact: risk.impact || '',
-        probability: risk.probability || 'medium',
-        mitigation_plan: risk.mitigation_plan || risk.recommendation || '',
+        impact: String(risk.impact || '').slice(0, 2000),
+        probability: ['low', 'medium', 'high'].includes(risk.probability) ? risk.probability : 'medium',
+        mitigation_plan: String(risk.mitigation_plan || risk.recommendation || '').slice(0, 2000),
         owner_id: risk.owner_id || null,
         project_id: risk.project_id || project_id || null,
         status: 'open',

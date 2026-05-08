@@ -228,17 +228,25 @@ async function getDashboard(req, res) {
     let filteredTodayChanges = todayChanges;
     if (scopeDeptId) {
       const modelMap = { projects: Project, kpis: Kpi, performances: Performance, monthly_tasks: require('../models').MonthlyTask, achievements: require('../models').Achievement };
-      const validated = [];
+      // 按表名分组，批量查询避免 N+1
+      const grouped = {};
       for (const c of todayChanges) {
+        if (modelMap[c.table_name]) {
+          if (!grouped[c.table_name]) grouped[c.table_name] = [];
+          grouped[c.table_name].push(c.record_id);
+        }
+      }
+      const deptMap = {};
+      for (const [table, ids] of Object.entries(grouped)) {
         try {
-          const Model = modelMap[c.table_name];
-          if (Model) {
-            const record = await Model.findByPk(c.record_id, { attributes: ['dept_id'] });
-            if (record && record.dept_id === scopeDeptId) validated.push(c);
-          }
+          const records = await modelMap[table].findAll({
+            where: { id: { [Op.in]: ids } },
+            attributes: ['id', 'dept_id'],
+          });
+          records.forEach(r => { deptMap[`${table}_${r.id}`] = r.dept_id; });
         } catch (e) { /* 静默 */ }
       }
-      filteredTodayChanges = validated;
+      filteredTodayChanges = todayChanges.filter(c => deptMap[`${c.table_name}_${c.record_id}`] === scopeDeptId);
     }
 
     // ========== 10. 本周关注（规则驱动）==========
@@ -337,25 +345,27 @@ async function getTodayChanges(req, res) {
       limit: 50
     });
 
-    // 如果有部门过滤，需要根据变更记录关联的资源过滤部门
-    // AuditLog 本身不含 dept_id，通过 record_id 和 table_name 关联查询
+    // 如果有部门过滤，通过批量查询避免 N+1
     if (deptFilter) {
-      const filteredChanges = [];
+      const models = { projects: Project, kpis: Kpi, performances: Performance, monthly_tasks: require('../models').MonthlyTask, achievements: require('../models').Achievement };
+      const grouped = {};
       for (const c of changes) {
-        let belongsToDept = false;
-        try {
-          if (['projects', 'kpis', 'performances', 'monthly_tasks', 'achievements'].includes(c.table_name)) {
-            const models = { projects: Project, kpis: Kpi, performances: Performance, monthly_tasks: require('../models').MonthlyTask, achievements: require('../models').Achievement };
-            const Model = models[c.table_name];
-            if (Model) {
-              const record = await Model.findByPk(c.record_id, { attributes: ['dept_id'] });
-              if (record && record.dept_id === deptFilter) belongsToDept = true;
-            }
-          }
-        } catch (e) { /* 静默 */ }
-        if (belongsToDept) filteredChanges.push(c);
+        if (models[c.table_name]) {
+          if (!grouped[c.table_name]) grouped[c.table_name] = [];
+          grouped[c.table_name].push(c.record_id);
+        }
       }
-      changes = filteredChanges;
+      const deptMap = {};
+      for (const [table, ids] of Object.entries(grouped)) {
+        try {
+          const records = await models[table].findAll({
+            where: { id: { [Op.in]: ids } },
+            attributes: ['id', 'dept_id'],
+          });
+          records.forEach(r => { deptMap[`${table}_${r.id}`] = r.dept_id; });
+        } catch (e) { /* 静默 */ }
+      }
+      changes = changes.filter(c => deptMap[`${c.table_name}_${c.record_id}`] === deptFilter);
     }
 
     success(res, changes.map(c => ({

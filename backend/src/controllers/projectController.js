@@ -284,7 +284,15 @@ async function updateProject(req, res) {
     }
 
     const oldValues = project.toJSON();
-    await project.update(updateData);
+    const [affectedRows] = await Project.update(updateData, {
+      where: { id: project.id, updated_at: project.updated_at },
+      individualHooks: false,
+    });
+    if (affectedRows === 0) {
+      return error(res, '数据已被他人修改，请刷新页面后重试', 409, 409);
+    }
+    // 刷新实例以获取更新后的值
+    await project.reload();
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
 
     // 同步选项：同步到月度任务
@@ -560,7 +568,14 @@ async function quickUpdateProject(req, res) {
     updateData.updater_id = req.user?.id || null;
 
     const oldValues = project.toJSON();
-    await project.update(updateData);
+    // 乐观锁：防止并发更新覆盖 — 仅当 updated_at 未变时才写入
+    const [affected] = await Project.update(updateData, {
+      where: { id: project.id, updated_at: project.updated_at },
+      individualHooks: false,
+    });
+    if (affected === 0) {
+      return error(res, '数据已被他人修改，请刷新页面后重试', 409, 409);
+    }
 
     // 写入项目每日更新日志（内容更新，非操作审计）
     await ProjectUpdateLog.create({

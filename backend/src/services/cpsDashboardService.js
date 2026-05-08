@@ -86,7 +86,9 @@ function getWeekKey(value) {
 }
 
 function bucketTrend(rows, granularity, limit) {
-  if (granularity === 'day') return rows.slice(-limit);
+  if (granularity === 'day') {
+    return limit ? rows.slice(-limit) : rows;
+  }
 
   const buckets = new Map();
   for (const row of rows) {
@@ -110,7 +112,8 @@ function bucketTrend(rows, granularity, limit) {
     buckets.set(key, current);
   }
 
-  return Array.from(buckets.values()).slice(-limit);
+  const result = Array.from(buckets.values());
+  return limit ? result.slice(-limit) : result;
 }
 
 async function getDashboard(query = {}) {
@@ -162,7 +165,7 @@ async function getDashboard(query = {}) {
     refund: Number(row.refund) || 0,
     complaints: Number(row.complaints) || 0,
   }));
-  const trend = bucketTrend(dailyTrend, granularity, getTrendLimit(granularity));
+  const trend = bucketTrend(dailyTrend, granularity, null);
 
   const alertWhere = { status: 'open' };
   const channels = parseIds(channel_ids);
@@ -181,7 +184,6 @@ async function getDashboard(query = {}) {
     quarterly,
     daily,
     total,
-    all: period,
     trend,
     alert_count: alertCount,
     channel_count: channelCount,
