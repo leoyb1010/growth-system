@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'antd';
 import { BarChartOutlined, AlertOutlined, SettingOutlined, EditOutlined, TableOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
-import { can } from '../permissions/ability';
+import { can, isCpsChannelUser } from '../permissions/ability';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import CpsDashboardTab from '../components/cps/CpsDashboardTab';
@@ -16,7 +16,7 @@ function CpsPage() {
   const role = user?.role || 'dept_staff';
   const cpsRole = user?.cps_role;
   const channelId = user?.cps_channel_id;
-  const isChannelUser = role === 'cps_channel_user';
+  const isChannelUser = isCpsChannelUser(user);
 
   // 渠道账号：极简视图——只看自己的明细 + 录入
   if (isChannelUser) {

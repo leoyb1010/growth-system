@@ -160,4 +160,13 @@ export function canSeeMenu(role, menuKey, cpsRole, asoRole) {
   return can(role, permission, cpsRole, asoRole);
 }
 
-export default { can, getCanonicalRole, getPermissions, useAbility, canSeeMenu, MENU_PERMISSIONS };
+/**
+ * 判断用户是否为 CPS 渠道账号
+ * 兼容主角色 cps_channel_user 和叠加角色 cps_role=channel_user
+ */
+export function isCpsChannelUser(user) {
+  return user?.role === 'cps_channel_user' || user?.cps_role === 'channel_user';
+}
+
+const ability = { can, getCanonicalRole, getPermissions, useAbility, canSeeMenu, isCpsChannelUser, MENU_PERMISSIONS };
+export default ability;

@@ -199,6 +199,7 @@ router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload
 // 渠道 Excel 导入 (cps_channel_user 专属，自动锁定自己渠道)
 router.post('/cps/channel-import', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), (req, res, next) => {
   req.body.forced_channel_id = req.dataScope?.value;
+  req.body.source = 'channel_excel_import';
   next();
 }, cpsUpload.single('file'), cpsController.importMetrics);
 
@@ -236,6 +237,20 @@ router.use('/files', fileRoutes);
 	router.put('/aso/metadata-versions/:id', ...auth, requirePermission('aso.write'), asoController.updateMetadataVersion);
 	router.get('/aso/baseline-metrics', ...auth, requirePermission('aso.read'), asoController.getBaselineMetrics);
 	router.post('/aso/baseline-metrics', ...auth, requirePermission('aso.write'), asoController.upsertBaselineMetric);
+		// ASO daily import template download (XLSX)
+		router.get('/aso/template/daily-import', ...auth, requirePermission('aso.write'), (req, res) => {
+		  const xlsx = require('xlsx');
+		  const headers = ['日期', '产品', '关键词', '搜索指数', '流行度', '初始排名', '今日排名', '最高排名', '今日量级', '消耗金额', '关键词状态'];
+		  const example = ['2026-05-08', '词典', '英文口语', '4605', '3', '', '5', '3', '60', '0', '权重较弱'];
+		  const ws = xlsx.utils.aoa_to_sheet([headers, example]);
+		  ws['!cols'] = headers.map(() => ({ wch: 14 }));
+		  const wb = xlsx.utils.book_new();
+		  xlsx.utils.book_append_sheet(wb, ws, 'ASO_Daily_Import_Template');
+		  const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+		  res.setHeader('Content-Disposition', 'attachment; filename=ASO_Daily_Import_Template.xlsx');
+		  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+		  res.send(buf);
+		});
 
-  return router;
+return router;
 };

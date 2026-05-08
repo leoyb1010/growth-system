@@ -222,6 +222,8 @@ async function importMetrics(req, res) {
         uploader_name: req.user?.name || req.user?.username,
         auto_create_dim: req.body.auto_create_dim !== 'false',
         forced_channel_id: req.body.forced_channel_id || (isCpsChannelScope(req) ? req.dataScope.value : null),
+        default_product_id: req.body.default_product_id || null,
+        source: req.body.source || 'admin_excel_import',
       });
       return success(res, result);
     } finally {

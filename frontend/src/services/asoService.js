@@ -53,6 +53,8 @@ export const asoApi = {
   createCampaign: (data) => api.post('/aso/campaigns', data),
   updateCampaign: (id, data) => api.put(`/aso/campaigns/${id}`, data),
   deleteCampaign: (id) => api.delete(`/aso/campaigns/${id}`),
+  // 模板下载
+  downloadDailyTemplate: () => api.get('/aso/template/daily-import', { responseType: 'blob' }),
   // 元数据版本
   getMetadataVersions: (params) => api.get('/aso/metadata-versions', { params }),
   createMetadataVersion: (data) => api.post('/aso/metadata-versions', data),

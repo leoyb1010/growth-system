@@ -18,14 +18,44 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// 中文产品名称标准化映射，防止重复创建
+const ASO_PRODUCT_CODE_MAP = {
+  '词典': 'dict',
+  '网易有道词典': 'dict',
+  '有道词典': 'dict',
+  'echo': 'echo',
+  'Echo': 'echo',
+  '翻译官': 'translator',
+  '有道翻译官': 'translator',
+};
+
+function normalizeAsoProductName(name) {
+  const s = String(name || '').trim();
+  if (['网易有道词典', '有道词典'].includes(s)) return '词典';
+  if (['有道翻译官'].includes(s)) return '翻译官';
+  if (s.toLowerCase() === 'echo') return 'echo';
+  return s;
+}
+
+function stableAsoCode(name) {
+  return ASO_PRODUCT_CODE_MAP[String(name || '').trim()] || ASO_PRODUCT_CODE_MAP[normalizeAsoProductName(name)] || safeCode(name, 'aso_pr');
+}
+
 async function ensureProduct(name, code) {
   if (!name) return null;
-  const finalCode = code || safeCode(name, 'aso_pr');
-  const [product] = await AsoProduct.findOrCreate({
-    where: { code: finalCode },
-    defaults: { code: finalCode, name: String(name).trim(), status: 'active' },
-  });
-  return product;
+  const normalizedName = normalizeAsoProductName(name);
+  const finalCode = code || stableAsoCode(normalizedName);
+
+  let product = await AsoProduct.findOne({ where: { code: finalCode } });
+  if (product) return product;
+
+  product = await AsoProduct.findOne({ where: { name: normalizedName } });
+  if (product) {
+    if (product.code !== finalCode) await product.update({ code: finalCode });
+    return product;
+  }
+
+  return AsoProduct.create({ code: finalCode, name: normalizedName, status: 'active' });
 }
 
 async function ensureKeyword(productId, keyword, keywordType) {
@@ -49,14 +79,18 @@ async function importDailyMetrics(filePath, opts = {}) {
   for (const raw of rows) {
     try {
       // 每行独立解析产品，避免多产品导入错归属
-      const rowProductName = getCell(raw, ['product_name', '产品', '产品名称']);
-      const rowProductCode = getCell(raw, ['product_code', '产品编码']);
+      const rowProductName = getCell(raw, ['product_name', '产品', '产品名称', 'App', '应用']);
+      const rowProductCode = getCell(raw, ['product_code', '产品编码', 'code']);
       let product = null;
       if (rowProductName || rowProductCode) {
         product = await ensureProduct(rowProductName, rowProductCode);
       }
+      // 兜底：使用上传时选择的默认产品
+      if (!product && opts.default_product_id) {
+        product = await AsoProduct.findByPk(Number(opts.default_product_id));
+      }
       if (!product) {
-        errors.push(`行 ${success + skip + 1}: 产品"${rowProductName || rowProductCode || '(空)'}"不存在且自动创建失败`);
+        errors.push(`行 ${success + skip + 1}: 产品列无法识别（当前行产品名=${rowProductName || '(空)'}, 编码=${rowProductCode || '(空)'}）。请确认：①Excel有产品列 ②产品名/编码已录入系统 ③或上传时选择默认产品`);
         skip++; continue;
       }
 

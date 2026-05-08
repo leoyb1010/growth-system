@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, message, Table, Tag, Space, Modal, Typography } from 'antd';
+import { Button, Card, message, Table, Tag, Space, Modal, Typography, Select } from 'antd';
 import { UploadOutlined, DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { asoApi } from '../../services/asoService';
 import { useAuth } from '../../hooks/useAuth';
@@ -15,6 +15,13 @@ function AsoDailyImportTab() {
 
   const [importResult, setImportResult] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selProductId, setSelProductId] = useState(null);
+  const [delayedResult, setDelayedResult] = useState(null);
+
+  useEffect(() => {
+    asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
+  }, []);
 
   if (!canWrite) {
     return <Text type="secondary">当前账号无写入权限，仅管理员和运营可操作导入</Text>;
@@ -29,6 +36,7 @@ function AsoDailyImportTab() {
       if (!file) return;
       const fd = new FormData();
       fd.append('file', file);
+      if (selProductId) fd.append('default_product_id', selProductId);
       try {
         const res = await asoApi.importDailyMetrics(fd);
         if (res.code !== 0) { message.error(res.message || '导入失败'); return; }
@@ -43,23 +51,27 @@ function AsoDailyImportTab() {
         }
         setImportPreview(preview);
         setImportResult(result);
+
+        if ((result.success || 0) === 0) {
+          setDelayedResult(result);
+          return;
+        }
         message.success(`导入完成：成功 ${result.success || 0} 条，跳过 ${result.skip || 0} 条`);
       } catch { message.error('导入失败'); }
     };
     input.click();
   };
 
-  const handleDownloadTemplate = () => {
-    const headers = ['日期', '产品', '关键词', '关键词类型', '搜索指数', '流行度', '初始排名', '昨日排名', '今日排名', '最高排名', '昨日量级', '今日量级', '消耗金额', '关键词状态'];
-    const example = ['2026-05-08', '网易有道词典', '英文口语', '功能词', '4605', '3', '', '', '5', '3', '0', '60', '0', '权重较弱'];
-    const csv = '﻿' + headers.join(',') + '\n' + example.join(',');
-    const blob = new Blob([csv], { type: 'text/csv; charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ASO日报导入模板.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await asoApi.downloadDailyTemplate();
+      const url = window.URL.createObjectURL(new Blob([res]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ASO日报导入模板.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { message.error('模板下载失败'); }
   };
 
   return (
@@ -69,19 +81,48 @@ function AsoDailyImportTab() {
           <InfoCircleOutlined style={{ marginRight: 4 }} />
           支持导入标准 ASO 日报模板。系统会自动匹配产品和关键词，不存在时自动创建。同日同产品同关键词重复导入将更新数据并保留快照。
         </Paragraph>
-        <Space>
+        <Space wrap>
+          <div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>默认产品（Excel无产品列时使用）</div>
+            <Select placeholder="无产品列时用此产品兜底" allowClear value={selProductId} onChange={setSelProductId} style={{ width: 220 }}>
+              {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
+            </Select>
+          </div>
           <Button type="primary" icon={<UploadOutlined />} onClick={handleImport}>上传 Excel 导入</Button>
           <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>下载标准模板</Button>
         </Space>
       </Card>
 
+      {/* 导入失败提示 */}
+      <Modal
+        title="导入未写入任何数据"
+        open={!!delayedResult}
+        onCancel={() => setDelayedResult(null)}
+        footer={<Button onClick={() => setDelayedResult(null)}>知道了</Button>}
+      >
+        <Paragraph>
+          本次导入<strong>成功 0 条</strong>，跳过 {delayedResult?.skip || 0} 条。可能原因：
+        </Paragraph>
+        <ul style={{ paddingLeft: 20 }}>
+          <li>Excel 中缺少产品列 — 请在上方选择"默认产品"后重新导入</li>
+          <li>缺少关键词列 — 模板需包含"关键词"列</li>
+          <li>缺少日期列 — 模板需包含"日期"列</li>
+          <li>缺少排名列 — 模板需包含"今日排名"或"当前排名"列</li>
+        </ul>
+        {delayedResult?.errors?.length > 0 && (
+          <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 150, overflow: 'auto', background: '#fff2f0', padding: 8, borderRadius: 4, fontSize: 12 }}>
+            {delayedResult.errors.slice(0, 15).join('\n')}
+          </pre>
+        )}
+      </Modal>
+
       <Card size="small" title="导入模板说明">
         <Paragraph>
-          模板包含以下列（必须保留列名）：<br />
-          <Text code>日期, 产品, 关键词, 关键词类型, 搜索指数, 流行度, 初始排名, 昨日排名, 今日排名, 最高排名, 昨日量级, 今日量级, 消耗金额, 关键词状态</Text>
+          模板包含以下列（第一行为表头，系统自动扫描匹配）：<br />
+          <Text code>日期, 产品, 关键词, 搜索指数, 流行度, 初始排名, 今日排名, 最高排名, 今日量级, 消耗金额, 关键词状态</Text>
         </Paragraph>
         <Paragraph type="secondary">
-          产品列填写产品名称（如"网易有道词典"）或产品编码；排名列支持"未覆盖"表示无排名；量级和金额为空时默认为0。
+          产品列填写产品名称（如"词典"、"echo"、"翻译官"）或留空（上传时选择默认产品）；排名列支持"未覆盖"表示无排名；量级和金额为空时默认为0。
         </Paragraph>
       </Card>
 

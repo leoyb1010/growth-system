@@ -150,6 +150,36 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ASO 产品幂等种子：确保词典/echo/翻译官默认存在
+async function seedAsoProducts() {
+  try {
+    const { AsoProduct } = require('./models');
+    const seeds = [
+      { code: 'dict', name: '词典', aliases: ['网易有道词典', '有道词典'] },
+      { code: 'echo', name: 'echo', aliases: ['Echo'] },
+      { code: 'translator', name: '翻译官', aliases: ['有道翻译官', '翻译官'] },
+    ];
+
+    for (const item of seeds) {
+      const [product] = await AsoProduct.findOrCreate({
+        where: { code: item.code },
+        defaults: {
+          code: item.code,
+          name: item.name,
+          status: 'active',
+          remark: `aliases=${item.aliases.join(',')}`,
+        },
+      });
+
+      if (product.name !== item.name || product.status !== 'active') {
+        await product.update({ name: item.name, status: 'active' });
+      }
+    }
+  } catch (err) {
+    console.error('ASO产品种子初始化失败:', err.message);
+  }
+}
+
 // 种子数据初始化
 async function seedDatabase() {
   try {
@@ -241,6 +271,9 @@ async function startServer() {
 
     // 种子数据：确保部门和初始用户存在
     await seedDatabase();
+
+    // ASO 种子：确保词典/echo/翻译官默认存在
+    await seedAsoProducts();
 
     // 启动定时任务
     initCronJobs();

@@ -22,7 +22,7 @@ function AsoPage() {
     { key: 'keywords', label: <span><TableOutlined /> 关键词明细</span>, children: <AsoKeywordsTab /> },
     { key: 'campaigns', label: <span><FileSearchOutlined /> 投放计划</span>, children: <AsoCampaignsTab /> },
     { key: 'daily', label: <span><UploadOutlined /> 日报导入</span>, children: <AsoDailyImportTab /> },
-    { key: 'metadata', label: <span><FormOutlined /> 元数据版本</span>, children: <AsoMetadataTab /> },
+    { key: 'coverage', label: <span><FormOutlined /> 关键词覆盖</span>, children: <AsoMetadataTab /> },
   ];
 
   if (can(role, 'aso.admin', null, asoRole)) {
@@ -31,7 +31,7 @@ function AsoPage() {
 
   return (
     <div>
-      <PageHeader title="ASO 优化管理" subtitle="苹果商店关键词优化、排名追踪、量级计划、日报复盘与元数据管理" />
+      <PageHeader title="ASO 优化管理" subtitle="苹果商店关键词优化、排名追踪、量级计划、日报复盘与关键词覆盖管理" />
       <PanelCard><Tabs defaultActiveKey="dashboard" items={tabItems} /></PanelCard>
     </div>
   );

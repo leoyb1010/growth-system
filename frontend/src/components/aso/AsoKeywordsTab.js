@@ -47,33 +47,18 @@ function AsoKeywordsTab() {
     return <Tag>0</Tag>;
   };
 
-  const rankTag = (record) => {
-    if (record.is_t1) return <Tag color="gold">T1</Tag>;
-    if (record.is_t3) return <Tag color="green">T3</Tag>;
-    if (record.is_t10) return <Tag color="blue">T10</Tag>;
-    if (!record.is_covered) return <Tag color="default">未覆盖</Tag>;
-    return '-';
-  };
-
   const columns = [
     { title: '日期', dataIndex: 'stat_date', width: 100, fixed: 'left' },
     { title: '产品', dataIndex: ['product', 'name'], width: 100 },
     { title: '关键词', dataIndex: ['keyword', 'keyword'], width: 120 },
-    { title: '类型', dataIndex: ['keyword', 'keyword_type'], width: 80, render: v => v ? <Tag>{v}</Tag> : '-' },
-    { title: '分类', dataIndex: ['keyword', 'keyword_group'], width: 80 },
     { title: '搜索指数', dataIndex: 'search_index', width: 80 },
     { title: '流行度', dataIndex: 'popularity', width: 70 },
     { title: '初始排名', dataIndex: 'initial_rank', width: 80 },
-    { title: '昨日排名', dataIndex: 'yesterday_rank', width: 80 },
-    { title: '当前排名', dataIndex: 'current_rank', width: 80, render: (v, r) => <span style={{ fontWeight: 600 }}>{v ?? '-'}</span> },
+    { title: '所选日期排名', dataIndex: 'current_rank', width: 100, render: (v, r) => <span style={{ fontWeight: 600 }}>{v ?? '-'}</span> },
     { title: '排名变化', dataIndex: 'rank_delta', width: 90, render: v => rankDelta(v) },
-    { title: '今日量级', dataIndex: 'today_volume', width: 80 },
+    { title: '量级', dataIndex: 'today_volume', width: 80 },
     { title: '消耗金额', dataIndex: 'cost_amount', width: 90, render: v => `¥${Number(v || 0).toFixed(0)}` },
-    { title: '标签', key: 'rank_tags', width: 80, render: (_, r) => rankTag(r) },
-    { title: '状态', dataIndex: 'keyword_status', width: 90, render: v => v ? <Tag>{v}</Tag> : '-' },
-    { title: '来源', dataIndex: 'source', width: 80, render: v => <Tag color={v === 'excel_import' ? 'blue' : 'default'}>{v}</Tag> },
-    { title: '版本', dataIndex: 'version', width: 50 },
-    { title: '操作', key: 'actions', width: 180, fixed: 'right', render: (_, r) => canWrite ? (
+    ...(canWrite ? [{ title: '操作', key: 'actions', width: 180, fixed: 'right', render: (_, r) => (
       <Space size="small">
         <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(r)} />
         <Button size="small" icon={<HistoryOutlined />} onClick={() => viewSnapshots(r.id)} />
@@ -81,7 +66,7 @@ function AsoKeywordsTab() {
           <Button size="small" danger icon={<DeleteOutlined />} />
         </Popconfirm>
       </Space>
-    ) : null },
+    ) }] : []),
   ];
 
   const handleEdit = (record) => {

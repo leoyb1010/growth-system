@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Row, Col, Card, Statistic, DatePicker, Select, Spin, Empty, Space, Tag } from 'antd';
-import { RiseOutlined, FallOutlined, TrophyOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, ArrowDownOutlined, TrophyOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, BarChart } from 'echarts/charts';
@@ -11,19 +11,20 @@ import dayjs from 'dayjs';
 
 echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
-function MiniStat({ label, value, color }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '4px 0' }}>
-      <div style={{ fontSize: 11, color: '#999' }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: color || '#333', marginTop: 2 }}>{value}</div>
-    </div>
-  );
+function DeltaTag({ value, inverse }) {
+  if (value == null || value === 0) return <span style={{ fontSize: 12, color: '#999' }}>持平</span>;
+  const isUp = inverse ? value < 0 : value > 0;
+  const color = isUp ? '#52c41a' : '#cf1322';
+  const icon = isUp ? <ArrowUpOutlined /> : <ArrowDownOutlined />;
+  const absVal = Math.abs(value);
+  const suffix = Number.isInteger(absVal) ? absVal : absVal.toFixed(1);
+  return <span style={{ fontSize: 12, color, fontWeight: 500 }}>{icon} {suffix}</span>;
 }
 
 function AsoDashboardTab() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
-  const [range, setRange] = useState([dayjs().subtract(7, 'day'), dayjs()]);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
   const [products, setProducts] = useState([]);
   const [selProducts, setSelProducts] = useState([]);
 
@@ -31,17 +32,16 @@ function AsoDashboardTab() {
     asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchDashboard(); }, [range, selProducts]);
+  useEffect(() => { fetchDashboard(); }, [selectedDate, selProducts]);
   useEffect(() => { const off = asoBus.on(() => { fetchDashboard(); }); return off; }, []);
 
   async function fetchDashboard() {
     setLoading(true);
     try {
-      const params = {};
-      if (range?.[0] && range?.[1]) {
-        params.start_date = range[0].format('YYYY-MM-DD');
-        params.end_date = range[1].format('YYYY-MM-DD');
-      }
+      const params = {
+        date: selectedDate.format('YYYY-MM-DD'),
+        compare_date: selectedDate.subtract(1, 'day').format('YYYY-MM-DD'),
+      };
       if (selProducts.length) params.product_ids = selProducts.join(',');
       const res = await asoApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
@@ -49,104 +49,122 @@ function AsoDashboardTab() {
     finally { setLoading(false); }
   }
 
-  const summary = data?.summary || {};
+  const current = data?.current || {};
+  const compare = data?.compare || {};
+  const delta = data?.delta || {};
+  const noDataToday = !current.has_data;
+
+  // 趋势用 range 模式获取近 7 天数据
+  const [trendData, setTrendData] = useState(null);
+  useEffect(() => {
+    async function fetchTrend() {
+      try {
+        const params = {
+          start_date: selectedDate.subtract(6, 'day').format('YYYY-MM-DD'),
+          end_date: selectedDate.format('YYYY-MM-DD'),
+        };
+        if (selProducts.length) params.product_ids = selProducts.join(',');
+        const res = await asoApi.getDashboard(params);
+        if (res.code === 0 && res.data?.trend) setTrendData(res.data.trend);
+      } catch { setTrendData(null); }
+    }
+    fetchTrend();
+  }, [selectedDate, selProducts]);
 
   const trendOption = useMemo(() => {
-    if (!data?.trend?.length) return null;
+    if (!trendData?.length) return null;
     return {
       tooltip: { trigger: 'axis' },
-      legend: { bottom: 0, data: ['到榜T3词数', '量级'] },
+      legend: { bottom: 0, data: ['T3词数', '优化词数'] },
       grid: { left: 60, right: 60, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: data.trend.map(item => String(item.date).slice(5)), axisLabel: { fontSize: 11 } },
-      yAxis: [
-        { type: 'value', name: '词数', position: 'left', splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
-        { type: 'value', name: '量级', position: 'right', splitLine: { show: false } },
-      ],
+      xAxis: { type: 'category', data: trendData.map(item => String(item.date).slice(5)), axisLabel: { fontSize: 11 } },
+      yAxis: { type: 'value', name: '词数', splitLine: { lineStyle: { type: 'dashed', color: '#eee' } } },
       series: [
-        { name: '到榜T3词数', type: 'line', yAxisIndex: 0, data: data.trend.map(item => item.t3_keywords), smooth: true, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2.5, color: '#52c41a' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(82,196,26,0.25)' }, { offset: 1, color: 'rgba(82,196,26,0.02)' }]) } },
-        { name: '量级', type: 'line', yAxisIndex: 1, data: data.trend.map(item => item.total_volume), smooth: true, symbol: 'none', lineStyle: { width: 1.8, color: '#1890ff' } },
+        { name: 'T3词数', type: 'bar', data: trendData.map(item => item.t3_keywords), barWidth: 16, itemStyle: { color: '#52c41a', borderRadius: [4, 4, 0, 0] } },
+        { name: '优化词数', type: 'line', data: trendData.map(item => item.total_volume), smooth: true, symbol: 'circle', symbolSize: 6, lineStyle: { width: 2, color: '#1890ff' } },
       ],
     };
-  }, [data]);
-
-  if (!data && !loading) return <Empty description="暂无数据，请先导入日报" />;
+  }, [trendData]);
 
   return (
     <Spin spinning={loading}>
       <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap>
-          <DatePicker.RangePicker value={range} onChange={setRange} allowClear size="small" />
+          <DatePicker value={selectedDate} onChange={setSelectedDate} allowClear={false} size="small" />
+          <span style={{ fontSize: 12, color: '#999' }}>对比日期：{selectedDate.subtract(1, 'day').format('YYYY-MM-DD')}</span>
           <Select mode="multiple" placeholder="产品(全部)" allowClear value={selProducts} onChange={setSelProducts} style={{ minWidth: 180 }} maxTagCount={2}>
             {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
           </Select>
         </Space>
       </Card>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="优化关键词" value={summary.optimized_keywords || 0} suffix="个" valueStyle={{ fontSize: 22 }} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="T3到榜词数" value={summary.t3_keywords || 0} suffix="个" valueStyle={{ color: '#52c41a', fontSize: 22 }} prefix={<TrophyOutlined />} />
-            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>T3到榜率 {((summary.t3_rate || 0) * 100).toFixed(1)}%</div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="T1-2到榜词数" value={summary.t1_2_keywords || 0} suffix="个" valueStyle={{ color: '#1890ff', fontSize: 22 }} />
-            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>T1-2到榜率 {((summary.t1_2_rate || 0) * 100).toFixed(1)}%</div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="总量级" value={summary.total_volume || 0} suffix="" valueStyle={{ fontSize: 22 }} />
-            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>消耗 ¥{Number(summary.total_cost || 0).toFixed(0)}</div>
-          </Card>
-        </Col>
-      </Row>
+      {noDataToday && !loading ? (
+        <Empty description={`${selectedDate.format('YYYY-MM-DD')} 暂无日报数据，请先导入日报`} style={{ padding: 40 }}>
+          <span style={{ color: '#999', fontSize: 13 }}>前往「日报导入」Tab 上传当日 ASO 关键词数据</span>
+        </Empty>
+      ) : (
+        <>
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+            <Col xs={24} sm={12} lg={8}>
+              <Card size="small">
+                <Statistic title="优化关键词" value={current.optimized_keywords || 0} suffix="个" valueStyle={{ fontSize: 22 }} />
+                <div style={{ marginTop: 4 }}><DeltaTag value={delta.optimized_keywords} /></div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={8}>
+              <Card size="small">
+                <Statistic title="到榜 T1" value={current.t1_keywords || 0} suffix="个" valueStyle={{ color: '#1890ff', fontSize: 22 }} prefix={<TrophyOutlined />} />
+                <div style={{ marginTop: 4 }}><DeltaTag value={delta.t1_keywords} /></div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={8}>
+              <Card size="small">
+                <Statistic title="到榜 T3" value={current.t3_keywords || 0} suffix="个" valueStyle={{ color: '#52c41a', fontSize: 22 }} prefix={<TrophyOutlined />} />
+                <div style={{ marginTop: 4 }}><DeltaTag value={delta.t3_keywords} /></div>
+              </Card>
+            </Col>
+          </Row>
 
-      {trendOption && (
-        <Card size="small" title="T3到榜词数 & 量级趋势" style={{ marginBottom: 12 }}>
-          <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 280 }} notMerge />
-        </Card>
-      )}
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+            <Col xs={24} sm={12}>
+              <Card size="small">
+                <Statistic title="总榜排名" value={current.overall_rank != null ? current.overall_rank : '--'} valueStyle={{ fontSize: 22 }} />
+                <div style={{ marginTop: 4 }}>
+                  {current.overall_rank != null ? <DeltaTag value={delta.overall_rank} inverse /> : <span style={{ fontSize: 12, color: '#999' }}>暂无数据</span>}
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Card size="small">
+                <Statistic title="分类榜排名" value={current.category_rank != null ? current.category_rank : '--'} valueStyle={{ fontSize: 22 }} />
+                <div style={{ marginTop: 4 }}>
+                  {current.category_rank != null ? <DeltaTag value={delta.category_rank} inverse /> : <span style={{ fontSize: 12, color: '#999' }}>暂无数据</span>}
+                </div>
+              </Card>
+            </Col>
+          </Row>
 
-      {data?.baseline?.length > 0 && (
-        <Card size="small" title="产品基础指标">
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #e8e8e8' }}>
-                  <th style={{ padding: 8, textAlign: 'left' }}>日期</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>关键词覆盖</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>有效覆盖</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>T3词数</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>T10词数</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>总榜排名</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>分类榜排名</th>
-                  <th style={{ padding: 8, textAlign: 'center' }}>评分</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.baseline.slice(0, 10).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: 8 }}>{row.stat_date}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.keyword_coverage ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.effective_keyword_coverage ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.effective_t3_keywords ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.effective_t10_keywords ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.overall_rank ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.category_rank ?? '-'}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>{row.rating ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+            <Col xs={24} sm={12}>
+              <Card size="small">
+                <Statistic title="总量级" value={current.total_volume || 0} valueStyle={{ fontSize: 20 }} />
+                <div style={{ marginTop: 4 }}><DeltaTag value={delta.total_volume} /></div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Card size="small">
+                <Statistic title="消耗金额" value={`¥${Number(current.total_cost || 0).toFixed(2)}`} valueStyle={{ fontSize: 20 }} />
+                <div style={{ marginTop: 4 }}><DeltaTag value={delta.total_cost} /></div>
+              </Card>
+            </Col>
+          </Row>
+
+          {trendOption && (
+            <Card size="small" title="近 7 天趋势">
+              <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 260 }} notMerge />
+            </Card>
+          )}
+        </>
       )}
     </Spin>
   );

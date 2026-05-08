@@ -109,7 +109,12 @@ async function injectAccessContext(req, res, next) {
   if (user.aso_role && ASO_ROLE_PERMS[user.aso_role]) {
     ASO_ROLE_PERMS[user.aso_role].forEach(p => { if (!permissions.includes(p)) permissions.push(p); });
   }
-  const scopeConfig = DATA_SCOPE_MAP[canonicalRole] || DATA_SCOPE_MAP.department_member;
+  let scopeConfig = DATA_SCOPE_MAP[canonicalRole] || DATA_SCOPE_MAP.department_member;
+
+  // CPS角色叠加时，数据范围必须切换为渠道范围
+  if (user.cps_role === 'channel_user') {
+    scopeConfig = { type: 'cps_channel', value: user.cps_channel_id };
+  }
 
   // 数据范围值注入
   let dataScopeValue = scopeConfig.value;
@@ -332,6 +337,18 @@ function requireDeptManager(req, res, next) {
   return error(res, '需要部门负责人权限', 403, 403);
 }
 
+/**
+ * 校验 CPS 渠道账号 payload 合法性
+ * 渠道账号必须绑定 cps_channel_id
+ */
+function validateCpsUserPayload(payload) {
+  const isChannel = payload.role === 'cps_channel_user' || payload.cps_role === 'channel_user';
+  if (isChannel && !payload.cps_channel_id) {
+    return 'CPS渠道账号必须绑定渠道';
+  }
+  return null;
+}
+
 module.exports = {
   authenticate,
   injectAccessContext,
@@ -340,6 +357,7 @@ module.exports = {
   requireAdmin,
   requireDeptAccess,
   requireDeptManager,
+  validateCpsUserPayload,
   ROLE_PERMISSIONS,
   ROLE_COMPAT
 };

@@ -63,8 +63,13 @@ function CpsChannelEntryTab() {
       const res = await cpsApi.channelImportMetrics(formData);
       if (res.code === 0) {
         const d = res.data;
-        message.success(`导入完成：成功${d.success || 0}，跳过${d.skip || 0}${d.errors?.length ? '，错误' + d.errors.length : ''}`);
-        if (d.errors?.length) message.warning(d.errors.slice(0, 3).join('；'), 6);
+        if ((d.success || 0) === 0) {
+          message.error(`导入未写入任何数据。成功 0 条，跳过 ${d.skip || 0} 条。请检查 Excel 是否包含产品列或在上传时选择默认产品。`, 8);
+          if (d.errors?.length) message.warning(d.errors.slice(0, 3).join('；'), 6);
+        } else {
+          message.success(`导入完成：成功${d.success || 0}，跳过${d.skip || 0}${d.errors?.length ? '，错误' + d.errors.length : ''}`);
+          if (d.errors?.length) message.warning(d.errors.slice(0, 3).join('；'), 6);
+        }
       } else {
         message.error(res.message || '导入失败');
       }

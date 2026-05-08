@@ -393,6 +393,27 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.15.3 — 2026-05-08 · ASO种子+导入增强+CPS权限修正+默认产品
+
+> 18文件覆盖：ASO产品标准化、导入模板下载、看板日期对比、CPS渠道权限强制、导入默认产品支持。
+
+**ASO 增强**
+- 启动时自动种子词典/echo/翻译官默认产品，中文名标准化映射（网易有道词典→词典、有道翻译官→翻译官）
+- 新增 `/aso/template/daily-import` 模板下载端点，一键获取标准 XLSX 模板
+- 导入支持前端选择默认产品（Excel 无产品列时使用该产品）
+- 看板改为日期选择器，新增 DeltaTag 涨跌指标（排名变化、量级对比）
+
+**CPS 修正**
+- `cps_channel_user` 数据范围强制切换为 `cps_channel`，解决权限叠加后仍用自部门范围的问题
+- 用户创建/更新时校验 CPS 渠道账号必须绑定渠道
+- 导入支持 `default_product_id` 参数（Excel 无产品列时指定默认产品）
+- 渠道导入结果区分 0 成功提示 + CpsMetricsTab 渠道用户自动锁过滤
+
+**权限**
+- `isCpsChannelUser` 函数兼容 `role=cps_channel_user` 和 `cps_role=channel_user` 双模式
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.15.2 — 2026-05-08 · CPS渠道用户Excel批量导入
 
 > `cps_channel_user` 角色新增 Excel 批量导入能力，后端自动强制归属本渠道。

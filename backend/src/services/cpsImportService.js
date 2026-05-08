@@ -126,7 +126,13 @@ async function importFromExcel(filePath, opts = {}) {
     try {
       const dim = extractRowDim(raw);
       if (forcedChannelId) {
-        if (!dim.productName && !dim.productCode) { skip++; continue; }
+        if (!dim.productName && !dim.productCode) {
+          if (opts.default_product_id) {
+            dim.productId = Number(opts.default_product_id);
+          } else {
+            skip++; continue;
+          }
+        }
       } else {
         // 合并行：如果当前行没有渠道信息，沿用上一行
         if (!dim.channelName && !dim.channelCode) {
@@ -143,7 +149,9 @@ async function importFromExcel(filePath, opts = {}) {
       const ch = forcedChannelId
         ? channels.find(c => Number(c.id) === forcedChannelId)
         : maps.channelByCode.get(dim.channelCode) || maps.channelByName.get(norm(dim.channelName));
-      const pr = maps.productByCode.get(dim.productCode) || maps.productByName.get(norm(dim.productName));
+      const pr = dim.productId
+        ? products.find(p => Number(p.id) === dim.productId)
+        : maps.productByCode.get(dim.productCode) || maps.productByName.get(norm(dim.productName));
 
       if (!ch) { errors.push(`行 ${raw.__rowNum__ || '?'}: 未知渠道 ${dim.channelCode || dim.channelName || '(空)'}`); skip++; continue; }
       if (!pr) { errors.push(`行 ${raw.__rowNum__ || '?'}: 未知产品 ${dim.productCode || dim.productName || '(空)'}`); skip++; continue; }
@@ -158,21 +166,24 @@ async function importFromExcel(filePath, opts = {}) {
         complaint_count: Number(raw.complaint_count || raw['客诉数'] || 0),
       };
 
+      const importSource = opts.source || 'admin_excel_import';
       const input = cpsCalc.sanitizeInput(payload);
       const unitPrice = Number(raw.unit_price || raw['单价'] || raw['产品金额'] || pr.unit_price || 0);
       const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
-      const where = { stat_date: formatDate(raw.stat_date || raw['日期'] || raw['月份'] || statDate), channel_id: ch.id, product_id: pr.id };
+      // 每行独立解析日期，支持多日期导入
+      const rowDate = formatDate(raw.stat_date || raw['日期'] || raw['月份'] || statDate);
+      const where = { stat_date: rowDate, channel_id: ch.id, product_id: pr.id };
       let row = await CpsDailyMetric.findOne({ where });
 
       if (row) {
         await CpsDailyMetricSnapshot.create({
           metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id, product_id: row.product_id,
           version: row.version, payload_json: JSON.stringify(row.toJSON()),
-          changed_by: opts.uploader_id, changed_by_name: opts.uploader_name, change_reason: 'excel_import',
+          changed_by: opts.uploader_id, changed_by_name: opts.uploader_name, change_reason: importSource,
         });
-        await row.update({ ...input, ...derived, unit_price: unitPrice, source: 'excel_import', uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: row.version + 1 });
+        await row.update({ ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: row.version + 1 });
       } else {
-        await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: 'excel_import', uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: 1 });
+        await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: 1 });
       }
       affectedDates.add(where.stat_date);
       affectedChannelIds.add(ch.id);

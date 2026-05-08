@@ -3,7 +3,7 @@ import { Table, Button, Space, Tag, DatePicker, Select, Modal, Form, Input, Inpu
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined, HistoryOutlined } from '@ant-design/icons';
 import { cpsApi, cpsBus } from '../../services/cpsService';
 import { useAuth } from '../../hooks/useAuth';
-import { can } from '../../permissions/ability';
+import { can, isCpsChannelUser } from '../../permissions/ability';
 import { fmtMoney, fmtRate } from '../../utils/cpsFormat';
 import MoneyInput from './MoneyInput';
 import dayjs from 'dayjs';
@@ -13,7 +13,7 @@ function CpsMetricsTab({ channelId }) {
   const role = user?.role || 'dept_staff';
   const cpsRole = user?.cps_role;
   const canWrite = can(role, 'cps.write', cpsRole) || can(role, 'cps.channel_upload', cpsRole);
-  const isChannelUser = role === 'cps_channel_user';
+  const isChannelUser = isCpsChannelUser(user);
 
   const [loading, setLoading] = useState(false);
   const [errorState, setErrorState] = useState(null); // null | 'forbidden' | 'error'
@@ -27,6 +27,13 @@ function CpsMetricsTab({ channelId }) {
   const [snapshots, setSnapshots] = useState([]);
   const [form] = Form.useForm();
   const [filters, setFilters] = useState(channelId ? { channel_ids: String(channelId) } : {});
+
+  // 渠道用户自动同步渠道过滤，且不允许前端切换
+  useEffect(() => {
+    if (isChannelUser && channelId) {
+      setFilters(f => ({ ...f, channel_ids: String(channelId) }));
+    }
+  }, [isChannelUser, channelId]);
   const [importResultModal, setImportResultModal] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
 
@@ -120,6 +127,7 @@ function CpsMetricsTab({ channelId }) {
   };
 
   const [importChannelId, setImportChannelId] = useState(null);
+  const [importDefaultProductId, setImportDefaultProductId] = useState(null);
   const [importModalVisible, setImportModalVisible] = useState(false);
 
   const handleImport = async () => {
@@ -135,6 +143,7 @@ function CpsMetricsTab({ channelId }) {
       const file = e.target.files[0]; if (!file) return;
       const fd = new FormData(); fd.append('file', file); fd.append('auto_create_dim', 'true');
       fd.append('forced_channel_id', importChannelId);
+      if (importDefaultProductId) fd.append('default_product_id', importDefaultProductId);
       try {
         const res = await cpsApi.importMetrics(fd);
         if (res.code !== 0) { message.error(res.message || '导入失败'); return; }
@@ -157,7 +166,30 @@ function CpsMetricsTab({ channelId }) {
 
         setImportPreview(preview);
         setImportResultModal(result);
-        message.success(`导入完成：成功 ${result.success || 0} 条`);
+
+        if ((result.success || 0) === 0) {
+          Modal.error({
+            title: '导入未写入任何数据',
+            content: (
+              <div>
+                <p>本次导入成功数为 0，请检查以下可能原因：</p>
+                <ul style={{ paddingLeft: 20 }}>
+                  <li>Excel 中缺少产品列（可在上传前选择默认产品）</li>
+                  <li>日期列格式不识别</li>
+                  <li>产品/渠道名称在系统中不存在且无法自动创建</li>
+                </ul>
+                {(result.errors || []).length > 0 && (
+                  <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto', background: '#fff2f0', padding: 8, borderRadius: 4, fontSize: 12 }}>
+                    {result.errors.slice(0, 10).join('\n')}
+                  </pre>
+                )}
+              </div>
+            ),
+            width: 520,
+          });
+          return;
+        }
+        message.success(`导入完成：成功 ${result.success || 0} 条，跳过 ${result.skip || 0} 条`);
 
         if (result.affected_dates?.length) {
           updateFilters({
@@ -246,7 +278,7 @@ function CpsMetricsTab({ channelId }) {
 
       {/* 导入渠道选择 */}
       <Modal
-        title="第 1 步 / 共 2 步：选择本次导入的归属渠道"
+        title="第 1 步 / 共 2 步：选择导入归属渠道和默认产品"
         open={importModalVisible}
         okText="下一步：选择 Excel 文件"
         onOk={doImport}
@@ -255,9 +287,21 @@ function CpsMetricsTab({ channelId }) {
         <div style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
           系统会强制把本次 Excel 中所有行归属到此渠道，不使用 Excel 中的渠道列。
         </div>
-        <Select placeholder="请选择数据归属渠道" value={importChannelId} onChange={setImportChannelId} style={{ width: '100%' }}>
-          {channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
-        </Select>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>归属渠道 <span style={{ color: 'red' }}>*</span></div>
+          <Select placeholder="请选择数据归属渠道" value={importChannelId} onChange={setImportChannelId} style={{ width: '100%' }}>
+            {channels.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
+          </Select>
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>默认产品 <span style={{ color: '#999', fontWeight: 400 }}>(可选)</span></div>
+          <div style={{ marginBottom: 8, color: '#999', fontSize: 12 }}>
+            如果 Excel 中没有产品列，所有行将使用此产品
+          </div>
+          <Select placeholder="无产品列时使用此产品兜底" allowClear value={importDefaultProductId} onChange={setImportDefaultProductId} style={{ width: '100%' }}>
+            {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
+          </Select>
+        </div>
       </Modal>
 
       <Modal

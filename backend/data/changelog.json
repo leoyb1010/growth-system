@@ -1,6 +1,21 @@
 {
-  "latestVersion": "1.15.2",
+  "latestVersion": "1.15.3",
   "releases": [
+    {
+      "version": "1.15.3",
+      "date": "2026-05-08",
+      "title": "ASO产品种子+导入增强 / CPS权限修正+默认产品 / 看板重建",
+      "changes": [
+        { "type": "feat", "module": "ASO", "desc": "启动时自动种子词典/echo/翻译官默认产品，支持中文名标准化映射（网易有道词典→词典）" },
+        { "type": "feat", "module": "ASO", "desc": "导入模板下载端点 /aso/template/daily-import，一键下载标准XLSX模板" },
+        { "type": "feat", "module": "ASO", "desc": "导入支持前端选择默认产品（Excel无产品列时使用），稳定code生成防重复创建" },
+        { "type": "feat", "module": "ASO", "desc": "看板改为日期选择器+DeltaTag涨跌指示，支持排名变化和量级变化对比" },
+        { "type": "fix", "module": "CPS权限", "desc": "cps_channel_user数据范围强制切换为cps_channel，用户创建/更新时校验渠道必绑" },
+        { "type": "fix", "module": "CPS导入", "desc": "支持default_product_id参数（Excel无产品列时可指定默认产品），不再静默跳过" },
+        { "type": "fix", "module": "CPS渠道", "desc": "导入结果区分0成功提示；CpsMetricsTab渠道用户自动锁过滤+isCpsChannelUser兼容主角色+cps_role" },
+        { "type": "enhance", "module": "权限", "desc": "ability.js新增isCpsChannelUser导出，兼容role=cps_channel_user和cps_role=channel_user双模式" }
+      ]
+    },
     {
       "version": "1.15.2",
       "date": "2026-05-08",

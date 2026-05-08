@@ -11,13 +11,85 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function rankDelta(current, compare) {
+  if (current == null || compare == null) return null;
+  const d = Number(compare) - Number(current);
+  return d;
+}
+
+async function getDateMetrics(date, productWhere) {
+  const metricWhere = { stat_date: date, ...productWhere, deleted_at: null };
+
+  const agg = await AsoDailyKeywordMetric.findAll({
+    where: metricWhere,
+    attributes: [
+      [fn('COUNT', fn('DISTINCT', col('keyword_id'))), 'optimized_keywords'],
+      [fn('SUM', literal("CASE WHEN is_t1 THEN 1 ELSE 0 END")), 't1_keywords'],
+      [fn('SUM', literal("CASE WHEN is_t3 THEN 1 ELSE 0 END")), 't3_keywords'],
+      [fn('COALESCE', fn('SUM', col('today_volume')), 0), 'total_volume'],
+      [fn('COALESCE', fn('SUM', col('cost_amount')), 0), 'total_cost'],
+    ],
+    raw: true,
+  });
+
+  const a = agg[0] || {};
+
+  const baseline = await AsoProductBaselineMetric.findOne({
+    where: { stat_date: date, ...productWhere },
+    order: [['stat_date', 'DESC']],
+    raw: true,
+  });
+
+  return {
+    optimized_keywords: Number(a.optimized_keywords) || 0,
+    t1_keywords: Number(a.t1_keywords) || 0,
+    t3_keywords: Number(a.t3_keywords) || 0,
+    total_volume: Number(a.total_volume) || 0,
+    total_cost: Number(a.total_cost) || 0,
+    overall_rank: baseline?.overall_rank ?? null,
+    category_rank: baseline?.category_rank ?? null,
+    has_data: Number(a.optimized_keywords) > 0 || !!baseline,
+  };
+}
+
 async function getDashboard(query = {}) {
-  const { start_date, end_date, product_ids } = query;
+  const { date, compare_date, start_date, end_date, product_ids } = query;
 
   const productWhere = {};
   const prodIds = parseIds(product_ids);
   if (prodIds.length) productWhere.product_id = { [Op.in]: prodIds };
 
+  // 单日对比模式：今天 vs 昨天
+  if (date && compare_date) {
+    const selectedDate = String(date).slice(0, 10);
+    const compareDate = String(compare_date).slice(0, 10);
+
+    const [current, compare] = await Promise.all([
+      getDateMetrics(selectedDate, productWhere),
+      getDateMetrics(compareDate, productWhere),
+    ]);
+
+    const delta = {
+      optimized_keywords: current.optimized_keywords - compare.optimized_keywords,
+      t1_keywords: current.t1_keywords - compare.t1_keywords,
+      t3_keywords: current.t3_keywords - compare.t3_keywords,
+      overall_rank: rankDelta(current.overall_rank, compare.overall_rank),
+      category_rank: rankDelta(current.category_rank, compare.category_rank),
+      total_volume: current.total_volume - compare.total_volume,
+      total_cost: current.total_cost - compare.total_cost,
+    };
+
+    return {
+      mode: 'compare',
+      selected_date: selectedDate,
+      compare_date: compareDate,
+      current,
+      compare,
+      delta,
+    };
+  }
+
+  // 兼容旧版区间聚合模式
   const dateWhere = {};
   if (start_date && end_date) {
     dateWhere.stat_date = { [Op.between]: [start_date, end_date] };
@@ -25,7 +97,6 @@ async function getDashboard(query = {}) {
 
   const metricWhere = { ...dateWhere, ...productWhere, deleted_at: null };
 
-  // 累计关键词表现
   const keywordAgg = await AsoDailyKeywordMetric.findAll({
     where: metricWhere,
     attributes: [
@@ -43,14 +114,12 @@ async function getDashboard(query = {}) {
   const t3Rows = Number(agg.t3_rows) || 0;
   const t1Rows = Number(agg.t1_rows) || 0;
 
-  // T3到榜词数：有过T3记录的去重关键词
   const t3KeywordCount = await AsoDailyKeywordMetric.count({
     where: { ...metricWhere, is_t3: true },
     distinct: true,
     col: 'keyword_id',
   });
 
-  // T1-2到榜词数：排名在 1-2 之间的去重关键词
   const t1_2KeywordCount = await AsoDailyKeywordMetric.count({
     where: { ...metricWhere, current_rank: { [Op.gte]: 1, [Op.lte]: 2 } },
     distinct: true,
@@ -67,7 +136,6 @@ async function getDashboard(query = {}) {
     total_cost: Number(agg.total_cost) || 0,
   };
 
-  // 产品基础指标
   const baselineWhere = { ...productWhere };
   if (start_date && end_date) {
     baselineWhere.stat_date = { [Op.between]: [start_date, end_date] };
@@ -78,7 +146,6 @@ async function getDashboard(query = {}) {
     raw: true,
   });
 
-  // 趋势
   const trendRows = await AsoDailyKeywordMetric.findAll({
     where: metricWhere,
     attributes: [
@@ -101,6 +168,7 @@ async function getDashboard(query = {}) {
   }));
 
   return {
+    mode: 'range',
     summary,
     baseline: baselines,
     trend,

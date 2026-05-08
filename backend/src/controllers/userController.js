@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { User, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const { logAudit } = require('../services/auditLogService');
+const { validateCpsUserPayload } = require('../middleware/auth');
 
 /**
  * 获取用户列表（管理员）
@@ -32,6 +33,9 @@ async function createUser(req, res) {
     if (!username || !name || !password) {
       return error(res, '用户名、姓名和密码不能为空');
     }
+
+    const cpsValidationError = validateCpsUserPayload(req.body);
+    if (cpsValidationError) return error(res, cpsValidationError, 400, 400);
 
     const existing = await User.findOne({ where: { username } });
     if (existing) {
@@ -81,6 +85,9 @@ async function updateUser(req, res) {
     if (!user) {
       return error(res, '用户不存在');
     }
+
+    const cpsValidationError = validateCpsUserPayload(req.body);
+    if (cpsValidationError) return error(res, cpsValidationError, 400, 400);
 
     const oldValues = user.toJSON();
     const updateData = { name, role, dept_id };

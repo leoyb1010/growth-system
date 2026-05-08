@@ -187,6 +187,7 @@ async function importDailyMetrics(req, res) {
         uploader_id: req.user?.id,
         uploader_name: req.user?.name || req.user?.username,
         file_name: req.file.originalname,
+        default_product_id: req.body.default_product_id || null,
       });
       return success(res, result);
     } finally {
