@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Tag, Select, Modal, Form, Input, InputNumber, Popconfirm, message, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { asoApi } from '../../services/asoService';
+import { asoApi, asoBus } from '../../services/asoService';
 import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
 
@@ -19,7 +19,12 @@ function AsoCampaignsTab() {
   const [form] = Form.useForm();
   const [selProduct, setSelProduct] = useState(undefined);
 
-  useEffect(() => { asoApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
+  useEffect(() => {
+    const loadProducts = () => asoApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {});
+    loadProducts();
+    const off = asoBus.on((event) => { if (event === 'products:changed') loadProducts(); });
+    return off;
+  }, []);
   useEffect(() => { fetchData(); }, [selProduct]);
 
   const fetchData = () => {

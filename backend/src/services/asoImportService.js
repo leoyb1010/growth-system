@@ -46,16 +46,26 @@ async function ensureProduct(name, code) {
   const normalizedName = normalizeAsoProductName(name);
   const finalCode = code || stableAsoCode(normalizedName);
 
-  let product = await AsoProduct.findOne({ where: { code: finalCode } });
-  if (product) return product;
-
-  product = await AsoProduct.findOne({ where: { name: normalizedName } });
+  // 严格按名称查找
+  let product = await AsoProduct.findOne({ where: { name: normalizedName } });
   if (product) {
-    if (product.code !== finalCode) await product.update({ code: finalCode });
+    if (code && product.code !== code) await product.update({ code });
     return product;
   }
 
-  return AsoProduct.create({ code: finalCode, name: normalizedName, status: 'active' });
+  // 降级按编码查找
+  product = await AsoProduct.findOne({ where: { code: finalCode } });
+  if (product) {
+    if (product.name !== normalizedName) await product.update({ name: normalizedName });
+    return product;
+  }
+
+  return AsoProduct.create({ code: finalCode, name: normalizedName, status: 'active' })
+    .then(p => {
+      // 成功创建产品后通知前端更新列表
+      // 注意：这里由于是后端Service，无法直接操作前端Bus，但在导入结束返回后，前端会收到res
+      return p;
+    });
 }
 
 async function ensureKeyword(productId, keyword, keywordType) {
@@ -101,7 +111,8 @@ async function importDailyMetrics(filePath, opts = {}) {
       const keyword = await ensureKeyword(product.id, keywordStr, keywordType);
 
       const statDate = String(getCell(raw, ['stat_date', '日期'])).trim() || opts.stat_date || todayString();
-      if (statDate > todayString()) { errors.push(`${keywordStr}: 日期不能晚于今天`); skip++; continue; }
+      // 移除日期晚于今天的限制（系统调整 3.0）
+      // if (statDate > todayString()) { errors.push(`${keywordStr}: 日期不能晚于今天`); skip++; continue; }
 
       const payload = {
         keyword_status: getCell(raw, ['keyword_status', '关键词状态', '状态']) || null,
@@ -272,6 +283,8 @@ async function importBaselineMetrics(filePath, opts = {}) {
       }
 
       const statDate = String(getCell(raw, ['stat_date', '日期'])).trim() || todayString();
+      // 移除日期晚于今天的限制（系统调整 3.0）
+      // if (statDate > todayString()) { errors.push(`${keywordStr}: 日期不能晚于今天`); skip++; continue; }
       const payload = {
         product_id: product.id,
         stat_date: statDate,

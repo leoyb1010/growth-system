@@ -22,6 +22,12 @@ const ROLE_PERMISSIONS = {
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
+  supervisor: [
+    'dashboard.read', 'kpi.read', 'project.read', 'performance.read', 'monthly_task.read',
+    'achievement.read', 'weekly_report.read', 'department.read', 'audit.read', 'archive.read',
+    'export.data', 'search.use', 'ai.use', 'cps.read', 'aso.read', 'action_item.read', 'risk_register.read',
+    'user.read'
+  ],
   cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use' ],
   cps_ops: [ 'cps.read', 'cps.write', 'ai.use' ],
   cps_channel_user: [ 'cps.read', 'cps.channel_upload', 'cps.channel_read_own' ],
@@ -65,12 +71,14 @@ const ROLE_COMPAT = {
   cps_channel_user: 'cps_channel_user',
   aso_admin: 'aso_admin',
   aso_ops: 'aso_ops',
-  aso_viewer: 'aso_viewer'
+  aso_viewer: 'aso_viewer',
+  supervisor: 'supervisor',
 };
 
 // 数据范围映射
 const DATA_SCOPE_MAP = {
   super_admin: { type: 'all', value: null },
+  supervisor: { type: 'all', value: null },
   cps_admin: { type: 'all', value: null },
   cps_ops: { type: 'all', value: null },
   cps_channel_user: { type: 'cps_channel', value: null },

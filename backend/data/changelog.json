@@ -1,6 +1,19 @@
 {
-  "latestVersion": "1.15.4",
+  "latestVersion": "1.15.5",
   "releases": [
+    {
+      "version": "1.15.5",
+      "date": "2026-05-09",
+      "title": "ASO系统调整 3.0 · 事件总线全局同步 + 督导角色 + 日期限制移除",
+      "changes": [
+        { "type": "feat", "module": "ASO事件总线", "desc": "全局 asoBus 事件同步：所有 ASO Tab 监听 products:changed / daily-metrics:changed，跨组件数据实时刷新" },
+        { "type": "feat", "module": "督导角色", "desc": "新增 supervisor（督导）角色：只读权限，覆盖全部模块 .read + ai.use + export.data，前后端同步" },
+        { "type": "feat", "module": "ASO导入", "desc": "移除日期不能晚于今天的限制，支持补录历史数据和提前录入未来计划" },
+        { "type": "fix", "module": "ASO产品", "desc": "产品查找优先级修正：先按名称精确匹配，再按编码降级查找，避免重名产品被错误合并" },
+        { "type": "fix", "module": "ASO看板", "desc": "产品选择从多选改为单选，看板参数从数组改为单个 product_id" },
+        { "type": "fix", "module": "ASO管理", "desc": "AdminTab 关键词分页对齐，loadAll 传入 page/pageSize 参数" }
+      ]
+    },
     {
       "version": "1.15.4",
       "date": "2026-05-09",

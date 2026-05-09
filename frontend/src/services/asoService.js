@@ -36,16 +36,35 @@ export const asoApi = {
   // 导入导出
   importDailyMetrics: async (formData) => {
     const res = await api.post('/aso/import/daily-metrics', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    if (res.code === 0) asoBus.emit('daily-metrics:changed', res.data);
+    if (res.code === 0) {
+      asoBus.emit('daily-metrics:changed', res.data);
+      asoBus.emit('products:changed', res.data);
+    }
     return res;
   },
   exportDailyMetrics: (params) => api.get('/aso/export/daily-metrics', { params }),
-  importKeywords: (formData) => api.post('/aso/admin/keywords/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  importBaselineMetrics: (formData) => api.post('/aso/baseline-metrics/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  importKeywords: async (formData) => {
+    const res = await api.post('/aso/admin/keywords/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    if (res.code === 0) asoBus.emit('products:changed', res.data);
+    return res;
+  },
+  importBaselineMetrics: async (formData) => {
+    const res = await api.post('/aso/baseline-metrics/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    if (res.code === 0) asoBus.emit('products:changed', res.data);
+    return res;
+  },
   // 产品字典
   getProducts: () => api.get('/aso/products'),
-  createProduct: (data) => api.post('/aso/products', data),
-  updateProduct: (id, data) => api.put(`/aso/products/${id}`, data),
+  createProduct: async (data) => {
+    const res = await api.post('/aso/products', data);
+    if (res.code === 0) asoBus.emit('products:changed', res.data);
+    return res;
+  },
+  updateProduct: async (id, data) => {
+    const res = await api.put(`/aso/products/${id}`, data);
+    if (res.code === 0) asoBus.emit('products:changed', res.data);
+    return res;
+  },
   // 关键词字典
   getKeywords: (params) => api.get('/aso/keywords', { params }),
   createKeyword: (data) => api.post('/aso/keywords', data),

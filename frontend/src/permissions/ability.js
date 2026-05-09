@@ -16,6 +16,7 @@ const ROLE_COMPAT = {
   aso_admin: 'aso_admin',
   aso_ops: 'aso_ops',
   aso_viewer: 'aso_viewer',
+  supervisor: 'supervisor',
 };
 
 // 角色权限定义（与后端 ROLE_PERMISSIONS 一致）
@@ -41,6 +42,12 @@ const ROLE_PERMISSIONS = {
   aso_admin: ['aso.read', 'aso.write', 'aso.admin'],
   aso_ops: ['aso.read', 'aso.write'],
   aso_viewer: ['aso.read'],
+  supervisor: [
+    'dashboard.read', 'kpi.read', 'project.read', 'performance.read', 'monthly_task.read',
+    'achievement.read', 'weekly_report.read', 'department.read', 'audit.read', 'archive.read',
+    'export.data', 'search.use', 'cps.read', 'aso.read', 'action_item.read', 'risk_register.read',
+    'user.read'
+  ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update',
     'project.read', 'project.create', 'project.update', 'project.quick_update',

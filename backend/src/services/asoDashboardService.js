@@ -2,7 +2,7 @@ const { Op, fn, col, literal } = require('sequelize');
 const { AsoProduct, AsoDailyKeywordMetric, AsoProductBaselineMetric } = require('../models');
 
 function parseIds(value) {
-  if (!value) return [];
+  if (value === null || value === undefined || value === '') return [];
   if (Array.isArray(value)) return value.map(Number).filter(Boolean);
   return String(value).split(',').map(Number).filter(Boolean);
 }

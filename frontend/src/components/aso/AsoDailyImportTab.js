@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Card, message, Table, Tag, Space, Modal, Typography, Select } from 'antd';
 import { UploadOutlined, DownloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { asoApi } from '../../services/asoService';
+import { asoApi, asoBus } from '../../services/asoService';
 import { useAuth } from '../../hooks/useAuth';
 import { can } from '../../permissions/ability';
 
@@ -20,7 +20,10 @@ function AsoDailyImportTab() {
   const [delayedResult, setDelayedResult] = useState(null);
 
   useEffect(() => {
-    asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
+    const loadProducts = () => asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
+    loadProducts();
+    const off = asoBus.on((event) => { if (event === 'products:changed') loadProducts(); });
+    return off;
   }, []);
 
   if (!canWrite) {
@@ -83,8 +86,8 @@ function AsoDailyImportTab() {
         </Paragraph>
         <Space wrap>
           <div>
-            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>默认产品（Excel无产品列时使用）</div>
-            <Select placeholder="无产品列时用此产品兜底" allowClear value={selProductId} onChange={setSelProductId} style={{ width: 220 }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>必须先选择产品（避免导入错乱）</div>
+            <Select placeholder="请选择要导入的产品" allowClear value={selProductId} onChange={setSelProductId} style={{ width: 220 }}>
               {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
             </Select>
           </div>
@@ -104,7 +107,7 @@ function AsoDailyImportTab() {
           本次导入<strong>成功 0 条</strong>，跳过 {delayedResult?.skip || 0} 条。可能原因：
         </Paragraph>
         <ul style={{ paddingLeft: 20 }}>
-          <li>Excel 中缺少产品列 — 请在上方选择"默认产品"后重新导入</li>
+          <li><strong>请确认已在上方选择了“必须先选择产品”</strong></li>
           <li>缺少关键词列 — 模板需包含"关键词"列</li>
           <li>缺少日期列 — 模板需包含"日期"列</li>
           <li>缺少排名列 — 模板需包含"今日排名"或"当前排名"列</li>

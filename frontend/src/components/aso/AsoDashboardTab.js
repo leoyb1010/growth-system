@@ -26,10 +26,13 @@ function AsoDashboardTab() {
   const [data, setData] = useState(null);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [products, setProducts] = useState([]);
-  const [selProducts, setSelProducts] = useState([]);
+  const [selProducts, setSelProducts] = useState(undefined);
 
   useEffect(() => {
-    asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
+    const loadProducts = () => asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
+    loadProducts();
+    const off = asoBus.on((event) => { if (event === 'products:changed') loadProducts(); });
+    return off;
   }, []);
 
   useEffect(() => { fetchDashboard(); }, [selectedDate, selProducts]);
@@ -42,7 +45,7 @@ function AsoDashboardTab() {
         date: selectedDate.format('YYYY-MM-DD'),
         compare_date: selectedDate.subtract(1, 'day').format('YYYY-MM-DD'),
       };
-      if (selProducts.length) params.product_ids = selProducts.join(',');
+      if (selProducts) params.product_ids = selProducts;
       const res = await asoApi.getDashboard(params);
       if (res.code === 0) setData(res.data);
     } catch { setData(null); }
@@ -63,7 +66,7 @@ function AsoDashboardTab() {
           start_date: selectedDate.subtract(6, 'day').format('YYYY-MM-DD'),
           end_date: selectedDate.format('YYYY-MM-DD'),
         };
-        if (selProducts.length) params.product_ids = selProducts.join(',');
+        if (selProducts) params.product_ids = selProducts;
         const res = await asoApi.getDashboard(params);
         if (res.code === 0 && res.data?.trend) setTrendData(res.data.trend);
       } catch { setTrendData(null); }
@@ -92,7 +95,7 @@ function AsoDashboardTab() {
         <Space wrap>
           <DatePicker value={selectedDate} onChange={setSelectedDate} allowClear={false} size="small" />
           <span style={{ fontSize: 12, color: '#999' }}>对比日期：{selectedDate.subtract(1, 'day').format('YYYY-MM-DD')}</span>
-          <Select mode="multiple" placeholder="产品(全部)" allowClear value={selProducts} onChange={setSelProducts} style={{ minWidth: 180 }} maxTagCount={2}>
+          <Select placeholder="选择产品" allowClear value={selProducts} onChange={setSelProducts} style={{ minWidth: 180 }}>
             {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
           </Select>
         </Space>

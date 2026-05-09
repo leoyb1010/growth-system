@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, Popconfirm, message, Divider, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
-import { asoApi } from '../../services/asoService';
+import { asoApi, asoBus } from '../../services/asoService';
 
 const KEYWORD_TYPES = [
   { value: 'brand', label: '品牌词' },
@@ -23,14 +23,30 @@ function AsoAdminTab() {
   const [kwForm] = Form.useForm();
   const [kwPagination, setKwPagination] = useState({ page: 1, pageSize: 20, total: 0 });
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+    const off = asoBus.on((event) => {
+      if (event === 'products:changed' || event === 'daily-metrics:changed') {
+        loadAll();
+      }
+    });
+    return off;
+  }, [kwPagination.page, kwPagination.pageSize]);
 
   const loadAll = async () => {
     try {
-      const [p, kw] = await Promise.all([asoApi.getProducts(), asoApi.getKeywords({ pageSize: 200 })]);
-      if (p.code === 0) setProducts(p.data || []);
-      if (kw.code === 0) { setKeywords(kw.data.rows || []); setKwPagination(prev => ({ ...prev, total: kw.data.total || 0 })); }
-    } catch {}
+      const [p, kw] = await Promise.all([
+        asoApi.getProducts(),
+        asoApi.getKeywords({ page: kwPagination.page, pageSize: kwPagination.pageSize })
+      ]);
+      if (p.code === 0) setProducts([...(p.data || [])]); // 强制触发引用更新
+      if (kw.code === 0) {
+        setKeywords(kw.data.rows || []);
+        setKwPagination(prev => ({ ...prev, total: kw.data.total || 0 }));
+      }
+    } catch (e) {
+      console.error('loadAll error:', e);
+    }
   };
 
   const saveProduct = async () => {

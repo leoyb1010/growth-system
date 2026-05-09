@@ -73,7 +73,8 @@ async function upsertDailyMetric(req, res) {
   if (!payload.stat_date) return error(res, '缺少 stat_date', 400, 400);
   if (!payload.product_id) return error(res, '缺少 product_id', 400, 400);
   if (!payload.keyword_id) return error(res, '缺少 keyword_id', 400, 400);
-  if (String(payload.stat_date) > todayString()) return error(res, 'stat_date 不能晚于今天', 400, 400);
+  // 移除 stat_date 不能晚于今天的限制（系统调整 3.0）
+  // if (String(payload.stat_date) > todayString()) return error(res, 'stat_date 不能晚于今天', 400, 400);
 
   const product = await AsoProduct.findByPk(payload.product_id);
   if (!product) return error(res, '产品不存在', 404, 404);

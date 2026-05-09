@@ -19,6 +19,7 @@ const ROLE_MAP = {
   aso_admin: { label: 'ASO管理员', color: 'magenta' },
   aso_ops: { label: 'ASO运营', color: 'geekblue' },
   aso_viewer: { label: 'ASO查看者', color: 'green' },
+  supervisor: { label: '督导', color: 'cyan' },
 };
 
 const STATUS_MAP = {
@@ -275,6 +276,7 @@ function UserPage() {
                   <Option value="aso_admin">ASO管理员</Option>
                   <Option value="aso_ops">ASO运营</Option>
                   <Option value="aso_viewer">ASO查看者</Option>
+                  <Option value="supervisor">督导</Option>
                 </Select>
               </Form.Item>
             </Col>

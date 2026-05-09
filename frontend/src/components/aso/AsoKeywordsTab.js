@@ -24,7 +24,12 @@ function AsoKeywordsTab() {
   const [form] = Form.useForm();
   const [filters, setFilters] = useState({});
 
-  useEffect(() => { asoApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {}); }, []);
+  useEffect(() => {
+    const loadProducts = () => asoApi.getProducts().then(r => { if (r.code === 0) setProducts(r.data || []); }).catch(() => {});
+    loadProducts();
+    const off = asoBus.on((event) => { if (event === 'products:changed') loadProducts(); });
+    return off;
+  }, []);
   useEffect(() => { asoApi.getKeywords({ pageSize: 500 }).then(r => { if (r.code === 0) setKeywords(r.data.rows || []); }).catch(() => {}); }, []);
 
   const updateFilters = (patch) => { setFilters(f => ({ ...f, ...patch })); setPagination(p => ({ ...p, page: 1 })); };
