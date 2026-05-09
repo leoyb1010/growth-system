@@ -1,6 +1,19 @@
 {
-  "latestVersion": "1.15.3",
+  "latestVersion": "1.15.4",
   "releases": [
+    {
+      "version": "1.15.4",
+      "date": "2026-05-09",
+      "title": "ASO系统调整 2.0 · 批量导入 + 关键词覆盖重构 + 日报模版对齐",
+      "changes": [
+        { "type": "feat", "module": "ASO导入", "desc": "新增关键词字典批量导入，支持从 Excel 一键录入关键词及初始指标" },
+        { "type": "feat", "module": "ASO重构", "desc": "重构“关键词覆盖”板块为“基准指标管理”，支持覆盖数/排名等 8 个核心字段的手动更新与批量导入" },
+        { "type": "feat", "module": "ASO日报", "desc": "对齐《日报模版.xlsx》标准，支持 15 个字段映射（分类/计划量级/实际量级/波动等）" },
+        { "type": "fix", "module": "ASO管理", "desc": "修复新增产品后列表不刷新的问题，强化“先选产品，再上传”的导入交互引导" },
+        { "type": "fix", "module": "DB结构", "desc": "手动补齐 Kpis 表 owner_user_id 字段，修复 AI 驾驶舱上下文关联报错" },
+        { "type": "improve", "module": "UI布局", "desc": "优化首页驾驶舱各组指标卡片宽度（xl=6→8），确保 3 个指标时也能填满行宽" }
+      ]
+    },
     {
       "version": "1.15.3",
       "date": "2026-05-08",

@@ -117,4 +117,22 @@ async function updateKeyword(req, res) {
   } catch (err) { return error(res, err.message || '更新关键词失败'); }
 }
 
-module.exports = { getProducts, createProduct, updateProduct, getKeywords, createKeyword, updateKeyword };
+async function importKeywords(req, res) {
+  try {
+    if (!req.file) return error(res, '请上传Excel文件', 400, 400);
+    const asoImportService = require('../services/asoImportService');
+    try {
+      const result = await asoImportService.importKeywords(req.file.path, {
+        default_product_id: req.body.default_product_id || null,
+      });
+      return success(res, result);
+    } finally {
+      const fs = require('fs');
+      fs.unlink(req.file.path, () => {});
+    }
+  } catch (err) {
+    return error(res, err.message || '导入失败');
+  }
+}
+
+module.exports = { getProducts, createProduct, updateProduct, getKeywords, createKeyword, updateKeyword, importKeywords };

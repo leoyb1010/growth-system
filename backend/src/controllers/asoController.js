@@ -359,11 +359,28 @@ async function upsertBaselineMetric(req, res) {
   } catch (err) { return error(res, err.message || '保存基础指标失败'); }
 }
 
+async function importBaselineMetrics(req, res) {
+  try {
+    if (!req.file) return error(res, '请上传Excel文件', 400, 400);
+    try {
+      const result = await asoImportService.importBaselineMetrics(req.file.path, {
+        default_product_id: req.body.default_product_id || null,
+      });
+      return success(res, result);
+    } finally {
+      const fs = require('fs');
+      fs.unlink(req.file.path, () => {});
+    }
+  } catch (err) {
+    return error(res, err.message || '导入失败');
+  }
+}
+
 module.exports = {
   getDashboard,
   getDailyMetrics, upsertDailyMetric, updateDailyMetric, deleteDailyMetric,
   getMetricSnapshots, importDailyMetrics, exportDailyMetrics,
   getCampaigns, createCampaign, updateCampaign, deleteCampaign,
   getMetadataVersions, createMetadataVersion, updateMetadataVersion,
-  getBaselineMetrics, upsertBaselineMetric,
+  getBaselineMetrics, upsertBaselineMetric, importBaselineMetrics,
 };

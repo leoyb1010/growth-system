@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, Popconfirm, message, Divider, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { asoApi } from '../../services/asoService';
 
 const KEYWORD_TYPES = [
@@ -52,6 +52,30 @@ function AsoAdminTab() {
     } catch { message.error('操作失败'); }
   };
 
+  const handleImportKeywords = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await asoApi.importKeywords(fd);
+        if (res.code === 0) {
+          message.success(`成功导入 ${res.data.success || 0} 个关键词`);
+          loadAll();
+        } else {
+          message.error(res.message || '导入失败');
+        }
+      } catch {
+        message.error('导入出错');
+      }
+    };
+    input.click();
+  };
+
   return (
     <div>
       <h4>产品管理</h4>
@@ -71,7 +95,10 @@ function AsoAdminTab() {
 
       <Divider />
       <h4>关键词字典</h4>
-      <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditKw(null); kwForm.resetFields(); setKwModal(true); }} style={{ marginBottom: 12 }}>新增关键词</Button>
+      <Space style={{ marginBottom: 12 }}>
+        <Button type="primary" icon={<PlusOutlined />} size="small" onClick={() => { setEditKw(null); kwForm.resetFields(); setKwModal(true); }}>新增关键词</Button>
+        <Button icon={<UploadOutlined />} size="small" onClick={handleImportKeywords}>批量导入</Button>
+      </Space>
       <Table dataSource={keywords} rowKey="id" size="small" pagination={{ ...kwPagination, onChange: p => setKwPagination(prev => ({ ...prev, page: p })) }} columns={[
         { title: '关键词', dataIndex: 'keyword', width: 130 },
         { title: '产品', dataIndex: ['product', 'name'], width: 110 },

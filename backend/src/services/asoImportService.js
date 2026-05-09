@@ -112,7 +112,7 @@ async function importDailyMetrics(filePath, opts = {}) {
         current_rank: getCell(raw, ['current_rank', '今日排名', '当前排名']),
         best_rank: getCell(raw, ['best_rank', '优化后最高', '最高排名']),
         yesterday_volume: getCell(raw, ['yesterday_volume', '昨日量级']) || 0,
-        today_volume: getCell(raw, ['today_volume', '今日量级', '量级']) || 0,
+        today_volume: getCell(raw, ['today_volume', '今日量级', '量级', '实际完成量级']) || 0,
         cost_amount: getCell(raw, ['cost_amount', '消耗金额', '消耗']) || 0,
       };
 
@@ -193,4 +193,104 @@ async function importDailyMetrics(filePath, opts = {}) {
   return { success, skip, error: errors.length ? 1 : 0, total: rows.length, errors: errors.slice(0, 20) };
 }
 
-module.exports = { importDailyMetrics };
+async function importKeywords(filePath, opts = {}) {
+  const wb = xlsx.readFile(filePath);
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  if (!rows.length) return { success: 0, error: 1, errors: ['空文件'] };
+
+  let success = 0;
+  const errors = [];
+  for (const raw of rows) {
+    try {
+      const productName = getCell(raw, ['product_name', '产品', '产品名称']);
+      let product = null;
+      if (productName) {
+        product = await ensureProduct(productName);
+      } else if (opts.default_product_id) {
+        product = await AsoProduct.findByPk(opts.default_product_id);
+      }
+
+      if (!product) {
+        errors.push(`无法识别产品: ${productName || '未指定'}`);
+        continue;
+      }
+
+      const keywordStr = String(getCell(raw, ['keyword', '关键词'])).trim();
+      if (!keywordStr) continue;
+
+      const [kw, created] = await AsoKeyword.findOrCreate({
+        where: { product_id: product.id, keyword: keywordStr },
+        defaults: {
+          product_id: product.id,
+          keyword: keywordStr,
+          keyword_type: getCell(raw, ['keyword_type', '类型', '分类']) || 'custom',
+          search_index: asoCalc.toInt(getCell(raw, ['search_index', '搜索指数'])),
+          popularity: asoCalc.toInt(getCell(raw, ['popularity', '流行度'])),
+          status: 'active'
+        }
+      });
+
+      if (!created) {
+        await kw.update({
+          keyword_type: getCell(raw, ['keyword_type', '类型', '分类']) || kw.keyword_type,
+          search_index: asoCalc.toInt(getCell(raw, ['search_index', '搜索指数'])) || kw.search_index,
+          popularity: asoCalc.toInt(getCell(raw, ['popularity', '流行度'])) || kw.popularity,
+        });
+      }
+      success++;
+    } catch (e) {
+      errors.push(`导入失败: ${e.message}`);
+    }
+  }
+  return { success, total: rows.length, errors };
+}
+
+async function importBaselineMetrics(filePath, opts = {}) {
+  const wb = xlsx.readFile(filePath);
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  if (!rows.length) return { success: 0, error: 1, errors: ['空文件'] };
+
+  let success = 0;
+  const errors = [];
+  const { AsoProductBaselineMetric } = require('../models');
+
+  for (const raw of rows) {
+    try {
+      const productName = getCell(raw, ['product_name', '产品', '产品名称']);
+      let product = null;
+      if (productName) {
+        product = await ensureProduct(productName);
+      } else if (opts.default_product_id) {
+        product = await AsoProduct.findByPk(opts.default_product_id);
+      }
+
+      if (!product) {
+        errors.push(`无法识别产品: ${productName || '未指定'}`);
+        continue;
+      }
+
+      const statDate = String(getCell(raw, ['stat_date', '日期'])).trim() || todayString();
+      const payload = {
+        product_id: product.id,
+        stat_date: statDate,
+        keyword_coverage: asoCalc.toInt(getCell(raw, ['keyword_coverage', '关键词覆盖数', '覆盖数'])),
+        effective_keyword_coverage: asoCalc.toInt(getCell(raw, ['effective_keyword_coverage', '有效关键词覆盖数'])),
+        effective_t3_keywords: asoCalc.toInt(getCell(raw, ['effective_t3_keywords', '有效 T3 关键词数', '有效T3'])),
+        effective_t10_keywords: asoCalc.toInt(getCell(raw, ['effective_t10_keywords', '有效 T10 关键词数', '有效T10'])),
+        overall_rank: asoCalc.toInt(getCell(raw, ['overall_rank', '总榜排名'])),
+        category_rank: asoCalc.toInt(getCell(raw, ['category_rank', '分类榜排名'])),
+        source: 'excel_import'
+      };
+
+      await AsoProductBaselineMetric.upsert(payload);
+      success++;
+    } catch (e) {
+      errors.push(`导入失败: ${e.message}`);
+    }
+  }
+  return { success, total: rows.length, errors };
+}
+
+module.exports = { importDailyMetrics, importKeywords, importBaselineMetrics };

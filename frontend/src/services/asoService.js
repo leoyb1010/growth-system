@@ -40,6 +40,8 @@ export const asoApi = {
     return res;
   },
   exportDailyMetrics: (params) => api.get('/aso/export/daily-metrics', { params }),
+  importKeywords: (formData) => api.post('/aso/admin/keywords/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  importBaselineMetrics: (formData) => api.post('/aso/baseline-metrics/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   // 产品字典
   getProducts: () => api.get('/aso/products'),
   createProduct: (data) => api.post('/aso/products', data),

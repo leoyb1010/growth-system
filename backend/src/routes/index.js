@@ -220,6 +220,7 @@ router.use('/files', fileRoutes);
 	router.get('/aso/keywords', ...auth, requirePermission('aso.read'), asoAdminController.getKeywords);
 	router.post('/aso/keywords', ...auth, requirePermission('aso.admin'), asoAdminController.createKeyword);
 	router.put('/aso/keywords/:id', ...auth, requirePermission('aso.admin'), asoAdminController.updateKeyword);
+	router.post('/aso/admin/keywords/import', ...auth, requirePermission('aso.admin'), asoUpload.single('file'), asoAdminController.importKeywords);
 	router.get('/aso/dashboard', ...auth, requirePermission('aso.read'), asoController.getDashboard);
 	router.get('/aso/daily-metrics', ...auth, requirePermission('aso.read'), asoController.getDailyMetrics);
 	router.post('/aso/daily-metrics', ...auth, requirePermission('aso.write'), asoController.upsertDailyMetric);
@@ -237,11 +238,12 @@ router.use('/files', fileRoutes);
 	router.put('/aso/metadata-versions/:id', ...auth, requirePermission('aso.write'), asoController.updateMetadataVersion);
 	router.get('/aso/baseline-metrics', ...auth, requirePermission('aso.read'), asoController.getBaselineMetrics);
 	router.post('/aso/baseline-metrics', ...auth, requirePermission('aso.write'), asoController.upsertBaselineMetric);
+	router.post('/aso/baseline-metrics/import', ...auth, requirePermission('aso.write'), asoUpload.single('file'), asoController.importBaselineMetrics);
 		// ASO daily import template download (XLSX)
 		router.get('/aso/template/daily-import', ...auth, requirePermission('aso.write'), (req, res) => {
 		  const xlsx = require('xlsx');
-		  const headers = ['日期', '产品', '关键词', '搜索指数', '流行度', '初始排名', '今日排名', '最高排名', '今日量级', '消耗金额', '关键词状态'];
-		  const example = ['2026-05-08', '词典', '英文口语', '4605', '3', '', '5', '3', '60', '0', '权重较弱'];
+		  const headers = ['日期', '分类', '关键词', '关键词状态', '搜索指数', '流行度', '初始排名', '昨日量级', '今日计划量级', '实际完成量级', '昨日排名', '今日排名', '波动情况', '消耗金额', '分类榜排名'];
+		  const example = ['2026-05-08', '品牌词', '英文口语', '权重较弱', '4605', '3', '', '50', '100', '120', '10', '5', '上升', '500', '3'];
 		  const ws = xlsx.utils.aoa_to_sheet([headers, example]);
 		  ws['!cols'] = headers.map(() => ({ wch: 14 }));
 		  const wb = xlsx.utils.book_new();
