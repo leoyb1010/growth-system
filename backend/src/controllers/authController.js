@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
 const { User, Department } = require('../models');
-const { generateToken } = require('../utils/jwt');
 const { success, error } = require('../utils/response');
 const { logAudit } = require('../services/auditLogService');
 const { generateAccessToken, generateRefreshToken, verifyAndRotateRefreshToken, revokeAllUserTokens } = require('../services/refreshTokenService');
+const { validatePasswordStrength } = require('../utils/passwordPolicy');
 
 /**
  * 用户登录
@@ -45,15 +45,7 @@ async function login(req, res) {
     // 计算角色层级
     const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
 
-    const token = generateToken({
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role,
-      dept_id: user.dept_id,
-      roleLevel,
-      token_version: user.token_version || 0
-    });
+    const token = generateAccessToken(user);
 
     // 生成 refresh token
     const refreshToken = await generateRefreshToken(user);
@@ -122,8 +114,9 @@ async function changePassword(req, res) {
     const { old_password, new_password } = req.body;
     const currentUser = req.user;
 
-    if (!new_password || new_password.length < 6) {
-      return error(res, '新密码长度不能少于6位');
+    const passwordError = validatePasswordStrength(new_password);
+    if (passwordError) {
+      return error(res, passwordError);
     }
 
     if (!old_password) {
@@ -143,7 +136,12 @@ async function changePassword(req, res) {
     const newHash = await bcrypt.hash(new_password, 10);
     const oldValues = user.toJSON();
     // 修改密码后递增 token_version，强制其他设备重新登录
-    await user.update({ password_hash: newHash, token_version: (user.token_version || 0) + 1 });
+    await user.update({
+      password_hash: newHash,
+      must_change_password: false,
+      token_version: (user.token_version || 0) + 1
+    });
+    await revokeAllUserTokens(user.id);
     await logAudit('users', user.id, 'update', { id: currentUser.id, name: currentUser.name || currentUser.username }, oldValues, { change_password: true });
 
     success(res, null, '密码修改成功');
@@ -170,8 +168,9 @@ async function register(req, res) {
     if (!username || !name || !password) {
       return error(res, '用户名、姓名和密码不能为空');
     }
-    if (password.length < 6) {
-      return error(res, '密码长度不能少于6位');
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      return error(res, passwordError);
     }
 
     const existing = await User.findOne({ where: { username } });

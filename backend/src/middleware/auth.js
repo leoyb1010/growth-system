@@ -177,7 +177,7 @@ async function authenticate(req, res, next) {
   // 从数据库获取用户最新状态，防止禁用用户的旧 token 继续访问
   try {
     const dbUser = await User.findByPk(decoded.id, {
-      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'token_version', 'cps_channel_id', 'cps_role', 'aso_role'],
+      attributes: ['id', 'username', 'name', 'role', 'dept_id', 'status', 'must_change_password', 'token_version', 'cps_channel_id', 'cps_role', 'aso_role'],
       include: [{ model: Department, attributes: ['id', 'name'] }]
     });
 
@@ -191,6 +191,20 @@ async function authenticate(req, res, next) {
 
     if (dbUser.status === 'pending') {
       return error(res, '账号待审核，请联系管理员激活', 403, 403);
+    }
+
+    const passwordChangeAllowedPaths = new Set([
+      '/auth/me',
+      '/auth/change-password',
+      '/auth/logout'
+    ]);
+    if (dbUser.must_change_password && !passwordChangeAllowedPaths.has(req.path)) {
+      return res.status(403).json({
+        code: 403,
+        data: null,
+        error_type: 'PASSWORD_CHANGE_REQUIRED',
+        message: '必须先修改初始密码'
+      });
     }
 
     // token_version 校验：如果数据库中的版本号高于 token 中的，说明密码已被修改或管理员强制重登录
@@ -215,6 +229,7 @@ async function authenticate(req, res, next) {
       name: dbUser.name,
       username: dbUser.username,
       status: dbUser.status,
+      must_change_password: dbUser.must_change_password,
     };
     next();
   } catch (err) {

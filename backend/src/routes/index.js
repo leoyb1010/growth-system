@@ -1,8 +1,10 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const { authenticate, injectAccessContext, requirePermission, applyDataScope, requireAdmin, requireDeptAccess } = require('../middleware/auth');
+const { error } = require('../utils/response');
 
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
@@ -27,8 +29,9 @@ const aiRoutes = require('../ai/routes/aiRoutes');
 const fileRoutes = require('./fileRoutes');
 const asoController = require('../controllers/asoController');
 const asoAdminController = require('../controllers/asoAdminController');
-const cpsUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/cps/'), limits: { fileSize: 10 * 1024 * 1024 } });
-const asoUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/aso/'), limits: { fileSize: 10 * 1024 * 1024 } });
+const uploadLimits = { fileSize: 10 * 1024 * 1024, files: 1 };
+const cpsUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/cps/'), limits: uploadLimits });
+const asoUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/aso/'), limits: uploadLimits });
 
 const router = express.Router();
 
@@ -38,8 +41,27 @@ module.exports = function({ loginLimiter, aiLimiter, aiStreamLimiter, importLimi
 // 文件上传配置
 const upload = multer({
   dest: path.join(__dirname, '../../uploads/temp/'),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: uploadLimits // 10MB
 });
+
+function cleanupUploadedFile(file) {
+  if (file?.path) fs.unlink(file.path, () => {});
+}
+
+function ensureExcelFile(req, res, next) {
+  if (!req.file) {
+    return error(res, '请上传 Excel 文件', 1, 400);
+  }
+
+  const ext = path.extname(req.file.originalname || '').toLowerCase();
+  const allowed = new Set(['.xlsx', '.csv']);
+  if (!allowed.has(ext)) {
+    cleanupUploadedFile(req.file);
+    return error(res, '仅支持 .xlsx 或 .csv 文件', 1, 400);
+  }
+
+  next();
+}
 
 // 公共中间件链：所有需认证的接口统一注入访问上下文
 const auth = [authenticate, injectAccessContext];
@@ -136,7 +158,7 @@ router.get('/weekly-reports/:id/png', ...auth, requirePermission('weekly_report.
 router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
 
 // ==================== 导入导出 ====================
-router.post('/import/excel', importLimiter || [], ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), importController.importExcel);
+router.post('/import/excel', importLimiter || [], ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), ensureExcelFile, importController.importExcel);
 router.get('/export/:module', ...auth, requirePermission('export.data'), applyDataScope('export'), exportController.exportModule);
 
 // ==================== 季度归档 ====================
@@ -188,7 +210,7 @@ router.post('/cps/metrics', ...auth, requirePermission('cps.write'), applyDataSc
 router.put('/cps/metrics/:id', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsController.updateMetric);
 router.delete('/cps/metrics/:id', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsController.deleteMetric);
 router.get('/cps/metrics/:id/snapshots', ...auth, requirePermission('cps.read'), applyDataScope('cps_metric'), cpsController.getMetricSnapshots);
-router.post('/cps/import', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsUpload.single('file'), cpsController.importMetrics);
+router.post('/cps/import', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsUpload.single('file'), ensureExcelFile, cpsController.importMetrics);
 router.get('/cps/export', ...auth, requirePermission('cps.read'), applyDataScope('cps_metric'), cpsController.exportMetrics);
 // 预警
 router.get('/cps/alerts', ...auth, requirePermission('cps.read'), applyDataScope('cps_alert'), cpsController.getAlerts);
@@ -201,7 +223,7 @@ router.post('/cps/channel-import', ...auth, requirePermission('cps.channel_uploa
   req.body.forced_channel_id = req.dataScope?.value;
   req.body.source = 'channel_excel_import';
   next();
-}, cpsUpload.single('file'), cpsController.importMetrics);
+}, cpsUpload.single('file'), ensureExcelFile, cpsController.importMetrics);
 
 // ==================== AI 助手 ====================
 // 流式接口额外限流必须在 aiRoutes 之前挂载，否则被 aiRoutes 先拦截
@@ -220,14 +242,14 @@ router.use('/files', fileRoutes);
 	router.get('/aso/keywords', ...auth, requirePermission('aso.read'), asoAdminController.getKeywords);
 	router.post('/aso/keywords', ...auth, requirePermission('aso.admin'), asoAdminController.createKeyword);
 	router.put('/aso/keywords/:id', ...auth, requirePermission('aso.admin'), asoAdminController.updateKeyword);
-	router.post('/aso/admin/keywords/import', ...auth, requirePermission('aso.admin'), asoUpload.single('file'), asoAdminController.importKeywords);
+	router.post('/aso/admin/keywords/import', ...auth, requirePermission('aso.admin'), asoUpload.single('file'), ensureExcelFile, asoAdminController.importKeywords);
 	router.get('/aso/dashboard', ...auth, requirePermission('aso.read'), asoController.getDashboard);
 	router.get('/aso/daily-metrics', ...auth, requirePermission('aso.read'), asoController.getDailyMetrics);
 	router.post('/aso/daily-metrics', ...auth, requirePermission('aso.write'), asoController.upsertDailyMetric);
 	router.put('/aso/daily-metrics/:id', ...auth, requirePermission('aso.write'), asoController.updateDailyMetric);
 	router.delete('/aso/daily-metrics/:id', ...auth, requirePermission('aso.write'), asoController.deleteDailyMetric);
 	router.get('/aso/daily-metrics/:id/snapshots', ...auth, requirePermission('aso.read'), asoController.getMetricSnapshots);
-	router.post('/aso/import/daily-metrics', ...auth, requirePermission('aso.write'), asoUpload.single('file'), asoController.importDailyMetrics);
+	router.post('/aso/import/daily-metrics', ...auth, requirePermission('aso.write'), asoUpload.single('file'), ensureExcelFile, asoController.importDailyMetrics);
 	router.get('/aso/export/daily-metrics', ...auth, requirePermission('aso.read'), asoController.exportDailyMetrics);
 	router.get('/aso/campaigns', ...auth, requirePermission('aso.read'), asoController.getCampaigns);
 	router.post('/aso/campaigns', ...auth, requirePermission('aso.write'), asoController.createCampaign);
@@ -238,17 +260,17 @@ router.use('/files', fileRoutes);
 	router.put('/aso/metadata-versions/:id', ...auth, requirePermission('aso.write'), asoController.updateMetadataVersion);
 	router.get('/aso/baseline-metrics', ...auth, requirePermission('aso.read'), asoController.getBaselineMetrics);
 	router.post('/aso/baseline-metrics', ...auth, requirePermission('aso.write'), asoController.upsertBaselineMetric);
-	router.post('/aso/baseline-metrics/import', ...auth, requirePermission('aso.write'), asoUpload.single('file'), asoController.importBaselineMetrics);
+	router.post('/aso/baseline-metrics/import', ...auth, requirePermission('aso.write'), asoUpload.single('file'), ensureExcelFile, asoController.importBaselineMetrics);
 		// ASO daily import template download (XLSX)
-		router.get('/aso/template/daily-import', ...auth, requirePermission('aso.write'), (req, res) => {
-		  const xlsx = require('xlsx');
+		router.get('/aso/template/daily-import', ...auth, requirePermission('aso.write'), async (req, res) => {
+		  const { xlsx } = require('../utils/safeExcel');
 		  const headers = ['日期', '分类', '关键词', '关键词状态', '搜索指数', '流行度', '初始排名', '昨日量级', '今日计划量级', '实际完成量级', '昨日排名', '今日排名', '波动情况', '消耗金额', '分类榜排名'];
 		  const example = ['2026-05-08', '品牌词', '英文口语', '权重较弱', '4605', '3', '', '50', '100', '120', '10', '5', '上升', '500', '3'];
 		  const ws = xlsx.utils.aoa_to_sheet([headers, example]);
 		  ws['!cols'] = headers.map(() => ({ wch: 14 }));
 		  const wb = xlsx.utils.book_new();
 		  xlsx.utils.book_append_sheet(wb, ws, 'ASO_Daily_Import_Template');
-		  const buf = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+		  const buf = await xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
 		  res.setHeader('Content-Disposition', 'attachment; filename=ASO_Daily_Import_Template.xlsx');
 		  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 		  res.send(buf);

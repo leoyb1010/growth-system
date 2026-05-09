@@ -1,4 +1,4 @@
-const xlsx = require('xlsx');
+const { readWorkbook, sheetToJson } = require('../utils/safeExcel');
 const { AsoProduct, AsoKeyword, AsoDailyKeywordMetric, AsoSnapshot, AsoImportLog } = require('../models');
 const asoCalc = require('./asoCalcService');
 const { safeCode } = require('../utils/asoCode');
@@ -16,6 +16,23 @@ function getCell(raw, keys) {
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(v) {
+  if (!v) return todayString();
+  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  if (typeof v === 'number' && v > 40000 && v < 60000) {
+    return new Date((v - 25569) * 86400000).toISOString().slice(0, 10);
+  }
+  const d = new Date(v);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  const mDay = String(v).match(/(\d{4})?[年\-\/]?(\d{1,2})[月\-\/](\d{1,2})[日号]?/);
+  if (mDay && mDay[1]) return `${mDay[1]}-${mDay[2].padStart(2, '0')}-${mDay[3].padStart(2, '0')}`;
+  if (mDay) {
+    const y = new Date().getFullYear();
+    return `${y}-${mDay[2].padStart(2, '0')}-${mDay[3].padStart(2, '0')}`;
+  }
+  return String(v).slice(0, 10);
 }
 
 // 中文产品名称标准化映射，防止重复创建
@@ -78,9 +95,9 @@ async function ensureKeyword(productId, keyword, keywordType) {
 }
 
 async function importDailyMetrics(filePath, opts = {}) {
-  const wb = xlsx.readFile(filePath);
+  const wb = await readWorkbook(filePath);
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  const rows = sheetToJson(sheet, { defval: '' });
   if (!rows.length) return { success: 0, skip: 0, error: 1, total: 0, errors: ['空文件'] };
 
   let success = 0, skip = 0;
@@ -110,7 +127,7 @@ async function importDailyMetrics(filePath, opts = {}) {
       const keywordType = getCell(raw, ['keyword_type', '关键词类型', '分类']);
       const keyword = await ensureKeyword(product.id, keywordStr, keywordType);
 
-      const statDate = String(getCell(raw, ['stat_date', '日期'])).trim() || opts.stat_date || todayString();
+      const statDate = formatDate(getCell(raw, ['stat_date', '日期']) || opts.stat_date);
       // 移除日期晚于今天的限制（系统调整 3.0）
       // if (statDate > todayString()) { errors.push(`${keywordStr}: 日期不能晚于今天`); skip++; continue; }
 
@@ -205,9 +222,9 @@ async function importDailyMetrics(filePath, opts = {}) {
 }
 
 async function importKeywords(filePath, opts = {}) {
-  const wb = xlsx.readFile(filePath);
+  const wb = await readWorkbook(filePath);
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  const rows = sheetToJson(sheet, { defval: '' });
   if (!rows.length) return { success: 0, error: 1, errors: ['空文件'] };
 
   let success = 0;
@@ -258,9 +275,9 @@ async function importKeywords(filePath, opts = {}) {
 }
 
 async function importBaselineMetrics(filePath, opts = {}) {
-  const wb = xlsx.readFile(filePath);
+  const wb = await readWorkbook(filePath);
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  const rows = sheetToJson(sheet, { defval: '' });
   if (!rows.length) return { success: 0, error: 1, errors: ['空文件'] };
 
   let success = 0;
@@ -282,7 +299,7 @@ async function importBaselineMetrics(filePath, opts = {}) {
         continue;
       }
 
-      const statDate = String(getCell(raw, ['stat_date', '日期'])).trim() || todayString();
+      const statDate = formatDate(getCell(raw, ['stat_date', '日期']));
       // 移除日期晚于今天的限制（系统调整 3.0）
       // if (statDate > todayString()) { errors.push(`${keywordStr}: 日期不能晚于今天`); skip++; continue; }
       const payload = {

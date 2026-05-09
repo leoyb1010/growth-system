@@ -4,6 +4,7 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 const API_BASE = process.env.REACT_APP_API_URL || '';
+let refreshPromise = null;
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
@@ -25,11 +26,41 @@ api.interceptors.request.use(
 // 响应拦截器：统一处理错误
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    if (error.response?.status === 401) {
+  async (error) => {
+    const originalRequest = error.config || {};
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login') && !originalRequest.url?.includes('/auth/refresh')) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        originalRequest._retry = true;
+        try {
+          if (!refreshPromise) {
+            refreshPromise = axios.post(`${API_BASE}/api/auth/refresh`, { refreshToken })
+              .then((res) => res.data)
+              .finally(() => { refreshPromise = null; });
+          }
+          const res = await refreshPromise;
+          if (res.code === 0 && res.data?.token && res.data?.refreshToken) {
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
+            originalRequest.headers = {
+              ...(originalRequest.headers || {}),
+              Authorization: `Bearer ${res.data.token}`,
+            };
+            return api(originalRequest);
+          }
+        } catch (refreshError) {
+          // fall through to clear local auth state
+        }
+      }
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       window.location.href = '/login';
+    }
+    if (error.response?.data?.error_type === 'PASSWORD_CHANGE_REQUIRED') {
+      window.dispatchEvent(new CustomEvent('password-change-required', {
+        detail: { message: error.response.data.message }
+      }));
     }
     // SQLITE_READONLY 专用提示：数据库只读时给用户明确的告警
     if (error.response?.data?.error_type === 'DB_READONLY') {
@@ -38,7 +69,7 @@ api.interceptors.response.use(
         detail: { message: error.response.data.message }
       }));
     }
-    return Promise.reject(error.response?.data?.message || '请求失败');
+    return Promise.reject(error.response?.data || { message: '请求失败' });
   }
 );
 
@@ -72,6 +103,7 @@ export function AuthProvider({ children }) {
     const res = await api.post('/auth/login', { username, password });
     if (res.code === 0) {
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('refreshToken', res.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       setUser(res.data.user);
     }
@@ -79,7 +111,9 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    api.post('/auth/logout').catch(() => {});
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setUser(null);
   };

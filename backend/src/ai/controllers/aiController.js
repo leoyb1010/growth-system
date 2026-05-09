@@ -7,7 +7,47 @@ const { success, error } = require('../../utils/response');
 const orchestrator = require('../services/aiOrchestrator');
 const { logAudit } = require('../../services/auditLogService');
 const { VALID_AI_ACTIONS } = require('../../middleware/validateAiRequest');
-const { ActionItem, RiskRegister, User } = require('../../models');
+const { ActionItem, RiskRegister, User, Project } = require('../../models');
+const { Op } = require('sequelize');
+
+async function validateAssignmentScope(req, payload = {}) {
+  const scope = req.dataScope;
+  if (!scope || scope.type === 'all') return null;
+
+  if (scope.type === 'self') {
+    if (payload.owner_id && Number(payload.owner_id) !== Number(req.user?.id)) {
+      return '无权指派给其他负责人';
+    }
+    if (payload.project_id) {
+      const userName = req.user?.name || req.user?.username;
+      const project = await Project.findOne({
+        where: {
+          id: payload.project_id,
+          dept_id: scope.deptId,
+          [Op.or]: [
+            { owner_user_id: req.user?.id },
+            { creator_id: req.user?.id },
+            { owner_name: userName }
+          ]
+        }
+      });
+      if (!project) return '无权关联此项目';
+    }
+  }
+
+  if (scope.type === 'department') {
+    if (payload.owner_id) {
+      const user = await User.findOne({ where: { id: payload.owner_id, dept_id: scope.deptId } });
+      if (!user) return '无权指派给其他部门成员';
+    }
+    if (payload.project_id) {
+      const project = await Project.findOne({ where: { id: payload.project_id, dept_id: scope.deptId } });
+      if (!project) return '无权关联其他部门项目';
+    }
+  }
+
+  return null;
+}
 
 /**
  * Best-effort extraction of source references from LLM text.
@@ -439,6 +479,8 @@ async function materializeActions(req, res) {
     const created = [];
     for (const action of actions) {
       if (!action.title) continue;
+      const scopeError = await validateAssignmentScope(req, { owner_id: action.owner_id || null });
+      if (scopeError) return error(res, scopeError, 1, 403);
       const item = await ActionItem.create({
         title: String(action.title).slice(0, 200),
         description: String(action.description || action.reason || '').slice(0, 2000),
@@ -478,6 +520,11 @@ async function materializeRisks(req, res) {
     const created = [];
     for (const risk of risks) {
       if (!risk.title && !risk.description) continue;
+      const scopeError = await validateAssignmentScope(req, {
+        owner_id: risk.owner_id || null,
+        project_id: risk.project_id || project_id || null
+      });
+      if (scopeError) return error(res, scopeError, 1, 403);
       const item = await RiskRegister.create({
         title: String(risk.title || (risk.description || '')).slice(0, 200),
         description: String(risk.description || '').slice(0, 2000),

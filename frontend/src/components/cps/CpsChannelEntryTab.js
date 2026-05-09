@@ -110,7 +110,7 @@ function CpsChannelEntryTab() {
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSubmit} loading={saving} size="large" block>
             提交数据
           </Button>
-          <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleImport} disabled={importing}>
+          <Upload accept=".xlsx,.csv" showUploadList={false} beforeUpload={handleImport} disabled={importing}>
             <Button icon={<UploadOutlined />} loading={importing} block>Excel 批量导入</Button>
           </Upload>
         </Space>

@@ -45,7 +45,7 @@ echo "========================================="
 echo "NODE_ENV:         $NODE_ENV"
 echo "DB_DIALECT:       $DB_DIALECT"
 echo "PORT:             $PORT"
-echo "JWT_SECRET:       ${JWT_SECRET:0:10}..."
+echo "JWT_SECRET:       configured"
 echo "AI_LLM_PROVIDER:  $AI_LLM_PROVIDER"
 echo "========================================="
 

@@ -7,7 +7,9 @@ RUN npm ci --only=production
 
 COPY . .
 
-RUN mkdir -p uploads weekly-reports
+RUN mkdir -p uploads weekly-reports && chown -R node:node /app
+
+USER node
 
 EXPOSE 3001
 

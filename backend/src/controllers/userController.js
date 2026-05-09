@@ -3,6 +3,8 @@ const { User, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const { logAudit } = require('../services/auditLogService');
 const { validateCpsUserPayload } = require('../middleware/auth');
+const { validatePasswordStrength } = require('../utils/passwordPolicy');
+const { revokeAllUserTokens } = require('../services/refreshTokenService');
 
 /**
  * 获取用户列表（管理员）
@@ -34,6 +36,9 @@ async function createUser(req, res) {
       return error(res, '用户名、姓名和密码不能为空');
     }
 
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) return error(res, passwordError);
+
     const cpsValidationError = validateCpsUserPayload(req.body);
     if (cpsValidationError) return error(res, cpsValidationError, 400, 400);
 
@@ -54,7 +59,7 @@ async function createUser(req, res) {
       email: email || null,
       mobile: mobile || null,
       status: status || 'active',
-      must_change_password: must_change_password || false,
+      must_change_password: must_change_password !== undefined ? !!must_change_password : true,
       password_hash: passwordHash
     });
 
@@ -134,6 +139,7 @@ async function deleteUser(req, res) {
     const oldValues = user.toJSON();
     // 软删除：改为禁用而非物理删除，保留数据完整性
     await user.update({ status: 'disabled', token_version: (user.token_version || 0) + 1 });
+    await revokeAllUserTokens(user.id);
     await logAudit('users', id, 'delete', { id: req.user.id, name: req.user.name || req.user.username }, oldValues, { soft_delete: true });
     success(res, null, '用户已禁用（软删除）');
   } catch (err) {
@@ -152,9 +158,8 @@ async function resetPassword(req, res) {
     const { id } = req.params;
     const { new_password } = req.body;
 
-    if (!new_password || new_password.length < 6) {
-      return error(res, '新密码长度不能少于6位');
-    }
+    const passwordError = validatePasswordStrength(new_password);
+    if (passwordError) return error(res, passwordError);
 
     const user = await User.findByPk(id);
     if (!user) {
@@ -164,6 +169,7 @@ async function resetPassword(req, res) {
     const newHash = await bcrypt.hash(new_password, 10);
     const oldValues = user.toJSON();
     await user.update({ password_hash: newHash, must_change_password: true, token_version: (user.token_version || 0) + 1 });
+    await revokeAllUserTokens(user.id);
 
     await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { reset_password: true });
 
@@ -211,7 +217,8 @@ async function disableUser(req, res) {
     }
 
     const oldValues = user.toJSON();
-    await user.update({ status: 'disabled' });
+    await user.update({ status: 'disabled', token_version: (user.token_version || 0) + 1 });
+    await revokeAllUserTokens(user.id);
 
     await logAudit('users', user.id, 'update', { id: req.user.id, name: req.user.name }, oldValues, { status: 'disabled' });
 

@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
 
 const { sequelize, Department, User } = require('./models');
 const routes = require('./routes');
@@ -138,6 +140,15 @@ app.get('*', (req, res, next) => {
 });
 
 // 错误处理
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? '上传文件不能超过10MB'
+      : '文件上传失败';
+    return res.status(400).json({ code: 1, data: null, message });
+  }
+  next(err);
+});
 // 第一层：SQLITE_READONLY 专用拦截（在通用 500 之前）
 app.use(dbReadOnlyGuard);
 // 第二层：通用错误兜底

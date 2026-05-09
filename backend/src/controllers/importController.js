@@ -1,4 +1,4 @@
-const xlsx = require('xlsx');
+const { readWorkbook, sheetToJson } = require('../utils/safeExcel');
 const { sequelize, Kpi, Project, Performance, MonthlyTask, Achievement, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const fs = require('fs');
@@ -14,7 +14,7 @@ async function importExcel(req, res) {
       return error(res, '请上传 Excel 文件');
     }
 
-    const workbook = xlsx.readFile(req.file.path);
+    const workbook = await readWorkbook(req.file.path);
     const sheetNames = workbook.SheetNames;
 
     // 辅助函数：宽松的 sheet 名称匹配
@@ -38,7 +38,7 @@ async function importExcel(req, res) {
 
     for (const sheetName of sheetNames) {
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+      const jsonData = sheetToJson(worksheet, { header: 1 });
 
       if (jsonData.length < 2) continue;
 
@@ -70,13 +70,14 @@ async function importExcel(req, res) {
       }
     }
 
-    // 删除临时文件
-    fs.unlinkSync(req.file.path);
-
-    success(res, importResults, '导入完成');
+    success(res, results, '导入完成');
   } catch (err) {
     console.error('导入 Excel 失败:', err);
     error(res, '导入失败: ' + err.message, 1, 500);
+  } finally {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
   }
 }
 

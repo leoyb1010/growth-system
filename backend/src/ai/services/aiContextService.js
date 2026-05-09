@@ -23,11 +23,8 @@ async function assembleContext(options) {
   const { currentPage, currentObject = {}, currentUser = {} } = options;
 
   try {
-    // 构建数据范围过滤
-    const scopeWhere = buildScopeWhere(currentUser);
-
     // 根据页面拉取不同数据
-    const pageData = await fetchPageData(currentPage, currentObject, scopeWhere, currentUser);
+    const pageData = await fetchPageData(currentPage, currentObject, currentUser);
 
     // 计算衍生信号
     const derivedSignals = await computeDerivedSignals(pageData, currentObject);
@@ -59,7 +56,7 @@ async function assembleContext(options) {
 /**
  * 构建数据范围过滤条件
  */
-function buildScopeWhere(user) {
+function buildScopeWhere(user, resourceType = 'project') {
   const where = {};
   if (!user) return where;
 
@@ -72,10 +69,12 @@ function buildScopeWhere(user) {
       break;
     case 'self':
       where.dept_id = deptId;
-      where[Op.or] = [
-        { owner_user_id: user.id },
-        { creator_id: user.id }
-      ];
+      if (resourceType === 'project') {
+        where[Op.or] = [
+          { owner_user_id: user.id },
+          { creator_id: user.id }
+        ];
+      }
       break;
     default:
       where.dept_id = deptId;
@@ -86,17 +85,20 @@ function buildScopeWhere(user) {
 /**
  * 根据页面拉取数据
  */
-async function fetchPageData(page, object, scopeWhere, user) {
+async function fetchPageData(page, object, user) {
   const now = new Date();
   const month = now.getMonth() + 1;
   const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
   const currentYear = now.getFullYear();
 
   const data = {};
+  const projectScopeWhere = buildScopeWhere(user, 'project');
+  const kpiScopeWhere = buildScopeWhere(user, 'kpi');
+  const performanceScopeWhere = buildScopeWhere(user, 'performance');
 
   // 所有页面都需要项目数据
   data.projects = await Project.findAll({
-    where: { quarter: currentQuarter, year: currentYear, ...scopeWhere },
+    where: { quarter: currentQuarter, year: currentYear, ...projectScopeWhere },
     include: [{ model: Department, attributes: ['id', 'name'] }],
     order: [['updated_at', 'DESC']],
     raw: true,
@@ -105,7 +107,7 @@ async function fetchPageData(page, object, scopeWhere, user) {
 
   // 所有页面都需要KPI数据
   data.kpis = await Kpi.findAll({
-    where: { quarter: currentQuarter, year: currentYear, ...scopeWhere },
+    where: { quarter: currentQuarter, year: currentYear, ...kpiScopeWhere },
     include: [{ model: Department, attributes: ['id', 'name'] }],
     raw: true,
     nest: true
@@ -132,7 +134,7 @@ async function fetchPageData(page, object, scopeWhere, user) {
     case 'dashboard':
       // Dashboard 需要业绩数据
       data.performances = await Performance.findAll({
-        where: { ...scopeWhere },
+        where: { ...performanceScopeWhere },
         raw: true
       });
       break;

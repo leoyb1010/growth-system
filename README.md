@@ -82,7 +82,7 @@ export DB_PORT=5432
 export DB_NAME=growth_system
 export DB_USER=growth
 export DB_PASSWORD=growth123
-export JWT_SECRET=growth-secret-key-2026
+export JWT_SECRET=$(openssl rand -hex 32)
 export JWT_EXPIRES_IN=7d
 
 # 使用 SQLite 模式（无需 PostgreSQL）
@@ -392,6 +392,49 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v1.16.0 — 2026-05-09 · 安全深度加固 · ExcelJS替换xlsx · 密码策略 · Refresh Token哈希 · 数据范围重构
+
+> 核心改动：全面安全审计与修补，覆盖Excel解析防护、密码策略升级、Token哈希存储、数据范围过滤重构、首次改密强制、Nginx安全头、Docker非root运行。
+
+**Excel解析安全（xlsx → ExcelJS）**
+- 全局替换 `xlsx` 为 `exceljs`（通过 `safeExcel.js` 封装），防止原型污染和公式注入
+- `normalizeCellValue` 全面清理富文本/超链接/公式结果，`dangerousKeys` 拦截 `__proto__/prototype/constructor`
+- 导入控制器、ASO导入、CPS导入、导出服务、模板下载全部迁移到新接口
+
+**密码策略升级**
+- 新增 `passwordPolicy.js`：最低8位 + 字母数字混合 + 弱密码黑名单（12345678/admin123/growth123等）
+- 前端同步校验（创建用户/重置密码/修改密码全部 ≥8位 + 字母数字混合）
+- 新建用户默认 `must_change_password: true`
+
+**Refresh Token 安全**
+- Token 存储从明文改为 SHA-256 哈希，不再可逆
+- 向后兼容：查询时先尝试哈希匹配，再降级明文匹配（旧数据平滑迁移）
+- 密码修改/重置/用户禁用/删除时自动 `revokeAllUserTokens`
+
+**首次改密强制**
+- `authenticate` 中间件拦截 `must_change_password=true` 用户，仅放行改密/登出接口
+- 返回 `error_type: PASSWORD_CHANGE_REQUIRED`，前端 `password-change-required` 事件监听
+- 改密弹窗不可关闭、不可跳过，完成后 `must_change_password` 置 false
+
+**数据范围过滤重构**
+- 行动项/风险台账自建 `buildActionItemScopeWhere`/`buildRiskScopeWhere`，替代 `req.dataScope.where` 直传
+- `self` 模式按 `owner_id/created_by` 过滤；`department` 模式按部门成员ID+项目ID联合过滤
+- AI 落地端新增 `validateAssignmentScope`：跨部门/跨项目越权指派返回 403
+- AI 上下文按资源类型分建 scopeWhere（project/kpi/performance）
+
+**其他安全加固**
+- `ensureExcelFile` 中间件：强制校验 `.xlsx/.csv` 扩展名，multer 错误友好提示
+- Nginx 安全头：X-Content-Type-Options/X-Frame-Options/Referrer-Policy/Permissions-Policy
+- Dockerfile `USER node` 非 root 运行
+- README JWT_SECRET 示例改用 `openssl rand`
+- `.gitignore` 新增 `*.sqlite.*` 和 `backend/backups/`
+- ASO 导入日期新增 `formatDate` 统一处理序列号/中文日期/Date 对象
+- 导入控制器修复 `results` 变量名错误 + `finally` 块清理临时文件
+- 全局移除 `.xls` 支持，统一 `.xlsx/.csv`
+- 前端 401 自动 refresh token 续期 + 并发请求去重
+
+详见 [changelog.json](backend/data/changelog.json)
 
 ### v1.15.4 — 2026-05-09 · ASO系统调整 2.0 + UI布局优化 + DB补丁
 
@@ -1178,6 +1221,7 @@ docker-compose up -d --build
 - [x] v1.7.0 安全加固 + 视觉动效 + AI存在感升级（AI白名单校验+Action端点+roleMapper统一+CSS动效体系+AI浮动按钮+Drawer品牌化）
 - [x] v1.8.0 产品闭环 + 安全加固 + AI落地增强（行动项管理+风险台账独立体系+Refresh Token+AI调用日志+AI缓存+备份验证）
 - [x] v1.15.4 ASO系统调整 2.0（批量导入 / 基准指标重构 / 日报模版对齐 / 产品刷新修复 / DB补丁）
+- [x] v1.16.0 安全深度加固（ExcelJS替换xlsx / 密码策略 / Refresh Token哈希 / 首次改密强制 / 数据范围重构 / Nginx安全头 / Docker非root）
 
 ## License
 

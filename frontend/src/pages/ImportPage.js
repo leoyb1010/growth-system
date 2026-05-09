@@ -15,9 +15,10 @@ function ImportPage() {
     },
     beforeUpload: (file) => {
       const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                      file.type === 'application/vnd.ms-excel';
+                      file.type === 'text/csv' ||
+                      file.name.toLowerCase().endsWith('.csv');
       if (!isExcel) {
-        message.error('请上传 Excel 文件 (.xlsx 或 .xls)');
+        message.error('请上传 .xlsx 或 .csv 文件');
         return Upload.LIST_IGNORE;
       }
       setFileList([file]);
@@ -76,7 +77,7 @@ function ImportPage() {
         message="导入说明"
         description={
           <ul style={{ margin: 0, paddingLeft: 20 }}>
-            <li>支持 .xlsx 和 .xls 格式</li>
+            <li>支持 .xlsx 和 .csv 格式</li>
             <li>Sheet 名称需包含对应模块关键词（如"核心指标"、"重点工作"等）</li>
             <li>第一行为表头，第二行起为数据</li>
             <li>部门列请使用系统中已有的部门名称</li>

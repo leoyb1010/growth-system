@@ -1,6 +1,30 @@
 {
-  "latestVersion": "1.15.5",
+  "latestVersion": "1.16.0",
   "releases": [
+    {
+      "version": "1.16.0",
+      "date": "2026-05-09",
+      "title": "安全深度加固 · ExcelJS替换xlsx · 密码策略 · Refresh Token哈希 · 数据范围重构",
+      "changes": [
+        { "type": "security", "module": "Excel解析", "desc": "xlsx库替换为ExcelJS(safeExcel封装)，防止原型污染和公式注入攻击，全面sanitize单元格值" },
+        { "type": "security", "module": "密码策略", "desc": "密码最低8位+字母数字混合+弱密码黑名单，前后端同步校验，新建用户默认强制首次改密" },
+        { "type": "security", "module": "Refresh Token", "desc": "Refresh Token存储改为SHA-256哈希，不再明文入库；向后兼容旧token平滑迁移" },
+        { "type": "security", "module": "首次改密", "desc": "must_change_password=true时拦截所有API（仅允许改密/登出），前端弹窗不可关闭强制改密" },
+        { "type": "security", "module": "Token撤销", "desc": "密码修改/重置/用户禁用/删除时自动revokeAllUserTokens，强制其他设备重新登录" },
+        { "type": "security", "module": "上传校验", "desc": "新增ensureExcelFile中间件：强制校验文件扩展名(.xlsx/.csv)，multer错误友好提示" },
+        { "type": "security", "module": "Nginx加固", "desc": "添加X-Content-Type-Options/X-Frame-Options/Referrer-Policy/Permissions-Policy安全头" },
+        { "type": "security", "module": "Docker", "desc": "Dockerfile添加USER node非root运行+chown" },
+        { "type": "security", "module": "JWT密钥", "desc": "README示例JWT_SECRET改用openssl rand动态生成" },
+        { "type": "fix", "module": "数据范围", "desc": "行动项/风险台账重构scope过滤：自建buildActionItemScopeWhere/buildRiskScopeWhere替代req.dataScope.where直传" },
+        { "type": "fix", "module": "AI落地", "desc": "AI materializeActions/materializeRisks新增validateAssignmentScope，防止跨部门/跨项目越权指派" },
+        { "type": "fix", "module": "AI上下文", "desc": "aiContextService按资源类型分建scopeWhere(project/kpi/performance)，self模式非project不加owner过滤" },
+        { "type": "fix", "module": "导入", "desc": "importController修复results变量名错误+finally块清理临时文件" },
+        { "type": "fix", "module": "ASO日期", "desc": "asoImportService新增formatDate统一处理Excel序列号日期/中文日期/Date对象" },
+        { "type": "improve", "module": "前端认证", "desc": "401响应自动尝试refresh token续期+并发请求去重(refreshPromise)+PASSWORD_CHANGE_REQUIRED事件监听" },
+        { "type": "improve", "module": "文件格式", "desc": "全局统一接受.xlsx/.csv，移除过时.xls格式支持" },
+        { "type": "improve", "module": ".gitignore", "desc": "新增*.sqlite.*和backend/backups/排除规则" }
+      ]
+    },
     {
       "version": "1.15.5",
       "date": "2026-05-09",

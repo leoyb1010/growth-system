@@ -138,7 +138,7 @@ function CpsMetricsTab({ channelId }) {
   const doImport = async () => {
     if (!importChannelId) { message.warning('请选择导入渠道'); return; }
     setImportModalVisible(false);
-    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls,.csv';
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.csv';
     input.onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
       const fd = new FormData(); fd.append('file', file); fd.append('auto_create_dim', 'true');

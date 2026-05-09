@@ -247,8 +247,11 @@ function UserPage() {
             </Col>
           </Row>
           {!editingUser && (
-            <Form.Item name="password" label="密码" rules={[{ required: true, min: 6 }]}>
-              <Input.Password placeholder="不少于6位" />
+            <Form.Item name="password" label="密码" rules={[
+              { required: true, min: 8, message: '密码不少于8位' },
+              { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: '密码必须同时包含字母和数字' }
+            ]}>
+              <Input.Password placeholder="不少于8位，包含字母和数字" />
             </Form.Item>
           )}
           <Row gutter={16}>
@@ -326,7 +329,7 @@ function UserPage() {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="must_change_password" label="首次登录改密" initialValue={false}>
+              <Form.Item name="must_change_password" label="首次登录改密" initialValue={true}>
                 <Select>
                   <Option value={false}>否</Option>
                   <Option value={true}>是</Option>
@@ -348,8 +351,11 @@ function UserPage() {
           ⚠️ 管理员重置密码操作将被审计日志记录。重置后请通知用户尽快修改密码。
         </div>
         <Form form={resetPwdForm} onFinish={handleResetPassword} layout="vertical">
-          <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 6, message: '密码不少于6位' }]}>
-            <Input.Password placeholder="输入新密码（不少于6位）" />
+          <Form.Item name="new_password" label="新密码" rules={[
+            { required: true, min: 8, message: '密码不少于8位' },
+            { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: '密码必须同时包含字母和数字' }
+          ]}>
+            <Input.Password placeholder="输入新密码（不少于8位，包含字母和数字）" />
           </Form.Item>
           <Form.Item
             name="confirm_password"

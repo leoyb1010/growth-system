@@ -1,4 +1,4 @@
-const xlsx = require('xlsx');
+const { xlsx } = require('../utils/safeExcel');
 const { Kpi, Project, Performance, MonthlyTask, Achievement, Department } = require('../models');
 const { success, error } = require('../utils/response');
 const fs = require('fs');
@@ -159,7 +159,7 @@ async function exportModule(req, res) {
 
     const fileName = `${module}_${Date.now()}.xlsx`;
     const filePath = path.join(exportDir, fileName);
-    xlsx.writeFile(wb, filePath);
+    await xlsx.writeFile(wb, filePath);
 
     success(res, {
       download_url: `/api/files/exports/${fileName}`,

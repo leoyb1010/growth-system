@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const xlsx = require('xlsx');
+const { xlsx } = require('../utils/safeExcel');
 const { CpsChannel, CpsProduct, CpsDailyMetric } = require('../models');
 const cpsCalc = require('./cpsCalcService');
 

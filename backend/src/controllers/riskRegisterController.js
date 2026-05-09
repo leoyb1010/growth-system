@@ -1,10 +1,89 @@
-const { sequelize, RiskRegister, Project, User } = require('../models');
+const { RiskRegister, Project, User } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const { logAudit } = require('../services/auditLogService');
 
 function getOperator(req) {
   return { id: req.user?.id, name: req.user?.name || req.user?.username };
+}
+
+async function buildRiskScopeWhere(req) {
+  const scope = req.dataScope;
+  if (!scope || scope.type === 'all') return {};
+
+  if (scope.type === 'self') {
+    return {
+      [Op.or]: [
+        { owner_id: req.user?.id },
+        { created_by: req.user?.id }
+      ]
+    };
+  }
+
+  if (scope.type === 'department') {
+    const [users, projects] = await Promise.all([
+      User.findAll({ where: { dept_id: scope.deptId }, attributes: ['id'], raw: true }),
+      Project.findAll({ where: { dept_id: scope.deptId }, attributes: ['id'], raw: true })
+    ]);
+    const userIds = users.map(u => u.id);
+    const projectIds = projects.map(p => p.id);
+    const clauses = [];
+    if (userIds.length) {
+      clauses.push({ owner_id: { [Op.in]: userIds } }, { created_by: { [Op.in]: userIds } });
+    }
+    if (projectIds.length) {
+      clauses.push({ project_id: { [Op.in]: projectIds } });
+    }
+    return clauses.length ? { [Op.or]: clauses } : { id: -1 };
+  }
+
+  return { id: -1 };
+}
+
+async function canAccessRisk(req, risk) {
+  const scopeWhere = await buildRiskScopeWhere(req);
+  if (!scopeWhere || Object.keys(scopeWhere).length === 0) return true;
+  const count = await RiskRegister.count({ where: { id: risk.id, ...scopeWhere } });
+  return count > 0;
+}
+
+async function validateRiskPayloadScope(req, payload) {
+  const scope = req.dataScope;
+  if (!scope || scope.type === 'all') return null;
+
+  if (scope.type === 'self') {
+    if (payload.owner_id && Number(payload.owner_id) !== Number(req.user?.id)) {
+      return '无权指派给其他负责人';
+    }
+    if (payload.project_id) {
+      const userName = req.user?.name || req.user?.username;
+      const project = await Project.findOne({
+        where: {
+          id: payload.project_id,
+          dept_id: scope.deptId,
+          [Op.or]: [
+            { owner_user_id: req.user?.id },
+            { creator_id: req.user?.id },
+            { owner_name: userName }
+          ]
+        }
+      });
+      if (!project) return '无权关联此项目';
+    }
+  }
+
+  if (scope.type === 'department') {
+    if (payload.owner_id) {
+      const user = await User.findOne({ where: { id: payload.owner_id, dept_id: scope.deptId } });
+      if (!user) return '无权指派给其他部门成员';
+    }
+    if (payload.project_id) {
+      const project = await Project.findOne({ where: { id: payload.project_id, dept_id: scope.deptId } });
+      if (!project) return '无权关联其他部门项目';
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -18,40 +97,20 @@ async function list(req, res) {
     if (risk_level) where.risk_level = risk_level;
     if (project_id) where.project_id = parseInt(project_id);
 
-    // 数据范围过滤
-    if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
-      Object.assign(where, req.dataScope.where);
-    }
+    Object.assign(where, await buildRiskScopeWhere(req));
 
     // aggregate 模式：返回总量统计
     if (aggregate === 'true') {
-      // 从 dataScope 构建 SQL WHERE 条件
-      const scopeConditions = [];
-      const scopeReplacements = {};
-      if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
-        const sw = req.dataScope.where;
-        if (sw.dept_id) { scopeConditions.push('dept_id = :scopeDeptId'); scopeReplacements.scopeDeptId = sw.dept_id; }
-        if (sw[Op.or]) {
-          const orParts = sw[Op.or].map((cond, i) => {
-            const keys = Object.keys(cond);
-            const parts = keys.map(k => { const pk = `scopeOr_${i}_${k}`; scopeReplacements[pk] = cond[k]; return `${k} = :${pk}`; });
-            return `(${parts.join(' OR ')})`;
-          });
-          scopeConditions.push(`(${orParts.join(' OR ')})`);
+      const rows = await RiskRegister.findAll({ where, attributes: ['status', 'risk_level'], raw: true });
+      return success(res, {
+        aggregate: {
+          total: rows.length,
+          open_count: rows.filter(r => r.status === 'open').length,
+          monitoring: rows.filter(r => r.status === 'monitoring').length,
+          resolved: rows.filter(r => ['mitigated', 'closed'].includes(r.status)).length,
+          critical: rows.filter(r => r.risk_level === 'critical').length
         }
-      }
-      const scopeWhere = scopeConditions.length > 0 ? `WHERE ${scopeConditions.join(' AND ')}` : '';
-      const [agg] = await sequelize.query(
-        `SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_count,
-          SUM(CASE WHEN status = 'monitoring' THEN 1 ELSE 0 END) as monitoring,
-          SUM(CASE WHEN status IN ('mitigated','closed') THEN 1 ELSE 0 END) as resolved,
-          SUM(CASE WHEN risk_level = 'critical' THEN 1 ELSE 0 END) as critical
-         FROM risk_register ${scopeWhere}`,
-        { type: sequelize.QueryTypes.SELECT, replacements: scopeReplacements }
-      );
-      return success(res, { aggregate: agg[0] || { total: 0, open_count: 0, monitoring: 0, resolved: 0, critical: 0 } });
+      });
     }
 
     const limit = Math.min(Math.max(parseInt(pageSize), 1), 100);
@@ -88,6 +147,9 @@ async function create(req, res) {
     if (!title || String(title).trim().length < 2) {
       return error(res, '风险标题不能为空', 1, 400);
     }
+
+    const scopeError = await validateRiskPayloadScope(req, { owner_id, project_id });
+    if (scopeError) return error(res, scopeError, 1, 403);
 
     const operator = getOperator(req);
     const risk = await RiskRegister.create({
@@ -132,6 +194,9 @@ async function update(req, res) {
     const { id } = req.params;
     const risk = await RiskRegister.findByPk(id);
     if (!risk) return error(res, '风险不存在', 1, 404);
+    if (!(await canAccessRisk(req, risk))) {
+      return error(res, '无权修改此风险', 1, 403);
+    }
 
     const operator = getOperator(req);
     const updateData = { updated_by: operator.id };
@@ -139,6 +204,9 @@ async function update(req, res) {
     for (const f of fields) {
       if (req.body[f] !== undefined) updateData[f] = req.body[f];
     }
+
+    const scopeError = await validateRiskPayloadScope(req, updateData);
+    if (scopeError) return error(res, scopeError, 1, 403);
 
     if (['mitigated', 'closed'].includes(req.body.status) && !['mitigated', 'closed'].includes(risk.status)) {
       updateData.resolved_at = new Date();

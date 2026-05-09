@@ -181,6 +181,18 @@ function AppLayout() {
   const [changePwdVisible, setChangePwdVisible] = useState(false);
   const [changePwdLoading, setChangePwdLoading] = useState(false);
 
+  useEffect(() => {
+    const handler = () => setChangePwdVisible(true);
+    window.addEventListener('password-change-required', handler);
+    return () => window.removeEventListener('password-change-required', handler);
+  }, []);
+
+  useEffect(() => {
+    if (user?.must_change_password) {
+      setChangePwdVisible(true);
+    }
+  }, [user?.must_change_password]);
+
   const handleChangePassword = async (values) => {
     setChangePwdLoading(true);
     try {
@@ -398,19 +410,27 @@ function AppLayout() {
 
       {/* ===== 修改密码弹窗 ===== */}
       <Modal
-        title="修改密码"
+        title={user?.must_change_password ? '首次登录必须修改密码' : '修改密码'}
         open={changePwdVisible}
-        onCancel={() => setChangePwdVisible(false)}
+        onCancel={() => {
+          if (!user?.must_change_password) setChangePwdVisible(false);
+        }}
         onOk={() => changePwdForm.submit()}
         confirmLoading={changePwdLoading}
         okText="确认修改"
+        closable={!user?.must_change_password}
+        maskClosable={!user?.must_change_password}
+        cancelButtonProps={user?.must_change_password ? { style: { display: 'none' } } : undefined}
       >
         <Form form={changePwdForm} onFinish={handleChangePassword} layout="vertical">
           <Form.Item name="old_password" label="当前密码" rules={[{ required: true, message: '请输入当前密码' }]}>
             <Input.Password placeholder="输入当前密码" />
           </Form.Item>
-          <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 6, message: '新密码不少于6位' }]}>
-            <Input.Password placeholder="输入新密码（不少于6位）" />
+          <Form.Item name="new_password" label="新密码" rules={[
+            { required: true, min: 8, message: '新密码不少于8位' },
+            { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: '密码必须同时包含字母和数字' }
+          ]}>
+            <Input.Password placeholder="输入新密码（不少于8位，包含字母和数字）" />
           </Form.Item>
           <Form.Item
             name="confirm_password"

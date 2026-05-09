@@ -1,10 +1,49 @@
-const { sequelize, ActionItem, User } = require('../models');
+const { ActionItem, User } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const { logAudit } = require('../services/auditLogService');
 
 function getOperator(req) {
   return { id: req.user?.id, name: req.user?.name || req.user?.username };
+}
+
+async function buildActionItemScopeWhere(req) {
+  const scope = req.dataScope;
+  if (!scope || scope.type === 'all') return {};
+
+  if (scope.type === 'self') {
+    return {
+      [Op.or]: [
+        { owner_id: req.user?.id },
+        { created_by: req.user?.id }
+      ]
+    };
+  }
+
+  if (scope.type === 'department') {
+    const users = await User.findAll({
+      where: { dept_id: scope.deptId },
+      attributes: ['id'],
+      raw: true
+    });
+    const ids = users.map(u => u.id);
+    if (!ids.length) return { id: -1 };
+    return {
+      [Op.or]: [
+        { owner_id: { [Op.in]: ids } },
+        { created_by: { [Op.in]: ids } }
+      ]
+    };
+  }
+
+  return { id: -1 };
+}
+
+async function canAccessActionItem(req, item) {
+  const scopeWhere = await buildActionItemScopeWhere(req);
+  if (!scopeWhere || Object.keys(scopeWhere).length === 0) return true;
+  const count = await ActionItem.count({ where: { id: item.id, ...scopeWhere } });
+  return count > 0;
 }
 
 /**
@@ -23,40 +62,21 @@ async function list(req, res) {
       where.status = { [Op.notIn]: ['done', 'cancelled'] };
     }
 
-    // 数据范围过滤（部门隔离）
-    if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
-      Object.assign(where, req.dataScope.where);
-    }
+    Object.assign(where, await buildActionItemScopeWhere(req));
 
     // aggregate 模式：返回总量统计（不受分页影响）
     if (aggregate === 'true') {
-      // 从 dataScope 构建 SQL WHERE 条件，与列表查询保持一致
-      const scopeConditions = [];
-      const scopeReplacements = {};
-      if (req.dataScope && req.dataScope.where && Object.keys(req.dataScope.where).length > 0) {
-        const sw = req.dataScope.where;
-        if (sw.dept_id) { scopeConditions.push('dept_id = :scopeDeptId'); scopeReplacements.scopeDeptId = sw.dept_id; }
-        if (sw[Op.or]) {
-          const orParts = sw[Op.or].map((cond, i) => {
-            const keys = Object.keys(cond);
-            const parts = keys.map(k => { const pk = `scopeOr_${i}_${k}`; scopeReplacements[pk] = cond[k]; return `${k} = :${pk}`; });
-            return `(${parts.join(' OR ')})`;
-          });
-          scopeConditions.push(`(${orParts.join(' OR ')})`);
+      const rows = await ActionItem.findAll({ where, attributes: ['status', 'due_date'], raw: true });
+      const today = new Date().toISOString().slice(0, 10);
+      return success(res, {
+        aggregate: {
+          total: rows.length,
+          pending: rows.filter(r => r.status === 'pending').length,
+          in_progress: rows.filter(r => r.status === 'in_progress').length,
+          done: rows.filter(r => r.status === 'done').length,
+          overdue: rows.filter(r => !['done', 'cancelled'].includes(r.status) && r.due_date && r.due_date < today).length
         }
-      }
-      const scopeWhere = scopeConditions.length > 0 ? `AND ${scopeConditions.join(' AND ')}` : '';
-      const [agg] = await sequelize.query(
-        `SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
-          SUM(CASE WHEN status NOT IN ('done','cancelled') AND due_date < date('now') THEN 1 ELSE 0 END) as overdue
-         FROM action_items WHERE deleted_at IS NULL ${scopeWhere}`,
-        { type: sequelize.QueryTypes.SELECT, replacements: scopeReplacements }
-      );
-      return success(res, { aggregate: agg[0] || { total: 0, pending: 0, in_progress: 0, done: 0, overdue: 0 } });
+      });
     }
 
     const limit = Math.min(Math.max(parseInt(pageSize), 1), 100);
@@ -131,6 +151,9 @@ async function update(req, res) {
     const { id } = req.params;
     const item = await ActionItem.findByPk(id);
     if (!item) return error(res, '行动项不存在', 1, 404);
+    if (!(await canAccessActionItem(req, item))) {
+      return error(res, '无权修改此行动项', 1, 403);
+    }
 
     const operator = getOperator(req);
     const updateData = { updated_by: operator.id };
@@ -167,9 +190,8 @@ async function remove(req, res) {
     const item = await ActionItem.findByPk(id);
     if (!item) return error(res, '行动项不存在', 1, 404);
 
-    // 数据范围校验
-    if (req.dataScope && req.dataScope.type !== 'all' && item.owner_id !== req.user?.id) {
-      return error(res, '无权删除他人行动项', 1, 403);
+    if (!(await canAccessActionItem(req, item))) {
+      return error(res, '无权删除此行动项', 1, 403);
     }
 
     // 软删除：status=cancelled，非物理删除

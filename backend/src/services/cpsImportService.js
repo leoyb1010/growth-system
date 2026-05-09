@@ -1,4 +1,4 @@
-const xlsx = require('xlsx');
+const { readWorkbook, sheetToJson } = require('../utils/safeExcel');
 const { Op } = require('sequelize');
 const { CpsChannel, CpsProduct, CpsDailyMetric, CpsDailyMetricSnapshot, CpsUploadLog } = require('../models');
 const cpsCalc = require('./cpsCalcService');
@@ -54,9 +54,9 @@ function formatDate(v) {
 }
 
 async function importFromExcel(filePath, opts = {}) {
-  const wb = xlsx.readFile(filePath);
+  const wb = await readWorkbook(filePath);
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  const rows = sheetToJson(sheet, { defval: '' });
   if (!rows.length) {
     return {
       success: 0,
