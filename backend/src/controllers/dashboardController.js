@@ -88,9 +88,9 @@ async function getDashboard(req, res) {
     
     kpis.forEach(k => {
       if (!deptKpiMap[k.dept_id]) return;
-      if (k.indicator_name === 'GMV') {
+      if (k.indicator_name.includes('GMV')) {
         deptKpiMap[k.dept_id].gmv = k;
-      } else if (k.indicator_name === '净利润') {
+      } else if (k.indicator_name.includes('利润')) {
         deptKpiMap[k.dept_id].profit = k;
       }
     });

@@ -75,6 +75,7 @@ function buildScopeWhere(user, resourceType = 'project') {
           { creator_id: user.id }
         ];
       }
+      // Kpi 和 Performance 表没有 creator_id 列，只用 dept_id 过滤
       break;
     default:
       where.dept_id = deptId;

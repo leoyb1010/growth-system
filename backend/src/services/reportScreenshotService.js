@@ -216,13 +216,14 @@ function buildReportHtml(content) {
     kpiCardsHtml = `<p class="no-data">暂无数据</p>`;
   }
 
-  // 项目进展表格（同组合并）
+  // 项目进展表格（同组合并，过滤隐藏项）
   let progressHtml = '';
-  if (project_progress?.length) {
+  const visibleProjects = (project_progress || []).filter(p => !p._hidden);
+  if (visibleProjects.length) {
     progressHtml = `<table>
       <colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead>
-      <tbody>${buildMergedRows(project_progress, p => textToHtml(p.weekly_progress))}</tbody></table>`;
+      <tbody>${buildMergedRows(visibleProjects, p => textToHtml(p.weekly_progress))}</tbody></table>`;
   } else {
     progressHtml = `<p class="no-data">本周无更新项目</p>`;
   }
@@ -248,13 +249,14 @@ function buildReportHtml(content) {
     riskHtml = `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
   }
 
-  // 下周重点工作（同组合并）
+  // 下周重点工作（同组合并，过滤隐藏项）
   let nextWeekHtml = '';
-  if (keyWorkItems.length) {
+  const visibleNextWeek = keyWorkItems.filter(p => !p._hidden);
+  if (visibleNextWeek.length) {
     nextWeekHtml = `<table>
       <colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead>
-      <tbody>${buildMergedRows(keyWorkItems, p => textToHtml(p.next_week_focus || p.due_date))}</tbody></table>`;
+      <tbody>${buildMergedRows(visibleNextWeek, p => textToHtml(p.next_week_focus || p.due_date))}</tbody></table>`;
   } else {
     nextWeekHtml = `<p class="no-data">暂无项目填写下周重点工作</p>`;
   }
@@ -321,7 +323,7 @@ function buildReportHtml(content) {
   </div>
 
   <div class="section">
-    <div class="section-title">二、重点工作进展（更新 ${project_progress?.length || 0} 项）</div>
+    <div class="section-title">二、重点工作进展（更新 ${visibleProjects.length} 项）</div>
     ${progressHtml}
   </div>
 

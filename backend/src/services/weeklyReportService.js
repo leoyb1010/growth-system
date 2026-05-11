@@ -73,9 +73,9 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   });
 
   // KPI 分层分组：Row1 部门级 GMV+利润，Row2 各组 GMV，Row3 其他业务指标
-  const gmvKpis = kpiSummary.filter(k => k.indicator === 'GMV');
-  const profitKpis = kpiSummary.filter(k => ['利润', '净利润'].includes(k.indicator));
-  const otherKpis = kpiSummary.filter(k => !['GMV', '利润', '净利润'].includes(k.indicator));
+  const gmvKpis = kpiSummary.filter(k => k.indicator.includes('GMV'));
+  const profitKpis = kpiSummary.filter(k => k.indicator.includes('利润'));
+  const otherKpis = kpiSummary.filter(k => !k.indicator.includes('GMV') && !k.indicator.includes('利润'));
 
   // 计算部门汇总 GMV 和利润
   const totalGmvTarget = gmvKpis.reduce((s, k) => s + (k.target || 0), 0);

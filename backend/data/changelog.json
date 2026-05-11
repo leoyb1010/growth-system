@@ -1,6 +1,17 @@
 {
-  "latestVersion": "1.16.0",
+  "latestVersion": "1.16.1",
   "releases": [
+    {
+      "version": "1.16.1",
+      "date": "2026-05-11",
+      "title": "周报编辑修复 + 下周重点隐藏功能 + KPI指标模糊匹配",
+      "changes": [
+        { "type": "fix", "module": "周报编辑", "desc": "修复编辑模式下文字无法输入：addRowSpan浅拷贝导致value/onChange数据源脱节，改为items[origIdx]直接读取editData" },
+        { "type": "feat", "module": "周报隐藏", "desc": "下周重点工作新增隐藏按钮（EyeInvisibleOutlined），与重点工作进展一致的隐藏/恢复交互，导出（MD/HTML/PNG/Word）同步过滤隐藏项" },
+        { "type": "fix", "module": "KPI匹配", "desc": "KPI指标名从精确匹配改为模糊匹配（=== 'GMV' → includes('GMV')，=== '净利润' → includes('利润')），兼容指标名变体" },
+        { "type": "fix", "module": "周报导出", "desc": "reportScreenshotService/weeklyReportService/generateMarkdown/generateDocHtml四个导出路径统一过滤_hidden项" }
+      ]
+    },
     {
       "version": "1.16.0",
       "date": "2026-05-09",

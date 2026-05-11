@@ -393,6 +393,26 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.16.1 — 2026-05-11 · 周报编辑修复 + 下周重点隐藏功能 + KPI模糊匹配
+
+> 核心改动：修复周报编辑模式无法输入文字的致命Bug；下周重点工作增加隐藏按钮；KPI指标名模糊匹配。
+
+**周报编辑修复（P0 Bug）**
+- 根因：`addRowSpan()` 浅拷贝 `{ ...item, deptRowSpan: 0 }` 创建了脱落数据源，`EditableCell` 的 `value` 从拷贝读取（过时值），`onChange` 写入 `editData`（原始源），React 重渲染时用旧值覆盖用户输入
+- 修复：`value={items[origIdx][columns.textField]}` 直接从 `items`（即 `editData`）读取，`key` 也改为 `origIdx`，保证 value/onChange/path 三者一致
+- 新增 `_origIdx` 追踪：过滤/合并后仍能映射回原数组索引
+
+**下周重点工作隐藏功能**
+- 编辑模式下新增 `EyeInvisibleOutlined` 隐藏按钮，与"重点工作进展"交互一致
+- 隐藏后项目标题显示隐藏计数，下方恢复区 `EyeOutlined` Tag 可点击恢复
+- 导出路径全覆盖：`generateMarkdown` / `generateDocHtml` / `reportScreenshotService` / `weeklyReportService` 四路同步过滤 `_hidden` 项
+
+**KPI 指标模糊匹配**
+- `dashboardController` / `weeklyReportService` 中指标名匹配从 `=== 'GMV'` 改为 `.includes('GMV')`，`=== '净利润'` 改为 `.includes('利润')`
+- 兼容"部门GMV"、"净利润（含税）"等指标名变体
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.16.0 — 2026-05-09 · 安全深度加固 · ExcelJS替换xlsx · 密码策略 · Refresh Token哈希 · 数据范围重构
 
 > 核心改动：全面安全审计与修补，覆盖Excel解析防护、密码策略升级、Token哈希存储、数据范围过滤重构、首次改密强制、Nginx安全头、Docker非root运行。
@@ -1222,6 +1242,7 @@ docker-compose up -d --build
 - [x] v1.8.0 产品闭环 + 安全加固 + AI落地增强（行动项管理+风险台账独立体系+Refresh Token+AI调用日志+AI缓存+备份验证）
 - [x] v1.15.4 ASO系统调整 2.0（批量导入 / 基准指标重构 / 日报模版对齐 / 产品刷新修复 / DB补丁）
 - [x] v1.16.0 安全深度加固（ExcelJS替换xlsx / 密码策略 / Refresh Token哈希 / 首次改密强制 / 数据范围重构 / Nginx安全头 / Docker非root）
+- [x] v1.16.1 周报编辑修复 + 下周重点隐藏功能 + KPI指标模糊匹配
 
 ## License
 

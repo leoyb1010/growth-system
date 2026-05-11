@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin } from 'antd';
-import { FileTextOutlined, EyeOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined } from '@ant-design/icons';
+import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -246,7 +246,11 @@ function WeeklyReportPage() {
   // ===== 带同组合并的表格渲染 =====
   const renderMergedTable = (items, columns, editPathPrefix) => {
     if (!items || items.length === 0) return null;
-    const rows = addRowSpan(items);
+    // 过滤隐藏项后做 rowSpan 合并；保留原始索引用于 EditableCell path
+    const visibleWithIdx = items.map((item, idx) => ({ ...item, _origIdx: idx })).filter(item => !item._hidden);
+    if (visibleWithIdx.length === 0) return <p className="subtle-text">所有项目已隐藏</p>;
+    const rows = addRowSpan(visibleWithIdx);
+    const showHideCol = editing && ['project_progress', 'next_week_key_work'].includes(editPathPrefix[0]);
     return (
       <table style={{ fontSize: 13, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
         <colgroup>
@@ -255,6 +259,7 @@ function WeeklyReportPage() {
           <col />
           <col style={{ width: 80 }} />
           <col style={{ width: 70 }} />
+          {showHideCol && <col style={{ width: 36 }} />}
         </colgroup>
         <thead><tr style={{ background: '#F9FAFB' }}>
           <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>部门</th>
@@ -262,25 +267,36 @@ function WeeklyReportPage() {
           <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>{columns.textTitle}</th>
           <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>进度</th>
           <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>状态</th>
+          {showHideCol && <th style={{ padding: '8px 6px', textAlign: 'center', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}></th>}
         </tr></thead>
         <tbody>
-          {rows.map((p, idx) => (
-            <tr key={idx} style={p.status === '风险' ? { background: '#FEF2F2' } : { borderBottom: '1px solid #F3F4F6' }}>
-              {p.deptRowSpan > 0 ? (
-                <td rowSpan={p.deptRowSpan} style={{ ...colStyles.dept, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.dept_name}</td>
-              ) : null}
-              <td style={{ ...colStyles.name, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.name}</td>
-              <td style={{ ...colStyles.text, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
-                <EditableCell value={p[columns.textField]} path={[...editPathPrefix, idx, columns.textField]} />
-              </td>
-              <td style={{ ...colStyles.progress, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
-                <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
-              </td>
-              <td style={{ ...colStyles.status, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
-                {p.status === '风险' ? <Tag color="error" style={{ margin: 0 }}>风险</Tag> : (p.status || '-')}
-              </td>
-            </tr>
-          ))}
+          {rows.map((p, rowIdx) => {
+            const origIdx = p._origIdx !== undefined ? p._origIdx : rowIdx;
+            return (
+              <tr key={origIdx} style={p.status === '风险' ? { background: '#FEF2F2' } : { borderBottom: '1px solid #F3F4F6' }}>
+                {p.deptRowSpan > 0 ? (
+                  <td rowSpan={p.deptRowSpan} style={{ ...colStyles.dept, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.dept_name}</td>
+                ) : null}
+                <td style={{ ...colStyles.name, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.name}</td>
+                <td style={{ ...colStyles.text, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                  <EditableCell value={items[origIdx][columns.textField]} path={[...editPathPrefix, origIdx, columns.textField]} />
+                </td>
+                <td style={{ ...colStyles.progress, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                  <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
+                </td>
+                <td style={{ ...colStyles.status, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                  {p.status === '风险' ? <Tag color="error" style={{ margin: 0 }}>风险</Tag> : (p.status || '-')}
+                </td>
+                {showHideCol && (
+                  <td style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid #E5E7EB' }}>
+                    <Tooltip title="隐藏此项目（导出时不显示）">
+                      <Button type="text" size="small" icon={<EyeInvisibleOutlined />} style={{ color: '#9CA3AF' }} onClick={() => updateEditField([...editPathPrefix, origIdx, '_hidden'], true)} />
+                    </Tooltip>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     );
@@ -332,9 +348,10 @@ function WeeklyReportPage() {
       }
     } else { md += `暂无数据\n`; }
     md += `\n## 二、重点工作进展\n\n`;
-    if (project_progress?.length) {
+    const visiblePp = (project_progress || []).filter(p => !p._hidden);
+    if (visiblePp.length) {
       md += `| 部门 | 项目名称 | 本周进展 | 进度 | 状态 |\n|------|----------|----------|------|------|\n`;
-      project_progress.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
+      visiblePp.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
     } else { md += `本周无更新项目\n`; }
     md += `\n## 三、风险与预警\n\n`;
     const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
@@ -347,9 +364,10 @@ function WeeklyReportPage() {
       md += `✅ 本周无风险项目或严重预警指标\n\n`;
     }
     md += `## 四、下周重点工作\n\n`;
-    if (keyWorkItems.length) {
+    const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
+    if (visibleKeyWork.length) {
       md += `| 部门 | 项目名称 | 下周重点工作 | 进度 | 状态 |\n|------|----------|-------------|------|------|\n`;
-      keyWorkItems.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
+      visibleKeyWork.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
       md += `\n`;
     }
     md += `## 五、新增成果\n\n`;
@@ -429,12 +447,15 @@ td.text-cell { white-space: pre-wrap; }
     } else { html += `<p>暂无数据</p>`; }
 
     html += `<h2>二、重点工作进展</h2>`;
-    if (project_progress?.length) {
-      html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
-      html += `<thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
-      html += buildMergedHtmlRows(project_progress, p => textToHtml(p.weekly_progress));
-      html += `</tbody></table>`;
-    } else { html += `<p>本周无更新项目</p>`; }
+    {
+      const visiblePp = (project_progress || []).filter(p => !p._hidden);
+      if (visiblePp.length) {
+        html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
+        html += `<thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
+        html += buildMergedHtmlRows(visiblePp, p => textToHtml(p.weekly_progress));
+        html += `</tbody></table>`;
+      } else { html += `<p>本周无更新项目</p>`; }
+    }
 
     html += `<h2>三、风险与预警</h2>`;
     if (riskProjects.length) {
@@ -454,12 +475,15 @@ td.text-cell { white-space: pre-wrap; }
     }
 
     html += `<h2>四、下周重点工作</h2>`;
-    if (keyWorkItems.length) {
-      html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
-      html += `<thead><tr><th>部门</th><th>项目名称</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
-      html += buildMergedHtmlRows(keyWorkItems, p => textToHtml(p.next_week_focus || p.due_date));
-      html += `</tbody></table>`;
-    } else { html += `<p>暂无项目填写下周重点工作</p>`; }
+    {
+      const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
+      if (visibleKeyWork.length) {
+        html += `<table><colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>`;
+        html += `<thead><tr><th>部门</th><th>项目名称</th><th>下周重点工作</th><th>进度</th><th>状态</th></tr></thead><tbody>`;
+        html += buildMergedHtmlRows(visibleKeyWork, p => textToHtml(p.next_week_focus || p.due_date));
+        html += `</tbody></table>`;
+      } else { html += `<p>暂无项目填写下周重点工作</p>`; }
+    }
 
     html += `<h2>五、新增成果</h2>`;
     if (new_achievements?.length) {
@@ -721,11 +745,28 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 重点工作进展（同组合并） */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>二、重点工作进展（更新 {project_progress.length} 项）</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>二、重点工作进展（更新 {project_progress.filter(p => !p._hidden).length} 项{editing && project_progress.some(p => p._hidden) ? `，已隐藏 ${project_progress.filter(p => p._hidden).length} 项` : ''}）</div>
           {project_progress.length > 0 ? (
             renderMergedTable(project_progress, { textTitle: '本周进展', textField: 'weekly_progress' }, ['project_progress'])
           ) : (
             <p className="subtle-text">本周无更新项目</p>
+          )}
+          {/* 已隐藏项目恢复区（仅编辑模式） */}
+          {editing && project_progress.some(p => p._hidden) && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#F9FAFB', borderRadius: 8, border: '1px dashed #D1D5DB' }}>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: 600 }}>
+                👁️ 已隐藏项目（点击眼睛恢复显示）
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {project_progress.map((p, idx) => p._hidden ? (
+                  <Tag key={idx} style={{ cursor: 'pointer', margin: 0, background: '#FFF', border: '1px solid #E5E7EB' }}
+                    onClick={() => updateEditField(['project_progress', idx, '_hidden'], false)}>
+                    <EyeOutlined style={{ marginRight: 4, color: '#3B5AFB' }} />
+                    {p.dept_name} · {p.name}
+                  </Tag>
+                ) : null)}
+              </div>
+            </div>
           )}
         </div>
 
@@ -773,11 +814,28 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 下周重点工作（同组合并） */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、下周重点工作</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、下周重点工作{editing && keyWorkItems.some(p => p._hidden) ? `（已隐藏 ${keyWorkItems.filter(p => p._hidden).length} 项）` : ''}</div>
           {keyWorkItems.length > 0 ? (
             renderMergedTable(keyWorkItems, { textTitle: '下周重点工作', textField: 'next_week_focus' }, ['next_week_key_work'])
           ) : (
             <p className="subtle-text">暂无项目填写下周重点工作</p>
+          )}
+          {/* 已隐藏的下周重点工作恢复区（仅编辑模式） */}
+          {editing && keyWorkItems.some(p => p._hidden) && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#F9FAFB', borderRadius: 8, border: '1px dashed #D1D5DB' }}>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: 600 }}>
+                👁️ 已隐藏项目（点击恢复显示）
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {keyWorkItems.map((p, idx) => p._hidden ? (
+                  <Tag key={idx} style={{ cursor: 'pointer', margin: 0, background: '#FFF', border: '1px solid #E5E7EB' }}
+                    onClick={() => updateEditField(['next_week_key_work', idx, '_hidden'], false)}>
+                    <EyeOutlined style={{ marginRight: 4, color: '#3B5AFB' }} />
+                    {p.dept_name} · {p.name}
+                  </Tag>
+                ) : null)}
+              </div>
+            </div>
           )}
         </div>
 
