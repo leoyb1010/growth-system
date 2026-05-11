@@ -77,7 +77,8 @@ function buildReportHtml(content) {
     kpi_summary, project_progress, risk_and_warnings,
     next_week_key_work, next_week_focus, new_achievements,
     week_conclusion, key_changes, management_comment,
-    week_start, week_end, generated_at
+    week_start, week_end, generated_at,
+    business_summary, aso_summary, cps_summary
   } = content;
 
   const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
@@ -90,6 +91,13 @@ function buildReportHtml(content) {
   const fullConclusion = [week_conclusion, management_comment ? '✍️ ' + management_comment : ''].filter(Boolean).join('\n\n');
 
   const textToHtml = (t) => (t || '-').replace(/\n/g, '<br/>');
+  const businessSummary = business_summary || { aso: aso_summary, cps: cps_summary };
+  const fmtMoney = (value) => {
+    const n = Number(value || 0);
+    if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`;
+    return n.toFixed(0);
+  };
+  const fmtPct = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
 
   // 同组合并 HTML 行辅助
   const deptGroups = {};
@@ -140,10 +148,18 @@ function buildReportHtml(content) {
     .metric-label { font-size: 12px; color: #6B7280; margin-bottom: 4px; }
     .metric-value { font-size: 30px; font-weight: 700; }
     .metric-sub { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
-    .conclusion-box { background: #F0F4FF; border: 1px solid #C7D7FE; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; font-size: 14px; color: #1E40AF; line-height: 1.8; }
-    .conclusion-title { font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    .conclusion-box { background: linear-gradient(135deg,#FFFFFF 0%,#F0F4FF 100%); border: 1px solid #E5E7EB; border-left: 4px solid #3B5AFB; border-radius: 14px; padding: 20px 24px; margin-bottom: 22px; font-size: 16px; color: #111827; line-height: 1.8; box-shadow: 0 4px 12px rgba(15,23,42,0.06); }
+    .conclusion-title { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; color:#6B7280; font-size:13px; letter-spacing:.5px; }
     .auto-tag { background: #DBEAFE; color: #1E40AF; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
     .change-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+    .business-row { display: flex; gap: 16px; margin-bottom: 28px; }
+    .business-card { flex: 1; background: #fff; border: 1px solid #E5E7EB; border-left: 4px solid #3B5AFB; border-radius: 12px; padding: 16px 18px; }
+    .business-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #111827; }
+    .mini-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .mini-metric { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 9px 10px; }
+    .mini-label { font-size: 11px; color: #6B7280; margin-bottom: 4px; }
+    .mini-value { font-size: 17px; font-weight: 700; color: #111827; }
+    .alert-box { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: #FEF2F2; color: #991B1B; font-size: 12px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .kpi-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px; }
     .kpi-dept { font-size: 12px; color: #6B7280; }
@@ -278,12 +294,51 @@ function buildReportHtml(content) {
   // 关键变化
   let changesHtml = '';
   if (key_changes?.length) {
-    const iconMap = { risk: '🔴', progress: '📈', deviation: '📉', achieved: '✅' };
-    const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#DC2626', achieved: '#16A34A' };
+    const labelMap = { risk: '风险', progress: '进展', deviation: '偏差', achieved: '达成' };
+    const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#F59E0B', achieved: '#3B5AFB' };
     changesHtml = `<div style="margin-bottom:20px">
       <div style="font-weight:700;font-size:15px;margin-bottom:8px">⚡ 关键变化</div>
-      ${key_changes.map(c => `<div class="change-item"><span>${iconMap[c.type] || '📌'}</span><span style="color:${colorMap[c.type] || '#111827'}">${c.text}</span></div>`).join('')}
+      ${key_changes.map(c => `<div class="change-item" style="border-left:3px solid ${colorMap[c.type] || '#9CA3AF'};background:#F9FAFB;border-radius:8px;padding:8px 12px;margin-bottom:8px"><span style="font-weight:700;color:${colorMap[c.type] || '#111827'}">${labelMap[c.type] || '事项'}</span><span>${c.text}</span></div>`).join('')}
     </div>`;
+  }
+
+  let businessHtml = '';
+  const aso = businessSummary?.aso;
+  const cps = businessSummary?.cps;
+  if (aso?.enabled || cps?.enabled) {
+    businessHtml = `<div class="section"><div class="section-title">二、重点业务速览</div><div class="business-row">`;
+    if (aso?.enabled) {
+      businessHtml += `<div class="business-card"><div class="business-title">ASO 优化</div>`;
+      if (aso.has_data) {
+        businessHtml += `<div class="mini-grid">
+          <div class="mini-metric"><div class="mini-label">优化词</div><div class="mini-value">${aso.current?.optimized_keywords || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">T1 到榜</div><div class="mini-value">${aso.current?.t1_keywords || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">T3 到榜</div><div class="mini-value">${aso.current?.t3_keywords || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">消耗</div><div class="mini-value">¥${fmtMoney(aso.current?.total_cost)}</div></div>
+        </div>`;
+      } else {
+        businessHtml += `<div class="no-data">本周暂无 ASO 日报数据</div>`;
+      }
+      businessHtml += `</div>`;
+    }
+    if (cps?.enabled) {
+      businessHtml += `<div class="business-card" style="border-left-color:#16A34A"><div class="business-title">WPS 投流</div>`;
+      if (cps.has_data) {
+        businessHtml += `<div class="mini-grid">
+          <div class="mini-metric"><div class="mini-label">实收</div><div class="mini-value">¥${fmtMoney(cps.current?.actual_amount)}</div></div>
+          <div class="mini-metric"><div class="mini-label">签约</div><div class="mini-value">${cps.current?.actual_count || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">退款率</div><div class="mini-value" style="color:${cps.current?.refund_rate > 0.05 ? '#DC2626' : '#16A34A'}">${fmtPct(cps.current?.refund_rate)}</div></div>
+          <div class="mini-metric"><div class="mini-label">预警</div><div class="mini-value">${cps.current?.alert_count || 0}</div></div>
+        </div>`;
+        if (cps.current?.refund_rate > 0.05) {
+          businessHtml += `<div class="alert-box">退款率超 5% 阈值 ${((cps.current.refund_rate - 0.05) * 100).toFixed(2)}pt，建议专项复盘。</div>`;
+        }
+      } else {
+        businessHtml += `<div class="no-data">本周暂无 WPS 投流数据</div>`;
+      }
+      businessHtml += `</div>`;
+    }
+    businessHtml += `</div></div>`;
   }
 
   return `<!DOCTYPE html>
@@ -293,7 +348,7 @@ function buildReportHtml(content) {
   <div class="date">📅 ${week_start} 至 ${week_end}</div>
 
   ${fullConclusion ? `<div class="conclusion-box">
-    <div class="conclusion-title">📋 本周结论 <span class="auto-tag">自动生成+可补充</span></div>
+    <div class="conclusion-title">本周核心结论 · KEY TAKEAWAYS <span class="auto-tag">自动生成+可补充</span></div>
     ${textToHtml(fullConclusion)}
   </div>` : ''}
 
@@ -318,27 +373,29 @@ function buildReportHtml(content) {
   </div>
 
   <div class="section">
-    <div class="section-title">一、本周数据摘要</div>
+    <div class="section-title">一、核心指标速读</div>
     ${kpiCardsHtml}
   </div>
 
+  ${businessHtml}
+
   <div class="section">
-    <div class="section-title">二、重点工作进展（更新 ${visibleProjects.length} 项）</div>
+    <div class="section-title">三、重点工作进展（更新 ${visibleProjects.length} 项）</div>
     ${progressHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">三、风险与预警</div>
+    <div class="section-title">四、风险与预警</div>
     ${riskHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">四、下周重点工作</div>
+    <div class="section-title">五、下周重点工作</div>
     ${nextWeekHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">五、新增成果（${achievementCount} 项）</div>
+    <div class="section-title">六、新增成果（${achievementCount} 项）</div>
     ${achieveHtml}
   </div>
 

@@ -3,6 +3,8 @@ const moment = require('moment');
 const { Op } = require('sequelize');
 const { sendWeeklyReportToFeishu } = require('./feishuService');
 const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
+const asoDashboardService = require('./asoDashboardService');
+const cpsDashboardService = require('./cpsDashboardService');
 
 // ===== 数值格式化工具 =====
 
@@ -26,12 +28,158 @@ function displayUnit(unit) {
   return unit || '';
 }
 
+function round(value, digits = 0) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(digits));
+}
+
+function deltaValue(current, compare, digits = 0) {
+  return round(Number(current || 0) - Number(compare || 0), digits);
+}
+
+function deltaRate(current, compare) {
+  return round((Number(current || 0) - Number(compare || 0)) * 100, 2);
+}
+
+function normalizeAsoSummary(dashboard) {
+  const s = dashboard?.summary || {};
+  return {
+    optimized_keywords: Number(s.optimized_keywords) || 0,
+    t1_keywords: Number(s.t1_2_keywords) || 0,
+    t3_keywords: Number(s.t3_keywords) || 0,
+    t3_rate: Number(s.t3_rate) || 0,
+    t1_rate: Number(s.t1_2_rate) || 0,
+    total_volume: Number(s.total_volume) || 0,
+    total_cost: round(s.total_cost, 2),
+  };
+}
+
+function normalizeCpsSummary(dashboard) {
+  const p = dashboard?.period || {};
+  return {
+    actual_amount: round(p.actual_amount, 2),
+    actual_count: Number(p.actual_count) || 0,
+    effective_amount: round(p.effective_amount, 2),
+    effective_count: Number(p.effective_count) || 0,
+    new_sign: Number(p.new_sign) || 0,
+    renewal: Number(p.renewal) || 0,
+    refund_count: (Number(p.new_refund) || 0) + (Number(p.renewal_refund) || 0),
+    after_sale_refund: Number(p.after_sale_refund) || 0,
+    refund_rate: Number(p.refund_rate) || 0,
+    complaint_rate: Number(p.complaint_rate) || 0,
+    complaints: Number(p.complaints) || 0,
+    alert_count: Number(dashboard?.alert_count) || 0,
+  };
+}
+
+function emptyKeywordChanges() {
+  return { new_t1: [], new_t3: [], lost_t1: [], lost_t3: [] };
+}
+
+async function buildBusinessSummary(weekStartStr, weekEndStr, options = {}) {
+  const prevWeekStart = moment(weekStartStr).subtract(7, 'days').format('YYYY-MM-DD');
+  const prevWeekEnd = moment(weekEndStr).subtract(7, 'days').format('YYYY-MM-DD');
+  const businessSummary = {};
+
+  if (options.includeAso) {
+    try {
+      const [currentAso, compareAso] = await Promise.all([
+        asoDashboardService.getDashboard({ start_date: weekStartStr, end_date: weekEndStr }),
+        asoDashboardService.getDashboard({ start_date: prevWeekStart, end_date: prevWeekEnd }),
+      ]);
+      const current = normalizeAsoSummary(currentAso);
+      const compare = normalizeAsoSummary(compareAso);
+      const trend = Array.isArray(currentAso?.trend) ? currentAso.trend : [];
+      businessSummary.aso = {
+        enabled: true,
+        period: { start: weekStartStr, end: weekEndStr },
+        has_data: trend.length > 0 || current.optimized_keywords > 0 || current.total_volume > 0,
+        current,
+        compare,
+        delta: {
+          optimized_keywords: deltaValue(current.optimized_keywords, compare.optimized_keywords),
+          t1_keywords: deltaValue(current.t1_keywords, compare.t1_keywords),
+          t3_keywords: deltaValue(current.t3_keywords, compare.t3_keywords),
+          total_volume: deltaValue(current.total_volume, compare.total_volume),
+          total_cost: deltaValue(current.total_cost, compare.total_cost, 2),
+          t3_rate_pt: deltaRate(current.t3_rate, compare.t3_rate),
+        },
+        trend_7d: trend.map(item => ({
+          date: item.date,
+          t3_keywords: Number(item.t3_keywords) || 0,
+          total_volume: Number(item.total_volume) || 0,
+          avg_rank: item.avg_rank,
+        })),
+        keyword_changes: currentAso?.keyword_changes || emptyKeywordChanges(),
+      };
+    } catch (err) {
+      console.error('周报 ASO 数据聚合失败:', err);
+      businessSummary.aso = { enabled: true, has_data: false, error: 'ASO 数据读取失败' };
+    }
+  } else {
+    businessSummary.aso = { enabled: false, has_data: false, reason: '当前账号无 ASO 查看权限' };
+  }
+
+  if (options.includeCps) {
+    try {
+      const cpsBaseQuery = options.cpsChannelId ? { channel_ids: String(options.cpsChannelId) } : {};
+      const [currentCps, compareCps] = await Promise.all([
+        cpsDashboardService.getDashboard({ ...cpsBaseQuery, start_date: weekStartStr, end_date: weekEndStr, granularity: 'day' }),
+        cpsDashboardService.getDashboard({ ...cpsBaseQuery, start_date: prevWeekStart, end_date: prevWeekEnd, granularity: 'day' }),
+      ]);
+      const current = normalizeCpsSummary(currentCps);
+      const compare = normalizeCpsSummary(compareCps);
+      const trend = Array.isArray(currentCps?.trend) ? currentCps.trend : [];
+      businessSummary.cps = {
+        enabled: true,
+        period: { start: weekStartStr, end: weekEndStr },
+        has_data: trend.length > 0 || current.actual_amount > 0 || current.actual_count > 0,
+        current,
+        compare,
+        delta: {
+          actual_amount: deltaValue(current.actual_amount, compare.actual_amount, 2),
+          actual_count: deltaValue(current.actual_count, compare.actual_count),
+          effective_amount: deltaValue(current.effective_amount, compare.effective_amount, 2),
+          new_sign: deltaValue(current.new_sign, compare.new_sign),
+          renewal: deltaValue(current.renewal, compare.renewal),
+          refund_count: deltaValue(current.refund_count, compare.refund_count),
+          refund_rate_pt: deltaRate(current.refund_rate, compare.refund_rate),
+          complaints: deltaValue(current.complaints, compare.complaints),
+        },
+        trend_7d: trend.map(item => ({
+          date: item.date,
+          amount: round(item.amount, 2),
+          count: Number(item.count) || 0,
+          new_sign: Number(item.new_sign) || 0,
+          renewal: Number(item.renewal) || 0,
+          refund: Number(item.refund) || 0,
+          complaints: Number(item.complaints) || 0,
+        })),
+        top_channels: currentCps?.top_channels || [],
+        alerts: {
+          alert_count: Number(currentCps?.alert_count) || 0,
+          refund_rate_breach: current.refund_rate > 0.05,
+          refund_threshold: 0.05,
+        },
+      };
+    } catch (err) {
+      console.error('周报 CPS 数据聚合失败:', err);
+      businessSummary.cps = { enabled: true, has_data: false, error: 'WPS 投流数据读取失败' };
+    }
+  } else {
+    businessSummary.cps = { enabled: false, has_data: false, reason: '当前账号无 CPS 查看权限' };
+  }
+
+  return businessSummary;
+}
+
 /**
  * 生成周报数据
  * @param {Date} weekStart - 本周开始日期
  * @param {Date} weekEnd - 本周结束日期
  */
-async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, isAdmin = true) {
+async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, isAdmin = true, options = {}) {
   const weekStartStr = moment(weekStart).format('YYYY-MM-DD');
   const weekEndStr = moment(weekEnd).format('YYYY-MM-DD');
   const lastWeekStart = moment(weekStart).subtract(7, 'days').format('YYYY-MM-DD');
@@ -86,8 +234,9 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   const totalProfitActual = profitKpis.reduce((s, k) => s + (k.actual || 0), 0);
   const totalProfitRate = totalProfitTarget > 0 ? Math.round((totalProfitActual / totalProfitTarget) * 100) : 0;
 
+  const reportTimeProgress = Math.round(getQuarterTimeProgress(quarterLabel, currentYear));
   const kpiSummaryGrouped = {
-    time_progress: Math.round(getQuarterTimeProgress(quarterLabel, currentYear)),
+    time_progress: reportTimeProgress,
     row1: [
       { label: '部门 GMV', rate: totalGmvRate, target: totalGmvTarget, actual: totalGmvActual, unit: '万元', indicator: 'GMV' },
       { label: '部门利润', rate: totalProfitRate, target: totalProfitTarget, actual: totalProfitActual, unit: '万元', indicator: '利润' },
@@ -292,14 +441,16 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     priority: a.priority
   }));
 
+  const businessSummary = await buildBusinessSummary(weekStartStr, weekEndStr, options);
+
   return {
     week_start: weekStartStr,
     week_end: weekEndStr,
     generated_at: moment().format('YYYY-MM-DD HH:mm:ss'),
     // ===== 新增：本周结论（规则驱动） =====
-    week_conclusion: generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects),
+    week_conclusion: generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects, reportTimeProgress, businessSummary),
     // ===== 新增：关键变化 =====
-    key_changes: extractKeyChanges(kpiSummary, updatedProjects, riskList),
+    key_changes: extractKeyChanges(kpiSummary, updatedProjects, riskList, reportTimeProgress, businessSummary),
     summary: {
       kpi_summary: kpiSummary,
       total_updated_projects: updatedProjects.length,
@@ -317,14 +468,17 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     },
     next_week_key_work: nextWeekKeyWork,
     week_attention: weekAttention,
-    new_achievements: achievementList
+    new_achievements: achievementList,
+    business_summary: businessSummary,
+    aso_summary: businessSummary.aso,
+    cps_summary: businessSummary.cps,
   };
 }
 
 /**
  * 规则驱动生成周报结论
  */
-function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects) {
+function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects, timeProgress, businessSummary = {}) {
   const conclusions = [];
   
   // 1. 整体完成率判断（基于时间进度）
@@ -332,11 +486,6 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
   const totalActual = kpiSummary.reduce((s, k) => s + parseFloat(k.actual || 0), 0);
   const totalRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;
   
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
-  const timeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
   const overallStatus = getProgressStatus(totalRate, timeProgress);
 
   if (overallStatus === 'ahead') {
@@ -362,6 +511,19 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
     conclusions.push(`当前有${riskList.length}个风险项目需关注。`);
   }
 
+  const cps = businessSummary.cps;
+  if (cps?.enabled && cps.has_data && cps.current?.refund_rate > 0.05) {
+    const refundRate = (cps.current.refund_rate * 100).toFixed(2);
+    const breach = ((cps.current.refund_rate - 0.05) * 100).toFixed(2);
+    conclusions.push(`WPS 投流退款率${refundRate}%，超阈值${breach}pt，需专项复盘。`);
+  }
+
+  const aso = businessSummary.aso;
+  if (aso?.enabled && aso.has_data && Math.abs(aso.delta?.t3_keywords || 0) > 0) {
+    const direction = aso.delta.t3_keywords > 0 ? '增加' : '减少';
+    conclusions.push(`ASO 到榜 T3 关键词较上周${direction}${Math.abs(aso.delta.t3_keywords)}个。`);
+  }
+
   // 4. 严重预警
   if (severeWarnings.length > 0) {
     conclusions.push(`${severeWarnings.length}项业务线指标严重预警。`);
@@ -378,15 +540,8 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
 /**
  * 提取关键变化（基于时间进度判断，非硬阈值）
  */
-function extractKeyChanges(kpiSummary, updatedProjects, riskList) {
+function extractKeyChanges(kpiSummary, updatedProjects, riskList, timeProgress, businessSummary = {}) {
   const changes = [];
-
-  // 计算当前时间进度
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const currentQuarter = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
-  const timeProgress = getQuarterTimeProgress(currentQuarter, currentYear);
 
   // 状态变更 -> 风险的项目
   riskList.forEach(p => {
@@ -412,6 +567,29 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList) {
     }
     // on_track 的不列入关键变化，避免噪音
   });
+
+  const cps = businessSummary.cps;
+  if (cps?.enabled && cps.has_data) {
+    if (cps.current?.refund_rate > 0.05) {
+      changes.push({
+        type: 'risk',
+        text: `WPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 5% 阈值`,
+      });
+    } else if (Math.abs(cps.delta?.actual_amount || 0) > 0) {
+      changes.push({
+        type: cps.delta.actual_amount >= 0 ? 'progress' : 'deviation',
+        text: `WPS 投流实收较上周${cps.delta.actual_amount >= 0 ? '增加' : '减少'} ${Math.abs(cps.delta.actual_amount).toFixed(0)} 元`,
+      });
+    }
+  }
+
+  const aso = businessSummary.aso;
+  if (aso?.enabled && aso.has_data && Math.abs(aso.delta?.t3_keywords || 0) > 0) {
+    changes.push({
+      type: aso.delta.t3_keywords >= 0 ? 'progress' : 'deviation',
+      text: `ASO 到榜 T3 关键词较上周${aso.delta.t3_keywords >= 0 ? '增加' : '减少'} ${Math.abs(aso.delta.t3_keywords)} 个`,
+    });
+  }
 
   return changes;
 }

@@ -26,6 +26,24 @@ function toDateString(date) {
   ].join('-');
 }
 
+function parseDate(value) {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function addDays(value, days) {
+  const date = typeof value === 'string' ? parseDate(value) : new Date(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    String(date.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function inclusiveDaySpan(start, end) {
+  return Math.floor((parseDate(end) - parseDate(start)) / 86400000) + 1;
+}
+
 function getQuarterEnd(year, quarter) {
   const endMonth = quarter * 3;
   return toDateString(new Date(year, endMonth, 0));
@@ -69,6 +87,66 @@ async function aggregate(where) {
     refund_rate: totalDeals > 0 ? refunds / totalDeals : 0,
     complaint_rate: totalDeals > 0 ? Number(row.complaints || 0) / totalDeals : 0,
   };
+}
+
+async function getChannelAmounts(where) {
+  const rows = await CpsDailyMetric.findAll({
+    where,
+    attributes: [
+      'channel_id',
+      [fn('COALESCE', fn('SUM', col('actual_amount')), 0), 'amount'],
+      [fn('COALESCE', fn('SUM', col('actual_count')), 0), 'count'],
+      [fn('COALESCE', fn('SUM', col('new_sign_count')), 0), 'new_sign'],
+      [fn('COALESCE', fn('SUM', col('renewal_count')), 0), 'renewal'],
+      [fn('COALESCE', fn('SUM', literal('new_refund_count + renewal_refund_count')), 0), 'refunds'],
+      [fn('COALESCE', fn('SUM', col('complaint_count')), 0), 'complaints'],
+    ],
+    include: [{ model: CpsChannel, as: 'channel', attributes: ['id', 'name', 'code'] }],
+    group: ['CpsDailyMetric.channel_id', 'channel.id', 'channel.name', 'channel.code'],
+    raw: true,
+    nest: true,
+  });
+
+  return rows.map(row => {
+    const newSign = Number(row.new_sign) || 0;
+    const renewal = Number(row.renewal) || 0;
+    const refunds = Number(row.refunds) || 0;
+    const deals = newSign + renewal;
+    return {
+      channel_id: Number(row.channel_id),
+      channel_name: row.channel?.name || `渠道${row.channel_id}`,
+      channel_code: row.channel?.code || '',
+      amount: Number(row.amount) || 0,
+      count: Number(row.count) || 0,
+      new_sign: newSign,
+      renewal,
+      refunds,
+      complaints: Number(row.complaints) || 0,
+      refund_rate: deals > 0 ? refunds / deals : 0,
+    };
+  });
+}
+
+async function getTopChannels(periodWhere, compareWhere, limit = 5) {
+  const [currentRows, compareRows] = await Promise.all([
+    getChannelAmounts(periodWhere),
+    compareWhere ? getChannelAmounts(compareWhere) : Promise.resolve([]),
+  ]);
+
+  const compareMap = new Map(compareRows.map(row => [row.channel_id, row]));
+
+  return currentRows
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, limit)
+    .map(row => {
+      const compare = compareMap.get(row.channel_id);
+      const compareAmount = Number(compare?.amount) || 0;
+      return {
+        ...row,
+        amount_delta: row.amount - compareAmount,
+        amount_delta_pct: compareAmount > 0 ? (row.amount - compareAmount) / compareAmount : null,
+      };
+    });
 }
 
 function getTrendLimit(granularity) {
@@ -131,13 +209,21 @@ async function getDashboard(query = {}) {
 
   const usePeriodFilter = !!(start_date && end_date);
   const periodWhere = usePeriodFilter ? { ...baseDim, stat_date: { [Op.between]: [start_date, end_date] } } : baseDim;
+  let compareWhere = null;
+  if (usePeriodFilter) {
+    const span = inclusiveDaySpan(start_date, end_date);
+    const compareEnd = addDays(start_date, -1);
+    const compareStart = addDays(compareEnd, -span + 1);
+    compareWhere = { ...baseDim, stat_date: { [Op.between]: [compareStart, compareEnd] } };
+  }
 
-  const [period, yearly, quarterly, daily, total] = await Promise.all([
+  const [period, yearly, quarterly, daily, total, topChannels] = await Promise.all([
     aggregate(periodWhere),
     aggregate({ ...baseDim, stat_date: { [Op.between]: [yearStart, yearEnd] } }),
     aggregate({ ...baseDim, stat_date: { [Op.between]: [quarterStart, quarterEnd] } }),
     aggregate({ ...baseDim, stat_date: yesterday }),
     aggregate(baseDim),
+    getTopChannels(periodWhere, compareWhere),
   ]);
 
   const trendRaw = await CpsDailyMetric.findAll({
@@ -189,6 +275,7 @@ async function getDashboard(query = {}) {
     daily,
     total,
     trend,
+    top_channels: topChannels,
     alert_count: alertCount,
     channel_count: channelCount,
     period_range: usePeriodFilter ? { start: start_date, end: end_date } : null,

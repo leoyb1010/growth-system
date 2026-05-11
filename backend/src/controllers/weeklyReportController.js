@@ -17,18 +17,23 @@ async function generateReport(req, res) {
   try {
     const { week_start, week_end } = req.body;
 
-    // 默认生成上周的周报
+    // 默认生成上一完整自然周（周一至周日），避免在周一生成时把未来日期纳入周报
     const start = week_start
       ? moment(week_start).startOf('day').toDate()
-      : moment().subtract(7, 'days').startOf('week').add(1, 'days').toDate();
+      : moment().subtract(1, 'week').startOf('isoWeek').toDate();
     const end = week_end
       ? moment(week_end).endOf('day').toDate()
-      : moment().subtract(1, 'days').endOf('week').add(1, 'days').toDate();
+      : moment().subtract(1, 'week').endOf('isoWeek').toDate();
 
     // 传入部门过滤：admin 看全部，其他只看本部门
     const deptFilter = req.deptFilter || null;
     const isAdmin = !deptFilter; // admin 无 deptFilter，dept_manager/dept_staff 有
-    const reportData = await generateWeeklyReportData(start, end, deptFilter, isAdmin);
+    const permissions = req.access?.permissions || [];
+    const reportData = await generateWeeklyReportData(start, end, deptFilter, isAdmin, {
+      includeAso: permissions.includes('aso.read'),
+      includeCps: permissions.includes('cps.read'),
+      cpsChannelId: req.dataScope?.type === 'cps_channel' ? req.dataScope.value : null,
+    });
 
     // 保存到数据库
     const report = await WeeklyReport.create({

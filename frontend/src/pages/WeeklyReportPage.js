@@ -1,12 +1,51 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin } from 'antd';
-import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined } from '@ant-design/icons';
+import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
-import { RobotOutlined } from '@ant-design/icons';
+import Sparkline from '../components/ui/Sparkline';
+import MiniMetric from '../components/ui/MiniMetric';
+import SectionHeader from '../components/ui/SectionHeader';
 
 const { TextArea } = Input;
+
+const renderTextLines = (text) => {
+  if (!text) return '-';
+  const lines = String(text).split('\n');
+  return lines.map((line, i) => (
+    <span key={i}>
+      {line}
+      {i < lines.length - 1 && <br />}
+    </span>
+  ));
+};
+
+const EditableCell = React.memo(function EditableCell({ editing, value, path, rows = 2, onChange, cellStyle }) {
+  if (!editing) return <span style={cellStyle}>{renderTextLines(value)}</span>;
+  return (
+    <TextArea
+      value={value || ''}
+      onChange={e => onChange(path, e.target.value)}
+      autoSize={{ minRows: rows, maxRows: 6 }}
+      style={{ fontSize: 12 }}
+    />
+  );
+});
+
+const fmtMoney = (value) => {
+  const n = Number(value || 0);
+  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  return n.toFixed(0);
+};
+
+const fmtCompact = (value) => {
+  const n = Number(value || 0);
+  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+};
+
+const fmtPercent = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
 
 /**
  * 同组 rowSpan 合并辅助函数
@@ -41,18 +80,6 @@ function WeeklyReportPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
-
-  // 渲染含换行的文本：\n → <br/>
-  const renderText = (text) => {
-    if (!text) return '-';
-    const lines = String(text).split('\n');
-    return lines.map((line, i) => (
-      <span key={i}>
-        {line}
-        {i < lines.length - 1 && <br />}
-      </span>
-    ));
-  };
 
   // 表格单元格样式
   const cellStyle = { whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
@@ -279,7 +306,13 @@ function WeeklyReportPage() {
                 ) : null}
                 <td style={{ ...colStyles.name, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>{p.name}</td>
                 <td style={{ ...colStyles.text, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
-                  <EditableCell value={items[origIdx][columns.textField]} path={[...editPathPrefix, origIdx, columns.textField]} />
+                  <EditableCell
+                    editing={editing}
+                    value={items[origIdx][columns.textField]}
+                    path={[...editPathPrefix, origIdx, columns.textField]}
+                    onChange={updateEditField}
+                    cellStyle={cellStyle}
+                  />
                 </td>
                 <td style={{ ...colStyles.progress, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
                   <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
@@ -317,6 +350,7 @@ function WeeklyReportPage() {
     const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
     const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
     const conclusion = getConclusion(content);
+    const business = getBusinessSummary(content);
     let md = `# 增长组业务周报\n\n`;
     md += `**周期**：${content.week_start} 至 ${content.week_end}\n\n`;
     if (conclusion) md += `**本周结论**：${conclusion.replace(/\n/g, '；')}\n\n`;
@@ -347,13 +381,35 @@ function WeeklyReportPage() {
         kpi_summary.forEach(k => { md += `| ${k.dept_name} | ${k.indicator} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
       }
     } else { md += `暂无数据\n`; }
-    md += `\n## 二、重点工作进展\n\n`;
+    md += `\n## 二、重点业务速览\n\n`;
+    if (business?.aso?.enabled) {
+      if (business.aso.has_data) {
+        const aso = business.aso;
+        md += `### ASO 优化\n\n`;
+        md += `| 优化词 | T1 到榜 | T3 到榜 | T3率 | 消耗 |\n|---|---:|---:|---:|---:|\n`;
+        md += `| ${aso.current?.optimized_keywords || 0} | ${aso.current?.t1_keywords || 0} | ${aso.current?.t3_keywords || 0} | ${fmtPercent(aso.current?.t3_rate)} | ¥${fmtMoney(aso.current?.total_cost)} |\n\n`;
+      } else {
+        md += `### ASO 优化\n\n本周暂无 ASO 日报数据\n\n`;
+      }
+    }
+    if (business?.cps?.enabled) {
+      if (business.cps.has_data) {
+        const cps = business.cps;
+        md += `### WPS 投流\n\n`;
+        md += `| 实收 | 签约 | 退款率 | 退款 | 预警 |\n|---:|---:|---:|---:|---:|\n`;
+        md += `| ¥${fmtMoney(cps.current?.actual_amount)} | ${cps.current?.actual_count || 0} | ${fmtPercent(cps.current?.refund_rate)} | ${cps.current?.refund_count || 0} | ${cps.current?.alert_count || 0} |\n\n`;
+      } else {
+        md += `### WPS 投流\n\n本周暂无 WPS 投流数据\n\n`;
+      }
+    }
+
+    md += `\n## 三、重点工作进展\n\n`;
     const visiblePp = (project_progress || []).filter(p => !p._hidden);
     if (visiblePp.length) {
       md += `| 部门 | 项目名称 | 本周进展 | 进度 | 状态 |\n|------|----------|----------|------|------|\n`;
       visiblePp.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
     } else { md += `本周无更新项目\n`; }
-    md += `\n## 三、风险与预警\n\n`;
+    md += `\n## 四、风险与预警\n\n`;
     const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
     if (riskProjects.length) {
       md += `### 风险项目\n\n| 部门 | 项目名称 | 风险描述 |\n|------|----------|----------|\n`;
@@ -363,14 +419,14 @@ function WeeklyReportPage() {
     if (!riskProjects.length && !(risk_and_warnings?.severe_warnings?.length)) {
       md += `✅ 本周无风险项目或严重预警指标\n\n`;
     }
-    md += `## 四、下周重点工作\n\n`;
+    md += `## 五、下周重点工作\n\n`;
     const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
     if (visibleKeyWork.length) {
       md += `| 部门 | 项目名称 | 下周重点工作 | 进度 | 状态 |\n|------|----------|-------------|------|------|\n`;
       visibleKeyWork.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
       md += `\n`;
     }
-    md += `## 五、新增成果\n\n`;
+    md += `## 六、新增成果\n\n`;
     if (new_achievements?.length) {
       md += `| 部门 | 项目/工作 | 成果类型 | 量化结果 | 优先级 |\n|------|----------|----------|----------|--------|\n`;
       new_achievements.forEach(a => { md += `| ${a.dept_name} | ${a.project_name} | ${a.achievement_type} | ${a.quantified_result || '-'} | ${a.priority} |\n`; });
@@ -383,6 +439,7 @@ function WeeklyReportPage() {
     const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements } = content;
     const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
     const conclusion = getConclusion(content);
+    const business = getBusinessSummary(content);
     const textToHtml = (t) => (t || '-').replace(/\n/g, '<br/>');
     const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
     const severeWarnings = Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings : [];
@@ -400,6 +457,11 @@ th { background: #fafafa; font-weight: 600; }
 td.text-cell { white-space: pre-wrap; }
 .risk { color: #DC2626; font-weight: 600; }
 .conclusion-box { background: #F0F4FF; border: 1px solid #C7D7FE; border-radius: 8px; padding: 14px 18px; margin: 16px 0; color: #1E40AF; line-height: 1.7; }
+.business-row { display: flex; gap: 12px; margin: 14px 0; }
+.business-card { flex: 1; border: 1px solid #E5E7EB; border-left: 4px solid #3B5AFB; border-radius: 10px; padding: 14px 16px; background: #fff; }
+.business-card h3 { margin: 0 0 10px 0; color: #111827; }
+.metric-line { font-size: 13px; line-height: 1.9; color: #374151; }
+.metric-line strong { color: #111827; }
 .footer { margin-top: 30px; color: #8c8c8c; font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 10px; }
 </style></head><body>`;
     html += `<h1>增长组业务周报</h1><p><strong>周期</strong>：${content.week_start} 至 ${content.week_end}</p>`;
@@ -446,7 +508,26 @@ td.text-cell { white-space: pre-wrap; }
       }
     } else { html += `<p>暂无数据</p>`; }
 
-    html += `<h2>二、重点工作进展</h2>`;
+    html += `<h2>二、重点业务速览</h2><div class="business-row">`;
+    if (business?.aso?.enabled) {
+      const aso = business.aso;
+      html += `<div class="business-card"><h3>ASO 优化</h3>`;
+      html += aso.has_data
+        ? `<div class="metric-line"><strong>优化词</strong> ${aso.current?.optimized_keywords || 0} · <strong>T1</strong> ${aso.current?.t1_keywords || 0} · <strong>T3</strong> ${aso.current?.t3_keywords || 0}</div><div class="metric-line"><strong>T3率</strong> ${fmtPercent(aso.current?.t3_rate)} · <strong>消耗</strong> ¥${fmtMoney(aso.current?.total_cost)}</div>`
+        : `<div class="metric-line">本周暂无 ASO 日报数据</div>`;
+      html += `</div>`;
+    }
+    if (business?.cps?.enabled) {
+      const cps = business.cps;
+      html += `<div class="business-card" style="border-left-color:#16A34A"><h3>WPS 投流</h3>`;
+      html += cps.has_data
+        ? `<div class="metric-line"><strong>实收</strong> ¥${fmtMoney(cps.current?.actual_amount)} · <strong>签约</strong> ${cps.current?.actual_count || 0}单 · <strong>退款率</strong> ${fmtPercent(cps.current?.refund_rate)}</div><div class="metric-line"><strong>退款</strong> ${cps.current?.refund_count || 0}笔 · <strong>预警</strong> ${cps.current?.alert_count || 0}项</div>`
+        : `<div class="metric-line">本周暂无 WPS 投流数据</div>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+
+    html += `<h2>三、重点工作进展</h2>`;
     {
       const visiblePp = (project_progress || []).filter(p => !p._hidden);
       if (visiblePp.length) {
@@ -457,7 +538,7 @@ td.text-cell { white-space: pre-wrap; }
       } else { html += `<p>本周无更新项目</p>`; }
     }
 
-    html += `<h2>三、风险与预警</h2>`;
+    html += `<h2>四、风险与预警</h2>`;
     if (riskProjects.length) {
       html += `<h3>风险项目（${riskProjects.length} 项）</h3>`;
       html += `<table><thead><tr><th style="width:80px">部门</th><th style="width:180px">项目名称</th><th>风险描述</th></tr></thead><tbody>`;
@@ -474,7 +555,7 @@ td.text-cell { white-space: pre-wrap; }
       html += `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
     }
 
-    html += `<h2>四、下周重点工作</h2>`;
+    html += `<h2>五、下周重点工作</h2>`;
     {
       const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
       if (visibleKeyWork.length) {
@@ -485,7 +566,7 @@ td.text-cell { white-space: pre-wrap; }
       } else { html += `<p>暂无项目填写下周重点工作</p>`; }
     }
 
-    html += `<h2>五、新增成果</h2>`;
+    html += `<h2>六、新增成果</h2>`;
     if (new_achievements?.length) {
       html += `<table><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr>`;
       new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td>${a.priority}</td></tr>`; });
@@ -498,15 +579,143 @@ td.text-cell { white-space: pre-wrap; }
 
   // ===== 周报内容渲染 =====
 
-  const EditableCell = ({ value, path, rows = 2 }) => {
-    if (!editing) return <span style={cellStyle}>{renderText(value)}</span>;
+  const getBusinessSummary = (data) => data.business_summary || {
+    aso: data.aso_summary,
+    cps: data.cps_summary,
+  };
+
+  const renderExecutiveMetrics = (data, compact) => {
+    const grouped = data.kpi_summary_grouped || {};
+    const row1 = Array.isArray(grouped.row1) ? grouped.row1 : [];
+    const cards = row1.slice(0, 2).map((item, idx) => ({
+      label: item.label,
+      value: item.rate,
+      suffix: '%',
+      target: `目标 ${item.target}${item.unit}`,
+      actual: `实际 ${item.actual}${item.unit}`,
+      color: item.rate >= 90 ? '#16A34A' : item.rate >= 60 ? '#F59E0B' : '#DC2626',
+      icon: idx === 0 ? <BarChartOutlined /> : <DollarOutlined />,
+    }));
+
+    if (grouped.time_progress != null) {
+      cards.push({
+        label: '季度时间进度',
+        value: grouped.time_progress,
+        suffix: '%',
+        target: data.week_start,
+        actual: data.week_end,
+        color: '#3B5AFB',
+        icon: <ScheduleOutlined />,
+      });
+    }
+
+    if (!cards.length) return null;
+
     return (
-      <TextArea
-        value={value || ''}
-        onChange={e => updateEditField(path, e.target.value)}
-        autoSize={{ minRows: rows, maxRows: 6 }}
-        style={{ fontSize: 12 }}
-      />
+      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+        {cards.slice(0, 3).map((card, idx) => (
+          <Col xs={24} sm={12} md={8} key={card.label}>
+            <div className="surface-card" style={{ position: 'relative', overflow: 'hidden', padding: compact ? 14 : 20, height: '100%', '--stagger-index': idx }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 64, height: 4, background: card.color }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>{card.label}</div>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: `${card.color}14`, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {card.icon}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: compact ? 26 : 36, lineHeight: 1, fontWeight: 700, color: card.color }}>{card.value}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{card.suffix}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{card.target} · {card.actual}</div>
+            </div>
+          </Col>
+        ))}
+      </Row>
+    );
+  };
+
+  const renderBusinessSummary = (data, compact) => {
+    const business = getBusinessSummary(data);
+    const aso = business?.aso;
+    const cps = business?.cps;
+    if (!aso?.enabled && !cps?.enabled) return null;
+
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <SectionHeader
+          title="重点业务速览"
+          subtitle="ASO 与 WPS 投流 · 本周"
+          icon={<BarChartOutlined style={{ color: '#3B5AFB' }} />}
+        />
+        <Row gutter={[12, 12]}>
+          {aso?.enabled && (
+            <Col xs={24} lg={12}>
+              <div className="surface-card-secondary" style={{ padding: compact ? 12 : 16, height: '100%' }}>
+                <SectionHeader
+                  title="ASO 优化"
+                  subtitle={aso.has_data ? `${aso.period?.start || data.week_start} ~ ${aso.period?.end || data.week_end}` : '本周暂无 ASO 日报数据'}
+                  icon={<TrophyOutlined style={{ color: '#3B5AFB' }} />}
+                  color="#111827"
+                />
+                {aso.has_data ? (
+                  <>
+                    <Row gutter={[8, 8]}>
+                      <Col xs={12} sm={6}><MiniMetric label="优化词" value={aso.current?.optimized_keywords || 0} delta={aso.delta?.optimized_keywords} /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="T1 到榜" value={aso.current?.t1_keywords || 0} delta={aso.delta?.t1_keywords} color="#3B5AFB" /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="T3 到榜" value={aso.current?.t3_keywords || 0} delta={aso.delta?.t3_keywords} color="#16A34A" /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="消耗" value={`¥${fmtMoney(aso.current?.total_cost)}`} delta={aso.delta?.total_cost} /></Col>
+                    </Row>
+                    <div style={{ marginTop: 10 }}>
+                      <Sparkline data={(aso.trend_7d || []).map(item => item.t3_keywords)} color="#16A34A" height={compact ? 30 : 44} tooltipName="T3 到榜" />
+                    </div>
+                    {!!aso.keyword_changes?.new_t1?.length && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-2)' }}>
+                        新到 T1：{aso.keyword_changes.new_t1.slice(0, 4).map(word => <Tag key={word} color="success" style={{ margin: '0 4px 4px 0' }}>{word}</Tag>)}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', background: 'var(--bg-muted)', borderRadius: 10 }}>暂无可用于周报的 ASO 数据</div>
+                )}
+              </div>
+            </Col>
+          )}
+
+          {cps?.enabled && (
+            <Col xs={24} lg={12}>
+              <div className="surface-card-secondary" style={{ padding: compact ? 12 : 16, height: '100%' }}>
+                <SectionHeader
+                  title="WPS 投流"
+                  subtitle={cps.has_data ? `${cps.period?.start || data.week_start} ~ ${cps.period?.end || data.week_end}` : '本周暂无 WPS 投流数据'}
+                  icon={<DollarOutlined style={{ color: '#16A34A' }} />}
+                  color="#111827"
+                />
+                {cps.has_data ? (
+                  <>
+                    <Row gutter={[8, 8]}>
+                      <Col xs={12} sm={6}><MiniMetric label="实收" value={`¥${fmtMoney(cps.current?.actual_amount)}`} delta={cps.delta?.actual_amount} color="#16A34A" /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="签约" value={fmtCompact(cps.current?.actual_count)} suffix="单" delta={cps.delta?.actual_count} /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="退款率" value={fmtPercent(cps.current?.refund_rate)} alert={cps.current?.refund_rate > 0.05} /></Col>
+                      <Col xs={12} sm={6}><MiniMetric label="预警" value={cps.current?.alert_count || 0} alert={(cps.current?.alert_count || 0) > 0} /></Col>
+                    </Row>
+                    <div style={{ marginTop: 10 }}>
+                      <Sparkline data={(cps.trend_7d || []).map(item => item.amount)} color="#16A34A" height={compact ? 30 : 44} tooltipName="实收" />
+                    </div>
+                    {cps.current?.refund_rate > 0.05 && (
+                      <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'var(--color-error-light)', color: '#991B1B', fontSize: 12 }}>
+                        退款率超 5% 阈值 {((cps.current.refund_rate - 0.05) * 100).toFixed(2)}pt，建议进入专项复盘。
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', background: 'var(--bg-muted)', borderRadius: 10 }}>暂无可用于周报的 WPS 投流数据</div>
+                )}
+              </div>
+            </Col>
+          )}
+        </Row>
+      </div>
     );
   };
 
@@ -540,12 +749,20 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 本周结论（可编辑，合并了管理评语） */}
         <div style={{
-          background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10,
-          padding: '14px 18px', marginBottom: 20, fontSize: compact ? 12 : 14, color: '#1E40AF', lineHeight: 1.7
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #F0F4FF 100%)',
+          border: '1px solid #E5E7EB',
+          borderLeft: '4px solid #3B5AFB',
+          borderRadius: 'var(--radius-card)',
+          padding: compact ? '14px 16px' : '20px 24px',
+          marginBottom: 20,
+          fontSize: compact ? 12 : 16,
+          color: '#111827',
+          lineHeight: 1.8,
+          boxShadow: compact ? 'none' : 'var(--shadow-md)',
         }}>
-          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-            📋 本周结论
-            {editing ? <Tag color="orange" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>可编辑</Tag> : <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>自动生成</Tag>}
+          <div style={{ fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: compact ? 13 : 14, color: 'var(--text-2)', letterSpacing: 0.5 }}>本周核心结论 · KEY TAKEAWAYS</span>
+            {editing ? <Tag color="orange" style={{ margin: 0 }}>编辑中</Tag> : <Tag color="blue" style={{ margin: 0 }}>自动生成</Tag>}
           </div>
           {editing && !compact ? (
             <TextArea
@@ -555,29 +772,52 @@ td.text-cell { white-space: pre-wrap; }
               autoSize={{ minRows: 3, maxRows: 10 }}
               style={{ color: '#1E40AF', fontSize: 13 }}
             />
-          ) : renderText(conclusion)}
+          ) : renderTextLines(conclusion)}
         </div>
+
+        {renderExecutiveMetrics(data, compact)}
 
         {/* 关键变化 */}
         {Array.isArray(data.key_changes) && data.key_changes.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: compact ? 13 : 15, marginBottom: 8 }}>⚡ 关键变化</div>
+            <SectionHeader
+              title="本周关键变化"
+              subtitle="红色优先处理，绿色代表进展或达成"
+              icon={<WarningOutlined style={{ color: '#F59E0B' }} />}
+            />
             {data.key_changes.map((c, idx) => {
-              const iconMap = { risk: '🔴', progress: '📈', deviation: '📉', achieved: '✅' };
-              const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#DC2626', achieved: '#16A34A' };
+              const configMap = {
+                risk: { label: '风险', bg: '#FEF2F2', color: '#991B1B', border: '#DC2626', tag: 'error' },
+                deviation: { label: '偏差', bg: '#FFFBEB', color: '#92400E', border: '#F59E0B', tag: 'warning' },
+                progress: { label: '进展', bg: '#F0FDF4', color: '#14532D', border: '#16A34A', tag: 'success' },
+                achieved: { label: '达成', bg: '#EFF6FF', color: '#1E3A8A', border: '#3B5AFB', tag: 'processing' },
+              };
+              const config = configMap[c.type] || { label: '事项', bg: '#F9FAFB', color: '#111827', border: '#9CA3AF', tag: 'default' };
               return (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: compact ? 12 : 13 }}>
-                  <span>{iconMap[c.type] || '📌'}</span>
+                <div key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: compact ? '8px 10px' : '10px 14px',
+                  marginBottom: 8,
+                  background: config.bg,
+                  borderLeft: `3px solid ${config.border}`,
+                  borderRadius: 8,
+                  fontSize: compact ? 12 : 13,
+                }}>
+                  <Tag color={config.tag} style={{ margin: 0, minWidth: 42, textAlign: 'center' }}>{config.label}</Tag>
                   {editing && !compact ? (
                     <Input value={c.text} onChange={e => updateEditField(['key_changes', idx, 'text'], e.target.value)} style={{ flex: 1, fontSize: 12 }} />
                   ) : (
-                    <span style={{ color: colorMap[c.type] || '#111827' }}>{c.text}</span>
+                    <span style={{ color: config.color, fontWeight: 500 }}>{c.text}</span>
                   )}
                 </div>
               );
             })}
           </div>
         )}
+
+        {renderBusinessSummary(data, compact)}
 
         {/* 摘要卡片行 */}
         <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
@@ -786,7 +1026,15 @@ td.text-cell { white-space: pre-wrap; }
                 <tbody>
                   {riskProjects.map((p, idx) => (
                     <tr key={idx} style={{ background: '#FEF2F2' }}><td>{p.dept_name}</td><td>{p.name}</td>
-                      <td style={cellStyle}><EditableCell value={p.risk_desc} path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']} /></td>
+                      <td style={cellStyle}>
+                        <EditableCell
+                          editing={editing}
+                          value={p.risk_desc}
+                          path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']}
+                          onChange={updateEditField}
+                          cellStyle={cellStyle}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -855,7 +1103,15 @@ td.text-cell { white-space: pre-wrap; }
               <tbody>
                 {new_achievements.map((a, idx) => (
                   <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.achievement_type}</td>
-                    <td style={cellStyle}><EditableCell value={a.quantified_result} path={['new_achievements', idx, 'quantified_result']} /></td>
+                    <td style={cellStyle}>
+                      <EditableCell
+                        editing={editing}
+                        value={a.quantified_result}
+                        path={['new_achievements', idx, 'quantified_result']}
+                        onChange={updateEditField}
+                        cellStyle={cellStyle}
+                      />
+                    </td>
                     <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td>
                   </tr>
                 ))}

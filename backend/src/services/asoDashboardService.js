@@ -1,5 +1,5 @@
 const { Op, fn, col, literal } = require('sequelize');
-const { AsoProduct, AsoDailyKeywordMetric, AsoProductBaselineMetric } = require('../models');
+const { AsoProduct, AsoKeyword, AsoDailyKeywordMetric, AsoProductBaselineMetric } = require('../models');
 
 function parseIds(value) {
   if (value === null || value === undefined || value === '') return [];
@@ -15,6 +15,42 @@ function rankDelta(current, compare) {
   if (current == null || compare == null) return null;
   const d = Number(compare) - Number(current);
   return d;
+}
+
+async function getKeywordSet(date, productWhere, flag) {
+  if (!date) return new Map();
+  const rows = await AsoDailyKeywordMetric.findAll({
+    where: { stat_date: date, ...productWhere, [flag]: true, deleted_at: null },
+    include: [{ model: AsoKeyword, as: 'keyword', attributes: ['id', 'keyword'] }],
+    attributes: ['keyword_id'],
+    raw: true,
+    nest: true,
+  });
+  return new Map(rows.map(row => [Number(row.keyword_id), row.keyword?.keyword || `关键词${row.keyword_id}`]));
+}
+
+function diffKeywordNames(current, compare, limit = 12) {
+  const result = [];
+  current.forEach((name, id) => {
+    if (!compare.has(id)) result.push(name);
+  });
+  return result.slice(0, limit);
+}
+
+async function getKeywordChanges(startDate, endDate, productWhere) {
+  if (!startDate || !endDate) return { new_t1: [], new_t3: [], lost_t1: [], lost_t3: [] };
+  const [startT1, endT1, startT3, endT3] = await Promise.all([
+    getKeywordSet(startDate, productWhere, 'is_t1'),
+    getKeywordSet(endDate, productWhere, 'is_t1'),
+    getKeywordSet(startDate, productWhere, 'is_t3'),
+    getKeywordSet(endDate, productWhere, 'is_t3'),
+  ]);
+  return {
+    new_t1: diffKeywordNames(endT1, startT1),
+    new_t3: diffKeywordNames(endT3, startT3),
+    lost_t1: diffKeywordNames(startT1, endT1),
+    lost_t3: diffKeywordNames(startT3, endT3),
+  };
 }
 
 async function getDateMetrics(date, productWhere) {
@@ -167,11 +203,14 @@ async function getDashboard(query = {}) {
     avg_rank: row.avg_rank ? Number(Number(row.avg_rank).toFixed(1)) : null,
   }));
 
+  const keywordChanges = await getKeywordChanges(start_date, end_date, productWhere);
+
   return {
     mode: 'range',
     summary,
     baseline: baselines,
     trend,
+    keyword_changes: keywordChanges,
   };
 }
 

@@ -166,10 +166,24 @@ function DashboardPage() {
     risk: '#DC2626',
     notStarted: '#F59E0B',
   };
+  const totalProjects = (data.project_status_distribution || []).reduce((sum, item) => sum + Number(item.count || 0), 0);
 
   const statusChartOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c}个 ({d}%)' },
     legend: { bottom: 0, textStyle: { fontSize: 12, color: '#6B7280' } },
+    graphic: {
+      type: 'text',
+      left: 'center',
+      top: 'center',
+      style: {
+        text: `${totalProjects}\n项目总数`,
+        textAlign: 'center',
+        fill: '#111827',
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 24,
+      },
+    },
     series: [{
       name: '状态', type: 'pie', radius: ['42%', '72%'], avoidLabelOverlap: false,
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
@@ -417,21 +431,39 @@ function DashboardPage() {
 
       {/* ===== 区块1：主要指标（部门级 GMV + 利润） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
-        {primaryKpiCards.map((card, idx) => (
-          <Col xs={24} sm={12} key={idx}>
-            <Card className="surface-card hover-lift" bodyStyle={{ padding: 24 }} style={{ '--stagger-index': idx }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div className="metric-label" style={{ fontSize: 14, fontWeight: 600 }}>{card.title}</div>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#F5F7FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {card.icon}
+        {primaryKpiCards.map((card, idx) => {
+          const cardColor = card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626';
+          return (
+            <Col xs={24} sm={12} key={idx}>
+              <Card className="surface-card hover-lift" bodyStyle={{ padding: 26 }} style={{ '--stagger-index': idx, position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute',
+                  right: -12,
+                  bottom: -34,
+                  fontSize: 132,
+                  fontWeight: 900,
+                  color: `${cardColor}0D`,
+                  lineHeight: 1,
+                  pointerEvents: 'none',
+                }}>
+                  {Math.round(parseFloat(card.value) || 0)}
                 </div>
-              </div>
-              <KpiValue value={parseFloat(card.value)} loaded={dataLoaded} suffix={card.suffix} />
-              <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={card.status === 'success' ? '#16A34A' : card.status === 'warning' ? '#F59E0B' : '#DC2626'} trailColor="#F1F5F9" showInfo={false} strokeWidth={8} style={{ marginBottom: 10 }} />
-              <div className="subtle-text" style={{ fontSize: 12 }}>{card.hint}</div>
-            </Card>
-          </Col>
-        ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, position: 'relative' }}>
+                  <div>
+                    <div className="metric-label" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{card.title}</div>
+                    <div className="subtle-text" style={{ fontSize: 12, marginTop: 2 }}>核心目标 · {modeLabel}</div>
+                  </div>
+                  <div style={{ width: 42, height: 42, borderRadius: 12, background: `${cardColor}14`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {card.icon}
+                  </div>
+                </div>
+                <KpiValue value={parseFloat(card.value)} loaded={dataLoaded} suffix={card.suffix} />
+                <Progress percent={Math.min(parseFloat(card.value), 100)} strokeColor={{ '0%': cardColor, '100%': `${cardColor}CC` }} trailColor="#F1F5F9" showInfo={false} strokeWidth={6} style={{ marginBottom: 10 }} />
+                <div className="subtle-text" style={{ fontSize: 12, position: 'relative' }}>{card.hint}</div>
+              </Card>
+            </Col>
+          );
+        })}
       </Row>
 
       {/* ===== 区块1.5：各组指标（次要） ===== */}
