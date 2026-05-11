@@ -133,6 +133,16 @@ async function upsertMetric(req, res) {
   if (unitPrice === null) return error(res, 'unit_price 不能为负数或非法数字', 400, 400);
   const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
 
+  // 前端可能直接传入实际订单数/有效签约数等值，优先使用传入值覆盖派生计算
+  if (payload.actual_count !== undefined && payload.actual_count !== null) { derived.actual_count = Number(payload.actual_count); }
+  if (payload.actual_amount !== undefined && payload.actual_amount !== null) { derived.actual_amount = Number(payload.actual_amount); }
+  if (payload.effective_count !== undefined && payload.effective_count !== null) { derived.effective_count = Number(payload.effective_count); }
+  if (payload.effective_amount !== undefined && payload.effective_amount !== null) { derived.effective_amount = Number(payload.effective_amount); }
+  if (payload.new_sign_amount !== undefined && payload.new_sign_amount !== null) { derived.new_sign_amount = Number(payload.new_sign_amount); }
+  if (payload.new_refund_amount !== undefined && payload.new_refund_amount !== null) { derived.new_refund_amount = Number(payload.new_refund_amount); }
+  if (payload.renewal_amount !== undefined && payload.renewal_amount !== null) { derived.renewal_amount = Number(payload.renewal_amount); }
+  if (payload.renewal_refund_amount !== undefined && payload.renewal_refund_amount !== null) { derived.renewal_refund_amount = Number(payload.renewal_refund_amount); }
+
   const where = { stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id };
   const t = await sequelize.transaction();
   let row;
@@ -140,18 +150,28 @@ async function upsertMetric(req, res) {
     row = await CpsDailyMetric.findOne({ where, transaction: t, paranoid: false });
 
     if (row) {
-      // 如果行被软删除，先恢复再更新
       if (row.deleted_at) {
-        await row.restore({ transaction: t });
+        // 管理员已删除的错误数据：快照留痕 → 硬删除 → 新建（避免 restore 复活旧数据）
+        await CpsDailyMetricSnapshot.create({
+          metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
+          product_id: row.product_id, version: row.version,
+          payload_json: JSON.stringify(row.toJSON()),
+          changed_by: req.user?.id, changed_by_name: req.user?.name || req.user?.username,
+          change_reason: 'hard_delete_before_reimport',
+        }, { transaction: t });
+        await row.destroy({ force: true, transaction: t });
+        row = await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: 1, remark: payload.remark }, { transaction: t });
+      } else {
+        // 正常数据：快照 → 更新
+        await CpsDailyMetricSnapshot.create({
+          metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
+          product_id: row.product_id, version: row.version,
+          payload_json: JSON.stringify(row.toJSON()),
+          changed_by: req.user?.id, changed_by_name: req.user?.name || req.user?.username,
+          change_reason: payload.change_reason || 'manual_update',
+        }, { transaction: t });
+        await row.update({ ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: row.version + 1, remark: payload.remark }, { transaction: t });
       }
-      await CpsDailyMetricSnapshot.create({
-        metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
-        product_id: row.product_id, version: row.version,
-        payload_json: JSON.stringify(row.toJSON()),
-        changed_by: req.user?.id, changed_by_name: req.user?.name || req.user?.username,
-        change_reason: payload.change_reason || 'manual_update',
-      }, { transaction: t });
-      await row.update({ ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: row.version + 1, remark: payload.remark }, { transaction: t });
     } else {
       row = await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: payload.source || 'manual', status: payload.status || 'confirmed', uploader_id: req.user?.id, uploader_name: req.user?.name || req.user?.username, version: 1, remark: payload.remark }, { transaction: t });
     }

@@ -170,6 +170,26 @@ async function importFromExcel(filePath, opts = {}) {
       const input = cpsCalc.sanitizeInput(payload);
       const unitPrice = Number(raw.unit_price || raw['单价'] || raw['产品金额'] || pr.unit_price || 0);
       const derived = cpsCalc.buildDerivedFields({ ...input, unit_price: unitPrice });
+
+      // Excel 中可能包含原始的"实际订单数/金额"和"有效签约数/金额"，优先使用原始值
+      const excelActualCount = raw.actual_count !== undefined && raw.actual_count !== '' ? Number(raw.actual_count) : (raw['实际订单数'] !== undefined && raw['实际订单数'] !== '' ? Number(raw['实际订单数']) : null);
+      const excelActualAmount = raw.actual_amount !== undefined && raw.actual_amount !== '' ? Number(raw.actual_amount) : (raw['实际订单金额'] !== undefined && raw['实际订单金额'] !== '' ? Number(raw['实际订单金额']) : null);
+      const excelEffectiveCount = raw.effective_count !== undefined && raw.effective_count !== '' ? Number(raw.effective_count) : (raw['有效签约数'] !== undefined && raw['有效签约数'] !== '' ? Number(raw['有效签约数']) : null);
+      const excelEffectiveAmount = raw.effective_amount !== undefined && raw.effective_amount !== '' ? Number(raw.effective_amount) : (raw['有效收入'] !== undefined && raw['有效收入'] !== '' ? Number(raw['有效收入']) : null);
+      const excelNewSignAmount = raw.new_sign_amount !== undefined && raw.new_sign_amount !== '' ? Number(raw.new_sign_amount) : (raw['新签约金额'] !== undefined && raw['新签约金额'] !== '' ? Number(raw['新签约金额']) : null);
+      const excelNewRefundAmount = raw.new_refund_amount !== undefined && raw.new_refund_amount !== '' ? Number(raw.new_refund_amount) : (raw['新签退款金额'] !== undefined && raw['新签退款金额'] !== '' ? Number(raw['新签退款金额']) : null);
+      const excelRenewalAmount = raw.renewal_amount !== undefined && raw.renewal_amount !== '' ? Number(raw.renewal_amount) : (raw['续费金额'] !== undefined && raw['续费金额'] !== '' ? Number(raw['续费金额']) : null);
+      const excelRenewalRefundAmount = raw.renewal_refund_amount !== undefined && raw.renewal_refund_amount !== '' ? Number(raw.renewal_refund_amount) : (raw['续费退款金额'] !== undefined && raw['续费退款金额'] !== '' ? Number(raw['续费退款金额']) : null);
+
+      // 如果 Excel 中有原始值（含0和负数），优先覆盖派生计算；否则保留派生值
+      if (excelActualCount !== null && Number.isFinite(excelActualCount)) { derived.actual_count = excelActualCount; }
+      if (excelActualAmount !== null && Number.isFinite(excelActualAmount)) { derived.actual_amount = excelActualAmount; }
+      if (excelEffectiveCount !== null && Number.isFinite(excelEffectiveCount)) { derived.effective_count = excelEffectiveCount; }
+      if (excelEffectiveAmount !== null && Number.isFinite(excelEffectiveAmount)) { derived.effective_amount = excelEffectiveAmount; }
+      if (excelNewSignAmount !== null && Number.isFinite(excelNewSignAmount)) { derived.new_sign_amount = excelNewSignAmount; }
+      if (excelNewRefundAmount !== null && Number.isFinite(excelNewRefundAmount)) { derived.new_refund_amount = excelNewRefundAmount; }
+      if (excelRenewalAmount !== null && Number.isFinite(excelRenewalAmount)) { derived.renewal_amount = excelRenewalAmount; }
+      if (excelRenewalRefundAmount !== null && Number.isFinite(excelRenewalRefundAmount)) { derived.renewal_refund_amount = excelRenewalRefundAmount; }
       // 每行独立解析日期，支持多日期导入
       const rowDate = formatDate(raw.stat_date || raw['日期'] || raw['月份'] || statDate);
       const where = { stat_date: rowDate, channel_id: ch.id, product_id: pr.id };
@@ -177,16 +197,24 @@ async function importFromExcel(filePath, opts = {}) {
       let row = await CpsDailyMetric.findOne({ where, paranoid: false });
 
       if (row) {
-        // 如果行被软删除，先恢复再更新
         if (row.deleted_at) {
-          await row.restore();
+          // 管理员已删除的错误数据：快照留痕 → 硬删除 → 新建（避免 restore 复活旧数据）
+          await CpsDailyMetricSnapshot.create({
+            metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id, product_id: row.product_id,
+            version: row.version, payload_json: JSON.stringify(row.toJSON()),
+            changed_by: opts.uploader_id, changed_by_name: opts.uploader_name, change_reason: 'hard_delete_before_reimport',
+          });
+          await row.destroy({ force: true });
+          row = await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: 1 });
+        } else {
+          // 正常数据：快照 → 更新
+          await CpsDailyMetricSnapshot.create({
+            metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id, product_id: row.product_id,
+            version: row.version, payload_json: JSON.stringify(row.toJSON()),
+            changed_by: opts.uploader_id, changed_by_name: opts.uploader_name, change_reason: importSource,
+          });
+          await row.update({ ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: row.version + 1 });
         }
-        await CpsDailyMetricSnapshot.create({
-          metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id, product_id: row.product_id,
-          version: row.version, payload_json: JSON.stringify(row.toJSON()),
-          changed_by: opts.uploader_id, changed_by_name: opts.uploader_name, change_reason: importSource,
-        });
-        await row.update({ ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: row.version + 1 });
       } else {
         await CpsDailyMetric.create({ ...where, ...input, ...derived, unit_price: unitPrice, source: importSource, uploader_id: opts.uploader_id, uploader_name: opts.uploader_name, version: 1 });
       }
