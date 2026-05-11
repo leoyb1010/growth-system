@@ -173,9 +173,14 @@ async function importFromExcel(filePath, opts = {}) {
       // 每行独立解析日期，支持多日期导入
       const rowDate = formatDate(raw.stat_date || raw['日期'] || raw['月份'] || statDate);
       const where = { stat_date: rowDate, channel_id: ch.id, product_id: pr.id };
-      let row = await CpsDailyMetric.findOne({ where });
+      // paranoid:false：查找包含软删除行，避免唯一索引冲突
+      let row = await CpsDailyMetric.findOne({ where, paranoid: false });
 
       if (row) {
+        // 如果行被软删除，先恢复再更新
+        if (row.deleted_at) {
+          await row.restore();
+        }
         await CpsDailyMetricSnapshot.create({
           metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id, product_id: row.product_id,
           version: row.version, payload_json: JSON.stringify(row.toJSON()),

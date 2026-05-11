@@ -137,9 +137,13 @@ async function upsertMetric(req, res) {
   const t = await sequelize.transaction();
   let row;
   try {
-    row = await CpsDailyMetric.findOne({ where, transaction: t });
+    row = await CpsDailyMetric.findOne({ where, transaction: t, paranoid: false });
 
     if (row) {
+      // 如果行被软删除，先恢复再更新
+      if (row.deleted_at) {
+        await row.restore({ transaction: t });
+      }
       await CpsDailyMetricSnapshot.create({
         metric_id: row.id, stat_date: row.stat_date, channel_id: row.channel_id,
         product_id: row.product_id, version: row.version,
