@@ -381,7 +381,7 @@ function WeeklyReportPage() {
         kpi_summary.forEach(k => { md += `| ${k.dept_name} | ${k.indicator} | ${k.completion_rate}% | ${k.target} | ${k.actual} | ${k.unit} |\n`; });
       }
     } else { md += `暂无数据\n`; }
-    md += `\n## 二、重点业务速览\n\n`;
+    md += `\n## 一、重点业务速览\n\n`;
     if (business?.aso?.enabled) {
       if (business.aso.has_data) {
         const aso = business.aso;
@@ -403,13 +403,13 @@ function WeeklyReportPage() {
       }
     }
 
-    md += `\n## 三、重点工作进展\n\n`;
+    md += `\n## 二、重点工作进展\n\n`;
     const visiblePp = (project_progress || []).filter(p => !p._hidden);
     if (visiblePp.length) {
       md += `| 部门 | 项目名称 | 本周进展 | 进度 | 状态 |\n|------|----------|----------|------|------|\n`;
       visiblePp.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.weekly_progress || '-'} | ${p.progress_pct}% | ${p.status} |\n`; });
     } else { md += `本周无更新项目\n`; }
-    md += `\n## 四、风险与预警\n\n`;
+    md += `\n## 三、风险与预警\n\n`;
     const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
     if (riskProjects.length) {
       md += `### 风险项目\n\n| 部门 | 项目名称 | 风险描述 |\n|------|----------|----------|\n`;
@@ -419,14 +419,14 @@ function WeeklyReportPage() {
     if (!riskProjects.length && !(risk_and_warnings?.severe_warnings?.length)) {
       md += `✅ 本周无风险项目或严重预警指标\n\n`;
     }
-    md += `## 五、下周重点工作\n\n`;
+    md += `## 四、下周重点工作\n\n`;
     const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
     if (visibleKeyWork.length) {
       md += `| 部门 | 项目名称 | 下周重点工作 | 进度 | 状态 |\n|------|----------|-------------|------|------|\n`;
       visibleKeyWork.forEach(p => { md += `| ${p.dept_name} | ${p.name} | ${p.next_week_focus || p.due_date || '-'} | ${p.progress_pct}% | ${p.status || '-'} |\n`; });
       md += `\n`;
     }
-    md += `## 六、新增成果\n\n`;
+    md += `## 五、新增成果\n\n`;
     if (new_achievements?.length) {
       md += `| 部门 | 项目/工作 | 成果类型 | 量化结果 | 优先级 |\n|------|----------|----------|----------|--------|\n`;
       new_achievements.forEach(a => { md += `| ${a.dept_name} | ${a.project_name} | ${a.achievement_type} | ${a.quantified_result || '-'} | ${a.priority} |\n`; });
@@ -508,7 +508,7 @@ td.text-cell { white-space: pre-wrap; }
       }
     } else { html += `<p>暂无数据</p>`; }
 
-    html += `<h2>二、重点业务速览</h2><div class="business-row">`;
+    html += `<h2>一、重点业务速览</h2><div class="business-row">`;
     if (business?.aso?.enabled) {
       const aso = business.aso;
       html += `<div class="business-card"><h3>ASO 优化</h3>`;
@@ -527,7 +527,7 @@ td.text-cell { white-space: pre-wrap; }
     }
     html += `</div>`;
 
-    html += `<h2>三、重点工作进展</h2>`;
+    html += `<h2>二、重点工作进展</h2>`;
     {
       const visiblePp = (project_progress || []).filter(p => !p._hidden);
       if (visiblePp.length) {
@@ -538,7 +538,7 @@ td.text-cell { white-space: pre-wrap; }
       } else { html += `<p>本周无更新项目</p>`; }
     }
 
-    html += `<h2>四、风险与预警</h2>`;
+    html += `<h2>三、风险与预警</h2>`;
     if (riskProjects.length) {
       html += `<h3>风险项目（${riskProjects.length} 项）</h3>`;
       html += `<table><thead><tr><th style="width:80px">部门</th><th style="width:180px">项目名称</th><th>风险描述</th></tr></thead><tbody>`;
@@ -555,7 +555,7 @@ td.text-cell { white-space: pre-wrap; }
       html += `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
     }
 
-    html += `<h2>五、下周重点工作</h2>`;
+    html += `<h2>四、下周重点工作</h2>`;
     {
       const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
       if (visibleKeyWork.length) {
@@ -566,7 +566,7 @@ td.text-cell { white-space: pre-wrap; }
       } else { html += `<p>暂无项目填写下周重点工作</p>`; }
     }
 
-    html += `<h2>六、新增成果</h2>`;
+    html += `<h2>五、新增成果</h2>`;
     if (new_achievements?.length) {
       html += `<table><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr>`;
       new_achievements.forEach(a => { html += `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td>${a.priority}</td></tr>`; });
@@ -587,6 +587,11 @@ td.text-cell { white-space: pre-wrap; }
   const renderExecutiveMetrics = (data, compact) => {
     const grouped = data.kpi_summary_grouped || {};
     const row1 = Array.isArray(grouped.row1) ? grouped.row1 : [];
+    const row2 = Array.isArray(grouped.row2) ? grouped.row2 : [];
+    const row3 = Array.isArray(grouped.row3) ? grouped.row3 : [];
+    const tp = grouped.time_progress;
+
+    // 顶部3个核心卡片
     const cards = row1.slice(0, 2).map((item, idx) => ({
       label: item.label,
       value: item.rate,
@@ -597,10 +602,10 @@ td.text-cell { white-space: pre-wrap; }
       icon: idx === 0 ? <BarChartOutlined /> : <DollarOutlined />,
     }));
 
-    if (grouped.time_progress != null) {
+    if (tp != null) {
       cards.push({
         label: '季度时间进度',
-        value: grouped.time_progress,
+        value: tp,
         suffix: '%',
         target: data.week_start,
         actual: data.week_end,
@@ -609,29 +614,82 @@ td.text-cell { white-space: pre-wrap; }
       });
     }
 
-    if (!cards.length) return null;
+    if (!cards.length && !row2.length && !row3.length) return null;
 
     return (
-      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
-        {cards.slice(0, 3).map((card, idx) => (
-          <Col xs={24} sm={12} md={8} key={card.label}>
-            <div className="surface-card" style={{ position: 'relative', overflow: 'hidden', padding: compact ? 14 : 20, height: '100%', '--stagger-index': idx }}>
-              <div style={{ position: 'absolute', top: 0, right: 0, width: 64, height: 4, background: card.color }} />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>{card.label}</div>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: `${card.color}14`, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {card.icon}
+      <div style={{ marginBottom: 20 }}>
+        {/* 核心卡片行 */}
+        {cards.length > 0 && (
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+            {cards.map((card, idx) => (
+              <Col xs={24} sm={12} md={8} key={card.label}>
+                <div className="surface-card" style={{ position: 'relative', overflow: 'hidden', padding: compact ? 14 : 20, height: '100%', '--stagger-index': idx }}>
+                  <div style={{ position: 'absolute', top: 0, right: 0, width: 64, height: 4, background: card.color }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>{card.label}</div>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: `${card.color}14`, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {card.icon}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: compact ? 26 : 36, lineHeight: 1, fontWeight: 700, color: card.color }}>{card.value}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{card.suffix}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{card.target} · {card.actual}</div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: compact ? 26 : 36, lineHeight: 1, fontWeight: 700, color: card.color }}>{card.value}</span>
-                <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{card.suffix}</span>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{card.target} · {card.actual}</div>
-            </div>
-          </Col>
-        ))}
-      </Row>
+              </Col>
+            ))}
+          </Row>
+        )}
+
+        {/* 部门指标行：row2 + row3 紧凑内联 */}
+        {(row2.length > 0 || row3.length > 0) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'rgba(0,0,0,0.015)', borderRadius: 8 }}>
+            {row2.map(k => {
+              const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+              return (
+                <Tooltip key={k.label} title={`目标 ${k.target}${k.unit || '万元'} · 完成 ${k.actual}${k.unit || '万元'}${tp != null ? ` · 时间 ${tp}%` : ''}`}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 5, background: '#fff', border: '1px solid #E5E7EB', fontSize: compact ? 11 : 12 }}>
+                    <span style={{ color: '#6B7280' }}>{k.label.replace(' GMV', '')}</span>
+                    <span style={{ fontWeight: 700, color }}>{k.completion_rate}%</span>
+                  </span>
+                </Tooltip>
+              );
+            })}
+            {row3.map(k => {
+              const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+              return (
+                <Tooltip key={k.label} title={`目标 ${k.target}${k.unit || ''} · 完成 ${k.actual}${k.unit || ''}${tp != null ? ` · 时间 ${tp}%` : ''}`}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 5, background: '#fff', border: '1px solid #E5E7EB', fontSize: compact ? 11 : 12 }}>
+                    <span style={{ color: '#6B7280' }}>{k.label}</span>
+                    <span style={{ fontWeight: 700, color }}>{k.completion_rate}%</span>
+                  </span>
+                </Tooltip>
+              );
+            })}
+            {tp != null && row2.length === 0 && row3.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>时间进度 {tp}%</span>
+            )}
+          </div>
+        )}
+
+        {/* 兜底：旧数据无分组时用 kpi_summary */}
+        {cards.length === 0 && (data.kpi_summary || []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'rgba(0,0,0,0.015)', borderRadius: 8 }}>
+            {(data.kpi_summary || []).map(k => {
+              const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+              return (
+                <Tooltip key={`${k.dept_name}-${k.indicator}`} title={`目标 ${k.target}${k.unit || ''} · 完成 ${k.actual}${k.unit || ''}`}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 5, background: '#fff', border: '1px solid #E5E7EB', fontSize: compact ? 11 : 12 }}>
+                    <span style={{ color: '#6B7280' }}>{k.dept_name}·{k.indicator}</span>
+                    <span style={{ fontWeight: 700, color }}>{k.completion_rate}%</span>
+                  </span>
+                </Tooltip>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -866,139 +924,57 @@ td.text-cell { white-space: pre-wrap; }
           </Col>
         </Row>
 
-        {/* 本周关注：高优先级 / 需决策 / 风险项目 */}
+        {/* 本周关注 — 紧凑卡片网格 */}
         {week_attention.length > 0 && (
-          <div className="section" style={{ marginBottom: 20 }}>
-            <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>⚡ 本周关注（{week_attention.length} 项）</div>
-            <table style={{ fontSize, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
-              <colgroup>
-                <col style={{ width: 80 }} />
-                <col style={{ width: 180 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 70 }} />
-                <col />
-              </colgroup>
-              <thead><tr style={{ background: '#F9FAFB' }}>
-                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>部门</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>项目名称</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>进度</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>状态</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '2px solid #E5E7EB', fontSize: 12, fontWeight: 600, color: '#374151' }}>关注原因</th>
-              </tr></thead>
-              <tbody>
-                {week_attention.map((p, idx) => {
-                  const reasons = [];
-                  if (p.priority === '高') reasons.push('🔥高优先');
-                  if (p.decision_needed) reasons.push('📋需决策');
-                  if (p.status === '风险') reasons.push('🔴风险');
-                  return (
-                    <tr key={idx} style={p.status === '风险' ? { background: '#FEF2F2' } : {}}>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>{p.dept_name}</td>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>{p.name}</td>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>
-                        <Progress percent={p.progress_pct} size="small" strokeColor={p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626'} format={() => `${p.progress_pct}%`} />
-                      </td>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #F3F4F6', textAlign: 'center' }}>{p.status === '风险' ? <Tag color="error" style={{ margin: 0 }}>风险</Tag> : (p.status || '-')}</td>
-                      <td style={{ ...cellStyle, padding: '8px 12px', borderBottom: '1px solid #F3F4F6' }}>
-                        {reasons.join(' ')}
-                        {p.risk_desc && <span style={{ color: '#DC2626', marginLeft: 6 }}>— {p.risk_desc}</span>}
-                        {p.next_action && <span style={{ color: '#6B7280', marginLeft: 6 }}>→ {p.next_action}</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div style={{ marginBottom: 20 }}>
+            <SectionHeader
+              title="本周关注"
+              subtitle={`${week_attention.length} 项 · 高优/需决策/风险`}
+              icon={<WarningOutlined style={{ color: '#F59E0B' }} />}
+            />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 8,
+            }}>
+              {week_attention.map((p, idx) => {
+                const reasons = [];
+                if (p.priority === '高') reasons.push('🔥高优先');
+                if (p.decision_needed) reasons.push('📋需决策');
+                if (p.status === '风险') reasons.push('🔴风险');
+                const isRisk = p.status === '风险';
+                const progressColor = p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626';
+                return (
+                  <div key={idx} style={{
+                    padding: compact ? '6px 10px' : '8px 12px',
+                    borderRadius: 8,
+                    background: isRisk ? '#FEF2F2' : 'rgba(0,0,0,0.02)',
+                    borderLeft: `3px solid ${isRisk ? '#DC2626' : '#E5E7EB'}`,
+                    fontSize: compact ? 11 : 12,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 600, color: '#111827' }}>{p.name}</span>
+                        <Tag color={isRisk ? 'error' : 'default'} style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{p.dept_name}</Tag>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: progressColor }}>{p.progress_pct}%</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {reasons.map((r, ri) => (
+                        <span key={ri} style={{ fontSize: 10, color: isRisk ? '#991B1B' : '#6B7280' }}>{r}</span>
+                      ))}
+                      {p.risk_desc && <span style={{ fontSize: 10, color: '#DC2626' }}>— {p.risk_desc}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* 数据摘要 — 分层卡片 */}
-        <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>一、本周数据摘要</div>
-          {(() => {
-            const grouped = data.kpi_summary_grouped;
-            const tp = grouped?.time_progress;
-            // 有分组数据用分层渲染，无分组用旧逻辑兜底
-            if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
-              return (
-                <>
-                  {/* Row1: 部门级 GMV + 利润（大卡片） */}
-                  {grouped.row1?.length > 0 && (
-                    <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                      {grouped.row1.map((k, idx) => {
-                        const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
-                        return (
-                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 18, flex: 1 } }} style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>{k.label}</div>
-                            <div style={{ fontSize: 30, fontWeight: 700, color, margin: '6px 0' }}>{k.rate}%</div>
-                            <div style={{ fontSize: 12, color: '#9CA3AF' }}>
-                              目标 {k.target}{k.unit} · 完成 {k.actual}{k.unit}
-                              {tp != null && <span style={{ marginLeft: 8, color: '#B0B0B0' }}>时间进度 {tp}%</span>}
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {/* Row2: 各组 GMV（中卡片） */}
-                  {grouped.row2?.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 12 }}>
-                      {grouped.row2.map((k, idx) => {
-                        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-                        return (
-                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 14 } }}>
-                            <div style={{ fontSize: 12, color: '#6B7280' }}>{k.label}</div>
-                            <div style={{ fontSize: 24, fontWeight: 700, color, margin: '4px 0' }}>{k.completion_rate}%</div>
-                            <div style={{ fontSize: 11, color: '#9CA3AF' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
-                              {tp != null && <span style={{ marginLeft: 6, color: '#B0B0B0' }}>时间 {tp}%</span>}
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {/* Row3: 其他业务指标（紧凑卡片） */}
-                  {grouped.row3?.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                      {grouped.row3.map((k, idx) => {
-                        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-                        return (
-                          <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 10 } }}>
-                            <div style={{ fontSize: 11, color: '#8c8c8c' }}>{k.label}</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color, margin: '2px 0' }}>{k.completion_rate}%</div>
-                            <div style={{ fontSize: 10, color: '#bfbfbf' }}>目标 {k.target}{k.unit} / 完成 {k.actual}{k.unit}
-                              {tp != null && <span style={{ marginLeft: 4, color: '#C0C0C0' }}>时间 {tp}%</span>}
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              );
-            }
-            // 兜底：旧周报无分组数据，用原逻辑
-            return (
-              <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
-                {kpi_summary.map((kpi, idx) => (
-                  <Card key={idx} size="small" className="surface-card" styles={{ body: { padding: 14 } }}>
-                    <div style={{ fontSize: 12, color: '#6B7280' }}>{kpi.dept_name} · {kpi.indicator}</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: kpi.completion_rate >= 90 ? '#16A34A' : kpi.completion_rate >= 60 ? '#F59E0B' : '#DC2626', margin: '4px 0' }}>
-                      {kpi.completion_rate}%
-                    </div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>
-                      目标 {kpi.target}{kpi.unit} / 完成 {kpi.actual}{kpi.unit}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
-
         {/* 重点工作进展（同组合并） */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>二、重点工作进展（更新 {project_progress.filter(p => !p._hidden).length} 项{editing && project_progress.some(p => p._hidden) ? `，已隐藏 ${project_progress.filter(p => p._hidden).length} 项` : ''}）</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>一、重点工作进展（更新 {project_progress.filter(p => !p._hidden).length} 项{editing && project_progress.some(p => p._hidden) ? `，已隐藏 ${project_progress.filter(p => p._hidden).length} 项` : ''}）</div>
           {project_progress.length > 0 ? (
             renderMergedTable(project_progress, { textTitle: '本周进展', textField: 'weekly_progress' }, ['project_progress'])
           ) : (
@@ -1025,7 +1001,7 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 风险与预警 */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>三、风险与预警</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>二、风险与预警</div>
           {riskProjects.length > 0 && (
             <>
               <h4 style={{ color: '#DC2626', fontSize: compact ? 13 : 14 }}>风险项目（{riskProjects.length} 项）</h4>
@@ -1075,7 +1051,7 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 下周重点工作（同组合并） */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、下周重点工作{editing && keyWorkItems.some(p => p._hidden) ? `（已隐藏 ${keyWorkItems.filter(p => p._hidden).length} 项）` : ''}</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>三、下周重点工作{editing && keyWorkItems.some(p => p._hidden) ? `（已隐藏 ${keyWorkItems.filter(p => p._hidden).length} 项）` : ''}</div>
           {keyWorkItems.length > 0 ? (
             renderMergedTable(keyWorkItems, { textTitle: '下周重点工作', textField: 'next_week_focus' }, ['next_week_key_work'])
           ) : (
@@ -1102,7 +1078,7 @@ td.text-cell { white-space: pre-wrap; }
 
         {/* 新增成果 */}
         <div className="section">
-          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>五、新增成果（{achievementCount} 项）</div>
+          <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、新增成果（{achievementCount} 项）</div>
           {new_achievements.length > 0 ? (
             <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
               <colgroup>

@@ -169,67 +169,40 @@ function buildReportHtml(content) {
     .no-data { color: #9CA3AF; font-size: 13px; }
   `;
 
-  // KPI 摘要卡片 — 分层渲染
-  let kpiCardsHtml = '';
+  // 顶部核心卡片 + 部门指标行（合并原"核心指标速读"）
+  let topCardsHtml = '';
   const grouped = kpi_summary && content.kpi_summary_grouped;
   const tp = grouped?.time_progress;
-  if (grouped && (grouped.row1?.length || grouped.row2?.length || grouped.row3?.length)) {
-    // 时间进度提示
-    if (tp != null) {
-      kpiCardsHtml += `<div style="font-size:12px;color:#8c8c8c;margin-bottom:10px">季度时间进度：${tp}%</div>`;
-    }
-    // Row1: 部门级 GMV + 利润（大卡片）
-    if (grouped.row1?.length) {
-      kpiCardsHtml += `<div style="display:flex;gap:16px;margin-bottom:14px">`;
-      grouped.row1.forEach(k => {
-        const color = k.rate >= 90 ? '#16A34A' : k.rate >= 60 ? '#F59E0B' : '#DC2626';
-        kpiCardsHtml += `<div style="flex:1;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:13px;color:#6B7280;font-weight:600">${k.label}</div>
-          <div style="font-size:32px;font-weight:700;color:${color};margin:6px 0">${k.rate}%</div>
-          <div style="font-size:12px;color:#9CA3AF">目标 ${k.target}${k.unit} · 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:8px;color:#B0B0B0">时间进度 ${tp}%</span>` : ''}</div>
-        </div>`;
-      });
-      kpiCardsHtml += `</div>`;
-    }
-    // Row2: 各组 GMV（中卡片）
-    if (grouped.row2?.length) {
-      kpiCardsHtml += `<div class="kpi-grid">`;
-      grouped.row2.forEach(k => {
-        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-        kpiCardsHtml += `<div class="kpi-card">
-          <div class="kpi-dept">${k.label}</div>
-          <div class="kpi-rate" style="color:${color}">${k.completion_rate}%</div>
-          <div class="kpi-detail">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:6px;color:#B0B0B0">时间 ${tp}%</span>` : ''}</div>
-        </div>`;
-      });
-      kpiCardsHtml += `</div>`;
-    }
-    // Row3: 其他业务指标（紧凑卡片）
-    if (grouped.row3?.length) {
-      kpiCardsHtml += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px">`;
-      grouped.row3.forEach(k => {
-        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-        kpiCardsHtml += `<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;padding:10px">
-          <div style="font-size:11px;color:#8c8c8c">${k.label}</div>
-          <div style="font-size:20px;font-weight:700;color:${color};margin:2px 0">${k.completion_rate}%</div>
-          <div style="font-size:10px;color:#bfbfbf">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}${tp != null ? `<span style="margin-left:4px;color:#C0C0C0">时间 ${tp}%</span>` : ''}</div>
-        </div>`;
-      });
-      kpiCardsHtml += `</div>`;
-    }
+
+  // 3 个核心卡片
+  topCardsHtml += `<div class="card-row">`;
+  topCardsHtml += `<div class="metric-card"><div class="metric-label">关键成果</div><div class="metric-value">${achievementCount}</div><div class="metric-sub">本周新增</div></div>`;
+  topCardsHtml += `<div class="metric-card"><div class="metric-label">风险事项</div><div class="metric-value" style="color:${riskCount > 0 ? '#DC2626' : '#16A34A'}">${riskCount}</div><div class="metric-sub">${riskCount > 0 ? '需要关注' : '一切正常'}</div></div>`;
+  topCardsHtml += `<div class="metric-card"><div class="metric-label">下周重点</div><div class="metric-value">${keyWorkItems.length}</div><div class="metric-sub">已填写重点工作</div></div>`;
+  topCardsHtml += `</div>`;
+
+  // 部门指标行（row2 + row3 紧凑内联）
+  let deptMetricsHtml = '';
+  if (grouped && (grouped.row2?.length || grouped.row3?.length)) {
+    deptMetricsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:8px;margin-bottom:16px">`;
+    (grouped.row2 || []).forEach(k => {
+      const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+      const shortLabel = (k.label || '').replace(' GMV', '');
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${shortLabel}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+    });
+    (grouped.row3 || []).forEach(k => {
+      const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${k.label}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+    });
+    deptMetricsHtml += `</div>`;
   } else if (kpi_summary?.length) {
-    // 兜底：旧数据无分组
-    kpiCardsHtml = `<div class="kpi-grid">` +
-      kpi_summary.map(k => {
-        const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-        return `<div class="kpi-card">
-          <div class="kpi-dept">${k.dept_name} · ${k.indicator}</div>
-          <div class="kpi-rate" style="color:${color}">${k.completion_rate}%</div>
-          <div class="kpi-detail">目标 ${k.target}${k.unit} / 完成 ${k.actual}${k.unit}</div>
-        </div>`;
-      }).join('') + `</div>`;
-  } else {
-    kpiCardsHtml = `<p class="no-data">暂无数据</p>`;
+    // 兜底：旧数据
+    deptMetricsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:8px;margin-bottom:16px">`;
+    kpi_summary.forEach(k => {
+      const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${k.dept_name}·${k.indicator}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+    });
+    deptMetricsHtml += `</div>`;
   }
 
   // 项目进展表格（同组合并，过滤隐藏项）
@@ -313,7 +286,7 @@ function buildReportHtml(content) {
   const aso = businessSummary?.aso;
   const cps = businessSummary?.cps;
   if (aso?.enabled || cps?.enabled) {
-    businessHtml = `<div class="section"><div class="section-title">二、重点业务速览</div><div class="business-row">`;
+    businessHtml = `<div class="section"><div class="section-title">重点业务速览</div><div class="business-row">`;
     if (aso?.enabled) {
       businessHtml += `<div class="business-card"><div class="business-title">ASO 优化</div>`;
       if (aso.has_data) {
@@ -361,48 +334,28 @@ function buildReportHtml(content) {
 
   ${changesHtml}
 
-  <div class="card-row">
-    <div class="metric-card">
-      <div class="metric-label">关键成果</div>
-      <div class="metric-value">${achievementCount}</div>
-      <div class="metric-sub">本周新增</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">风险事项</div>
-      <div class="metric-value" style="color:${riskCount > 0 ? '#DC2626' : '#16A34A'}">${riskCount}</div>
-      <div class="metric-sub">${riskCount > 0 ? '需要关注' : '一切正常'}</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">下周重点</div>
-      <div class="metric-value">${keyWorkItems.length}</div>
-      <div class="metric-sub">已填写重点工作</div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">一、核心指标速读</div>
-    ${kpiCardsHtml}
-  </div>
+  ${topCardsHtml}
+  ${deptMetricsHtml}
 
   ${businessHtml}
 
   <div class="section">
-    <div class="section-title">三、重点工作进展（更新 ${visibleProjects.length} 项）</div>
+    <div class="section-title">一、重点工作进展（更新 ${visibleProjects.length} 项）</div>
     ${progressHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">四、风险与预警</div>
+    <div class="section-title">二、风险与预警</div>
     ${riskHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">五、下周重点工作</div>
+    <div class="section-title">三、下周重点工作</div>
     ${nextWeekHtml}
   </div>
 
   <div class="section">
-    <div class="section-title">六、新增成果（${achievementCount} 项）</div>
+    <div class="section-title">四、新增成果（${achievementCount} 项）</div>
     ${achieveHtml}
   </div>
 
