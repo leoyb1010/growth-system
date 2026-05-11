@@ -777,43 +777,56 @@ td.text-cell { white-space: pre-wrap; }
 
         {renderExecutiveMetrics(data, compact)}
 
-        {/* 关键变化 */}
+        {/* 关键变化 — 紧凑网格布局 */}
         {Array.isArray(data.key_changes) && data.key_changes.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <SectionHeader
               title="本周关键变化"
-              subtitle="红色优先处理，绿色代表进展或达成"
+              subtitle={`${data.key_changes.length} 条 · 红色优先处理`}
               icon={<WarningOutlined style={{ color: '#F59E0B' }} />}
             />
-            {data.key_changes.map((c, idx) => {
-              const configMap = {
-                risk: { label: '风险', bg: '#FEF2F2', color: '#991B1B', border: '#DC2626', tag: 'error' },
-                deviation: { label: '偏差', bg: '#FFFBEB', color: '#92400E', border: '#F59E0B', tag: 'warning' },
-                progress: { label: '进展', bg: '#F0FDF4', color: '#14532D', border: '#16A34A', tag: 'success' },
-                achieved: { label: '达成', bg: '#EFF6FF', color: '#1E3A8A', border: '#3B5AFB', tag: 'processing' },
-              };
-              const config = configMap[c.type] || { label: '事项', bg: '#F9FAFB', color: '#111827', border: '#9CA3AF', tag: 'default' };
-              return (
-                <div key={idx} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: compact ? '8px 10px' : '10px 14px',
-                  marginBottom: 8,
-                  background: config.bg,
-                  borderLeft: `3px solid ${config.border}`,
-                  borderRadius: 8,
-                  fontSize: compact ? 12 : 13,
-                }}>
-                  <Tag color={config.tag} style={{ margin: 0, minWidth: 42, textAlign: 'center' }}>{config.label}</Tag>
-                  {editing && !compact ? (
-                    <Input value={c.text} onChange={e => updateEditField(['key_changes', idx, 'text'], e.target.value)} style={{ flex: 1, fontSize: 12 }} />
-                  ) : (
-                    <span style={{ color: config.color, fontWeight: 500 }}>{c.text}</span>
-                  )}
-                </div>
-              );
-            })}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: 6,
+            }}>
+              {data.key_changes.map((c, idx) => {
+                const dotMap = {
+                  risk: { label: '风险', color: '#DC2626', textColor: '#991B1B' },
+                  deviation: { label: '偏差', color: '#F59E0B', textColor: '#92400E' },
+                  progress: { label: '进展', color: '#16A34A', textColor: '#14532D' },
+                  achieved: { label: '达成', color: '#3B5AFB', textColor: '#1E3A8A' },
+                };
+                const cfg = dotMap[c.type] || { label: '事项', color: '#9CA3AF', textColor: '#111827' };
+                return (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: compact ? '4px 8px' : '6px 10px',
+                    borderRadius: 6,
+                    fontSize: compact ? 11 : 12,
+                    background: 'rgba(0,0,0,0.02)',
+                  }}>
+                    <Tooltip title={cfg.label}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: cfg.color,
+                        flexShrink: 0,
+                      }} />
+                    </Tooltip>
+                    {editing && !compact ? (
+                      <Input value={c.text} onChange={e => updateEditField(['key_changes', idx, 'text'], e.target.value)} style={{ flex: 1, fontSize: 12 }} size="small" />
+                    ) : (
+                      <span style={{ color: cfg.textColor, fontWeight: 500, lineHeight: 1.4 }}>{c.text}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

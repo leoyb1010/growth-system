@@ -291,14 +291,21 @@ function buildReportHtml(content) {
     achieveHtml = `<p class="no-data">本周无新增成果</p>`;
   }
 
-  // 关键变化
+  // 关键变化 — 紧凑网格
   let changesHtml = '';
   if (key_changes?.length) {
     const labelMap = { risk: '风险', progress: '进展', deviation: '偏差', achieved: '达成' };
     const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#F59E0B', achieved: '#3B5AFB' };
+    const textColorMap = { risk: '#991B1B', progress: '#14532D', deviation: '#92400E', achieved: '#1E3A8A' };
+    const items = key_changes.map(c =>
+      `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;font-size:12px;background:rgba(0,0,0,0.02)">` +
+      `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${colorMap[c.type] || '#9CA3AF'};flex-shrink:0"></span>` +
+      `<span style="color:${textColorMap[c.type] || '#111827'};font-weight:500">${c.text}</span>` +
+      `</div>`
+    ).join('');
     changesHtml = `<div style="margin-bottom:20px">
-      <div style="font-weight:700;font-size:15px;margin-bottom:8px">⚡ 关键变化</div>
-      ${key_changes.map(c => `<div class="change-item" style="border-left:3px solid ${colorMap[c.type] || '#9CA3AF'};background:#F9FAFB;border-radius:8px;padding:8px 12px;margin-bottom:8px"><span style="font-weight:700;color:${colorMap[c.type] || '#111827'}">${labelMap[c.type] || '事项'}</span><span>${c.text}</span></div>`).join('')}
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px">⚡ 关键变化 <span style="font-weight:400;font-size:11px;color:#888">${key_changes.length} 条</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">${items}</div>
     </div>`;
   }
 
