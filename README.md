@@ -393,6 +393,47 @@ docker-compose up -d --build
 
 ## 版本更新日志
 
+### v1.17.0 — 2026-05-11 · 周报仪表盘升级 · ASO/CPS业务速览 · 新UI组件库 · 看板视觉重设计
+
+> 核心改动：周报全面整合 ASO/CPS 业务数据；4个新通用UI组件；驾驶舱和看板视觉升级；周报生成逻辑增强。
+
+**周报业务速览（全新 Section）**
+- 周报新增「二、重点业务速览」section，位于 KPI 摘要和项目进展之间
+- ASO 卡片：优化词/T1/T3到榜/消耗四个 MiniMetric + T3 趋势 Sparkline + 新到 T1/T3 关键词 Tag
+- CPS 卡片：实收/签约/退款率/预警四个 MiniMetric + 实收趋势 Sparkline + 退款率超5%红色告警
+- 权限控制：`includeAso`/`includeCps` 根据用户权限决定是否聚合，无权限显示"无查看权限"
+
+**周报结论增强**
+- `generateWeekConclusion` 接入 ASO/CPS：退款率超阈值自动写入结论，T3关键词变化写入结论
+- `extractKeyChanges` 接入 ASO/CPS：CPS 退款率风险、实收变化、ASO T3 变化自动列入关键变化
+
+**4个新通用 UI 组件**
+- `DeltaPill`：涨跌药丸（绿涨红跌，sm/md尺寸，inverse反转）
+- `MiniMetric`：迷你指标卡片（label+value+delta+alert标签）
+- `SectionHeader`：分区标题（icon+title+subtitle+extra）
+- `Sparkline`：迷你趋势折线图（ECharts轻量封装，渐变面积填充）
+
+**周报视觉升级**
+- 结论区：渐变背景+左侧4px色条+阴影+KEY TAKEAWAYS标签
+- 关键变化：标签化（Tag+borderLeft+彩色背景），替换旧emoji图标
+- KPI 执行指标：三列大卡片（GMV完成率/利润完成率/时间进度）
+- EditableCell：重构为 `React.memo`，显式 props（editing/onChange/cellStyle）
+
+**驾驶舱视觉升级**
+- KPI 主卡片：底部大数字水印+渐变进度条+图标圆角背景
+- 状态分布饼图：中心显示项目总数
+- 卡片间距和字号微调
+
+**ASO/CPS 看板重构**
+- ASO：`AsoKpiCard` 组件化 + `KeywordChangeBlock` 关键词变化 + `useCallback` 优化渲染
+- CPS：`getTopChannels` Top5 渠道排行 + `getChannelAmounts` 聚合 + 同比对比窗口
+
+**周报生成修复**
+- 默认日期改为上一完整自然周（`isoWeek`），避免周一生成时纳入未来日期
+- 后端传入 `includeAso`/`includeCps` 权限参数 + `cpsChannelId` 渠道隔离
+
+详见 [changelog.json](backend/data/changelog.json)
+
 ### v1.16.1 — 2026-05-11 · 周报编辑修复 + 下周重点隐藏功能 + KPI模糊匹配
 
 > 核心改动：修复周报编辑模式无法输入文字的致命Bug；下周重点工作增加隐藏按钮；KPI指标名模糊匹配。
@@ -1243,6 +1284,7 @@ docker-compose up -d --build
 - [x] v1.15.4 ASO系统调整 2.0（批量导入 / 基准指标重构 / 日报模版对齐 / 产品刷新修复 / DB补丁）
 - [x] v1.16.0 安全深度加固（ExcelJS替换xlsx / 密码策略 / Refresh Token哈希 / 首次改密强制 / 数据范围重构 / Nginx安全头 / Docker非root）
 - [x] v1.16.1 周报编辑修复 + 下周重点隐藏功能 + KPI指标模糊匹配
+- [x] v1.17.0 周报仪表盘升级 + ASO/CPS业务速览 + 新UI组件库 + 看板视觉重设计
 
 ## License
 

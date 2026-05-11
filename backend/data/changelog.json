@@ -1,6 +1,26 @@
 {
-  "latestVersion": "1.16.1",
+  "latestVersion": "1.17.0",
   "releases": [
+    {
+      "version": "1.17.0",
+      "date": "2026-05-11",
+      "title": "周报仪表盘升级 · ASO/CPS业务速览 · 新UI组件库 · 看板视觉重设计",
+      "changes": [
+        { "type": "feat", "module": "周报业务速览", "desc": "周报新增「重点业务速览」section：ASO优化和WPS投流数据自动聚合，含周环比delta、7日趋势、关键词变化、退款率预警" },
+        { "type": "feat", "module": "ASO周报", "desc": "周报ASO卡片：优化词/T1/T3到榜/消耗四个MiniMetric + T3趋势Sparkline + 新到T1/T3关键词Tag展示" },
+        { "type": "feat", "module": "CPS周报", "desc": "周报CPS卡片：实收/签约/退款率/预警四个MiniMetric + 实收趋势Sparkline + 退款率超5%自动红色告警" },
+        { "type": "feat", "module": "周报结论增强", "desc": "generateWeekConclusion/extractKeyChanges接入ASO/CPS数据，退款率超阈值、T3关键词变化自动写入结论和关键变化" },
+        { "type": "feat", "module": "UI组件", "desc": "新增4个通用UI组件：DeltaPill(涨跌药丸) / MiniMetric(迷你指标) / SectionHeader(分区头) / Sparkline(迷你趋势图)" },
+        { "type": "improve", "module": "周报视觉", "desc": "结论区升级：渐变背景+左侧色条+阴影；关键变化改为标签化(Tag+borderLeft)；KPI执行指标卡片化" },
+        { "type": "improve", "module": "驾驶舱视觉", "desc": "Dashboard KPI卡片：底部大数字水印+渐变进度条+图标圆角背景；状态饼图中心显示项目总数" },
+        { "type": "improve", "module": "ASO看板", "desc": "AsoDashboardTab重构：AsoKpiCard组件化+DeltaPill替换旧DeltaTag+关键词变化KeywordChangeBlock+useCallback优化" },
+        { "type": "improve", "module": "CPS看板", "desc": "CpsDashboardTab重构：getTopChannels渠道排行+getChannelAmounts聚合+同比对比(compareWhere)+趋势双轴优化" },
+        { "type": "fix", "module": "周报生成", "desc": "周报默认日期改为上一完整自然周(isoWeek)，避免周一生成时纳入未来日期；传入ASO/CPS权限控制includeAso/includeCps" },
+        { "type": "fix", "module": "EditableCell", "desc": "EditableCell重构为React.memo，显式接收editing/onChange/cellStyle props，修复非编辑模式渲染异常" },
+        { "type": "fix", "module": "ASO关键词变化", "desc": "asoDashboardService新增getKeywordChanges/getKeywordSet/diffKeywordNames，计算周内关键词进出T1/T3变化" },
+        { "type": "fix", "module": "CPS渠道排行", "desc": "cpsDashboardService新增getTopChannels/getChannelAmounts，支持Top5渠道金额排行+同比delta" }
+      ]
+    },
     {
       "version": "1.16.1",
       "date": "2026-05-11",
