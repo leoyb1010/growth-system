@@ -17,7 +17,7 @@ const PageHeader = ({ title, subtitle, extra }) => {
           <h1 className="page-title">{title}</h1>
           {subtitle ? <div className="page-subtitle">{subtitle}</div> : null}
         </div>
-        {extra ? <Space wrap>{extra}</Space> : null}
+        {extra ? <Space className="page-header-actions" wrap>{extra}</Space> : null}
       </div>
     </div>
   );

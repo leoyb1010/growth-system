@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin } from 'antd';
+import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin, Grid } from 'antd';
 import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
@@ -72,6 +72,8 @@ function WeeklyReportPage() {
   const [currentReport, setCurrentReport] = useState(null);
   const [generating, setGenerating] = useState(false);
   const reportRef = useRef(null);
+  const screens = Grid.useBreakpoint();
+  const isMobile = screens.md === false || (typeof window !== 'undefined' && window.innerWidth < 768);
 
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyReport, setHistoryReport] = useState(null);
@@ -270,6 +272,70 @@ function WeeklyReportPage() {
     return auto + '\n\n✍️ ' + manual;
   };
 
+  const renderStatus = (status) => (
+    status === '风险'
+      ? <Tag color="error" style={{ margin: 0 }}>风险</Tag>
+      : <Tag style={{ margin: 0 }}>{status || '-'}</Tag>
+  );
+
+  const renderMobileProjectCards = (items, columns, editPathPrefix, visibleWithIdx, showHideCol) => (
+    <div className="weekly-mobile-card-list">
+      {visibleWithIdx.map((p, rowIdx) => {
+        const origIdx = p._origIdx !== undefined ? p._origIdx : rowIdx;
+        const progress = Number(p.progress_pct || 0);
+        const progressColor = progress >= 80 ? '#16A34A' : progress >= 50 ? '#F59E0B' : '#DC2626';
+        return (
+          <div key={origIdx} className={`weekly-mobile-card${p.status === '风险' ? ' is-risk' : ''}`}>
+            <div className="weekly-mobile-card-head">
+              <div className="weekly-mobile-title-wrap">
+                <div className="weekly-mobile-title">{p.name || '-'}</div>
+                <div className="weekly-mobile-meta">
+                  <Tag style={{ margin: 0 }}>{p.dept_name || '未分组'}</Tag>
+                  {renderStatus(p.status)}
+                </div>
+              </div>
+              {showHideCol && (
+                <Tooltip title="隐藏此项目（导出时不显示）">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EyeInvisibleOutlined />}
+                    style={{ color: '#9CA3AF', flexShrink: 0 }}
+                    onClick={() => updateEditField([...editPathPrefix, origIdx, '_hidden'], true)}
+                  />
+                </Tooltip>
+              )}
+            </div>
+
+            <div className="weekly-mobile-progress">
+              <span>进度</span>
+              <Progress
+                percent={progress}
+                size="small"
+                strokeColor={progressColor}
+                format={() => `${progress}%`}
+              />
+            </div>
+
+            <div className="weekly-mobile-field">
+              <div className="weekly-mobile-label">{columns.textTitle}</div>
+              <div className="weekly-mobile-text">
+                <EditableCell
+                  editing={editing}
+                  value={items[origIdx][columns.textField]}
+                  path={[...editPathPrefix, origIdx, columns.textField]}
+                  rows={3}
+                  onChange={updateEditField}
+                  cellStyle={cellStyle}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   // ===== 带同组合并的表格渲染 =====
   const renderMergedTable = (items, columns, editPathPrefix) => {
     if (!items || items.length === 0) return null;
@@ -278,6 +344,9 @@ function WeeklyReportPage() {
     if (visibleWithIdx.length === 0) return <p className="subtle-text">所有项目已隐藏</p>;
     const rows = addRowSpan(visibleWithIdx);
     const showHideCol = editing && ['project_progress', 'next_week_key_work'].includes(editPathPrefix[0]);
+    if (isMobile) {
+      return renderMobileProjectCards(items, columns, editPathPrefix, visibleWithIdx, showHideCol);
+    }
     return (
       <table style={{ fontSize: 13, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse', border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
         <colgroup>
@@ -781,7 +850,6 @@ td.text-cell { white-space: pre-wrap; }
     if (!content) return <Empty description="暂无周报数据" />;
     const data = editing && !compact ? editData : content;
     if (!data || typeof data !== 'object') return <Empty description="周报数据格式异常" />;
-    const kpi_summary = data.kpi_summary || [];
     const project_progress = data.project_progress || [];
     const risk_and_warnings = data.risk_and_warnings || {};
     const next_week_key_work = data.next_week_key_work;
@@ -1005,43 +1073,97 @@ td.text-cell { white-space: pre-wrap; }
           {riskProjects.length > 0 && (
             <>
               <h4 style={{ color: '#DC2626', fontSize: compact ? 13 : 14 }}>风险项目（{riskProjects.length} 项）</h4>
-              <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
-                <colgroup>
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 180 }} />
-                  <col />
-                </colgroup>
-                <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
-                <tbody>
+              {isMobile ? (
+                <div className="weekly-mobile-card-list">
                   {riskProjects.map((p, idx) => (
-                    <tr key={idx} style={{ background: '#FEF2F2' }}><td>{p.dept_name}</td><td>{p.name}</td>
-                      <td style={cellStyle}>
-                        <EditableCell
-                          editing={editing}
-                          value={p.risk_desc}
-                          path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']}
-                          onChange={updateEditField}
-                          cellStyle={cellStyle}
-                        />
-                      </td>
-                    </tr>
+                    <div key={idx} className="weekly-mobile-card is-risk">
+                      <div className="weekly-mobile-card-head">
+                        <div className="weekly-mobile-title-wrap">
+                          <div className="weekly-mobile-title">{p.name || '-'}</div>
+                          <div className="weekly-mobile-meta">
+                            <Tag style={{ margin: 0 }}>{p.dept_name || '未分组'}</Tag>
+                            <Tag color="error" style={{ margin: 0 }}>风险</Tag>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="weekly-mobile-field">
+                        <div className="weekly-mobile-label">风险描述</div>
+                        <div className="weekly-mobile-text">
+                          <EditableCell
+                            editing={editing}
+                            value={p.risk_desc}
+                            path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']}
+                            rows={3}
+                            onChange={updateEditField}
+                            cellStyle={cellStyle}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
+                  <colgroup>
+                    <col style={{ width: 80 }} />
+                    <col style={{ width: 180 }} />
+                    <col />
+                  </colgroup>
+                  <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
+                  <tbody>
+                    {riskProjects.map((p, idx) => (
+                      <tr key={idx} style={{ background: '#FEF2F2' }}><td>{p.dept_name}</td><td>{p.name}</td>
+                        <td style={cellStyle}>
+                          <EditableCell
+                            editing={editing}
+                            value={p.risk_desc}
+                            path={['risk_and_warnings', 'risk_projects', idx, 'risk_desc']}
+                            onChange={updateEditField}
+                            cellStyle={cellStyle}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </>
           )}
           {severeWarnings.length > 0 && (
             <>
               <h4 style={{ color: '#F59E0B', marginTop: 16, fontSize: compact ? 13 : 14 }}>严重预警指标（{severeWarnings.length} 项）</h4>
-              <table style={{ fontSize }}>
-                <thead><tr><th>部门</th><th>业务类型</th><th>指标</th><th>完成率</th><th>差额</th></tr></thead>
-                <tbody>
+              {isMobile ? (
+                <div className="weekly-mobile-card-list">
                   {severeWarnings.map((w, idx) => (
-                    <tr key={idx}><td>{w.dept_name}</td><td>{w.business_type}</td><td>{w.indicator}</td>
-                    <td style={{ color: '#DC2626', fontWeight: 600 }}>{w.completion_rate}%</td><td>{w.gap}</td></tr>
+                    <div key={idx} className="weekly-mobile-card is-warning">
+                      <div className="weekly-mobile-card-head">
+                        <div className="weekly-mobile-title-wrap">
+                          <div className="weekly-mobile-title">{w.indicator || '-'}</div>
+                          <div className="weekly-mobile-meta">
+                            <Tag style={{ margin: 0 }}>{w.dept_name || '未分组'}</Tag>
+                            <Tag color="warning" style={{ margin: 0 }}>{w.business_type || '-'}</Tag>
+                          </div>
+                        </div>
+                        <div className="weekly-mobile-rate">{w.completion_rate}%</div>
+                      </div>
+                      <div className="weekly-mobile-field">
+                        <div className="weekly-mobile-label">差额</div>
+                        <div className="weekly-mobile-text">{w.gap || '-'}</div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <table style={{ fontSize }}>
+                  <thead><tr><th>部门</th><th>业务类型</th><th>指标</th><th>完成率</th><th>差额</th></tr></thead>
+                  <tbody>
+                    {severeWarnings.map((w, idx) => (
+                      <tr key={idx}><td>{w.dept_name}</td><td>{w.business_type}</td><td>{w.indicator}</td>
+                      <td style={{ color: '#DC2626', fontWeight: 600 }}>{w.completion_rate}%</td><td>{w.gap}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </>
           )}
           {riskProjects.length === 0 && severeWarnings.length === 0 && (
@@ -1080,32 +1202,64 @@ td.text-cell { white-space: pre-wrap; }
         <div className="section">
           <div className="section-title" style={{ fontSize: compact ? 14 : 16 }}>四、新增成果（{achievementCount} 项）</div>
           {new_achievements.length > 0 ? (
-            <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: 80 }} />
-                <col style={{ width: 180 }} />
-                <col style={{ width: 80 }} />
-                <col />
-                <col style={{ width: 60 }} />
-              </colgroup>
-              <thead><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
-              <tbody>
+            isMobile ? (
+              <div className="weekly-mobile-card-list">
                 {new_achievements.map((a, idx) => (
-                  <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.achievement_type}</td>
-                    <td style={cellStyle}>
-                      <EditableCell
-                        editing={editing}
-                        value={a.quantified_result}
-                        path={['new_achievements', idx, 'quantified_result']}
-                        onChange={updateEditField}
-                        cellStyle={cellStyle}
-                      />
-                    </td>
-                    <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td>
-                  </tr>
+                  <div key={idx} className="weekly-mobile-card">
+                    <div className="weekly-mobile-card-head">
+                      <div className="weekly-mobile-title-wrap">
+                        <div className="weekly-mobile-title">{a.project_name || '-'}</div>
+                        <div className="weekly-mobile-meta">
+                          <Tag style={{ margin: 0 }}>{a.dept_name || '未分组'}</Tag>
+                          <Tag style={{ margin: 0 }}>{a.achievement_type || '-'}</Tag>
+                          <Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'} style={{ margin: 0 }}>{a.priority || '-'}</Tag>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="weekly-mobile-field">
+                      <div className="weekly-mobile-label">量化结果</div>
+                      <div className="weekly-mobile-text">
+                        <EditableCell
+                          editing={editing}
+                          value={a.quantified_result}
+                          path={['new_achievements', idx, 'quantified_result']}
+                          rows={3}
+                          onChange={updateEditField}
+                          cellStyle={cellStyle}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              <table style={{ fontSize, tableLayout: 'fixed', width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 180 }} />
+                  <col style={{ width: 80 }} />
+                  <col />
+                  <col style={{ width: 60 }} />
+                </colgroup>
+                <thead><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
+                <tbody>
+                  {new_achievements.map((a, idx) => (
+                    <tr key={idx}><td>{a.dept_name}</td><td>{a.project_name}</td><td>{a.achievement_type}</td>
+                      <td style={cellStyle}>
+                        <EditableCell
+                          editing={editing}
+                          value={a.quantified_result}
+                          path={['new_achievements', idx, 'quantified_result']}
+                          onChange={updateEditField}
+                          cellStyle={cellStyle}
+                        />
+                      </td>
+                      <td><Tag color={a.priority === '高' ? 'error' : a.priority === '中' ? 'warning' : 'default'}>{a.priority}</Tag></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           ) : (
             <p className="subtle-text">本周无新增成果 — 请在「季度成果」页面录入，或项目完成时系统将自动生成草稿</p>
           )}
@@ -1172,12 +1326,12 @@ td.text-cell { white-space: pre-wrap; }
       <Tabs defaultActiveKey="current">
         <Tabs.TabPane tab="当前周报" key="current">
           {generating ? (
-            <div style={{ textAlign: 'center', padding: 80 }}>
+            <div style={{ textAlign: 'center', padding: isMobile ? 36 : 80 }}>
               <Spin size="large" />
               <div style={{ marginTop: 16, color: '#6B7280', fontSize: 14 }}>正在生成周报...</div>
             </div>
           ) : currentReport ? (
-            <div style={{ background: '#F5F7FB', padding: 24, borderRadius: 14 }}>
+            <div style={{ background: '#F5F7FB', padding: isMobile ? 8 : 24, borderRadius: isMobile ? 10 : 14 }}>
               {renderReportContent(currentReport.content || currentReport)}
             </div>
           ) : (
@@ -1195,7 +1349,7 @@ td.text-cell { white-space: pre-wrap; }
         title={historyReport ? `周报：${historyReport.week_start} 至 ${historyReport.week_end}` : '周报详情'}
         open={historyModalVisible}
         onCancel={() => { setHistoryModalVisible(false); setHistoryReport(null); }}
-        width={900}
+        width={isMobile ? 'calc(100vw - 24px)' : 900}
         footer={[
           <Button key="close" onClick={() => { setHistoryModalVisible(false); setHistoryReport(null); }}>关闭</Button>,
           <Button key="png" icon={<FileImageOutlined />} onClick={() => { message.info('请在当前周报Tab中导出PNG'); }}>导出 PNG</Button>,
@@ -1203,7 +1357,7 @@ td.text-cell { white-space: pre-wrap; }
           <Button key="md" icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown(historyReport)}>导出 MD</Button>,
         ]}
       >
-        <div style={{ background: '#F5F7FB', padding: 20, borderRadius: 14, maxHeight: '70vh', overflowY: 'auto' }}>
+        <div style={{ background: '#F5F7FB', padding: isMobile ? 8 : 20, borderRadius: isMobile ? 10 : 14, maxHeight: isMobile ? '72vh' : '70vh', overflowY: 'auto' }}>
           {renderReportContent(historyReport, true)}
         </div>
       </Modal>

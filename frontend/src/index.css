@@ -108,10 +108,23 @@ body {
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 * {
   box-sizing: border-box;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+.ant-layout,
+.ant-layout-content {
+  min-width: 0;
 }
 
 /* ===== 公共页面结构 ===== */
@@ -122,6 +135,10 @@ body {
 
 .page-header-block {
   margin-bottom: 20px;
+}
+
+.page-header-actions {
+  justify-content: flex-end;
 }
 
 .page-title {
@@ -599,6 +616,97 @@ body {
   padding-left: 12px;
 }
 
+.weekly-mobile-card-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.weekly-mobile-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-left: 3px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.weekly-mobile-card.is-risk {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  border-left-color: #DC2626;
+}
+
+.weekly-mobile-card.is-warning {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  border-left-color: #F59E0B;
+}
+
+.weekly-mobile-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.weekly-mobile-title-wrap {
+  min-width: 0;
+}
+
+.weekly-mobile-title {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.weekly-mobile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.weekly-mobile-progress {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.weekly-mobile-field {
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  padding-top: 10px;
+}
+
+.weekly-mobile-label {
+  margin-bottom: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.weekly-mobile-text {
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.weekly-mobile-rate {
+  color: #DC2626;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* 周报打印优化 */
 @media print {
   .app-page { padding: 0 !important; animation: none !important; }
@@ -615,12 +723,29 @@ body {
     padding: 12px !important;
   }
 
+  .page-header-block {
+    margin-bottom: 14px;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-header-actions .ant-space-item {
+    display: flex;
+  }
+
   .weekly-report {
+    width: 100%;
+    max-width: none;
     padding: 16px !important;
+    border-radius: 12px;
   }
 
   .weekly-report h1 {
     font-size: 20px !important;
+    line-height: 1.35;
   }
 
   .weekly-report table {
@@ -630,6 +755,60 @@ body {
   .weekly-report th,
   .weekly-report td {
     padding: 8px 6px !important;
+  }
+
+  .weekly-report .section {
+    margin-bottom: 24px;
+  }
+
+  .weekly-report .section-title {
+    font-size: 15px !important;
+    line-height: 1.45;
+  }
+
+  .weekly-report .footer {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+  }
+
+  .ant-modal .ant-modal-content {
+    padding: 16px;
+  }
+
+  .ant-modal .ant-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .ant-drawer-content-wrapper {
+    max-width: 92vw;
+  }
+
+  .ant-form .ant-row > .ant-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  .ant-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .ant-table {
+    min-width: 640px;
+  }
+
+  .ant-table-wrapper > table {
+    min-width: 720px;
   }
 
   .metric-value {
