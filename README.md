@@ -2,18 +2,26 @@
 
 > 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
 
+**语言 / Languages**：中文（默认）｜[English](docs/README.en.md)
+
 ## 系统截图
 
 <table>
   <tr>
     <td align="center"><b>管理驾驶舱</b></td>
     <td align="center"><b>周管理</b></td>
-    <td align="center"><b>重点工作</b></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshot-dashboard.png" alt="管理驾驶舱" width="400" /></td>
-    <td><img src="docs/screenshot-week.png" alt="周管理" width="400" /></td>
-    <td><img src="docs/screenshot-projects.png" alt="重点工作" width="400" /></td>
+    <td><img src="docs/screenshot-dashboard.png" alt="管理驾驶舱" width="520" /></td>
+    <td><img src="docs/screenshot-week.png" alt="周管理" width="520" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>项目推进</b></td>
+    <td align="center"><b>周报移动端</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-projects.png" alt="项目推进" width="520" /></td>
+    <td align="center"><img src="docs/screenshot-weekly-mobile.png" alt="周报移动端" width="260" /></td>
   </tr>
 </table>
 
