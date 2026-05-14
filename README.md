@@ -1,4 +1,24 @@
-# LeoBMS — 增长部门管理系统
+<div align="center">
+
+# LeoBMS
+
+### 增长部门管理系统
+
+<p>
+  <em>「把业务数据放进一个系统，把每周复盘变成可交付。」</em><br />
+  <em>"Run growth data in one place. A weekly review lands ready to ship."</em>
+</p>
+
+<p>
+  <a href="docs/README.en.md"><img alt="README: Chinese First" src="https://img.shields.io/badge/README-Chinese%20First-2563EB?labelColor=555&style=flat" /></a>
+  <img alt="License: Personal Use Only" src="https://img.shields.io/badge/License-Personal%20Use%20Only-EF6C2F?labelColor=555&style=flat" />
+  <img alt="Agent: Agnostic" src="https://img.shields.io/badge/Agent-Agnostic-7C3AED?labelColor=555&style=flat" />
+  <img alt="Mobile: Ready" src="https://img.shields.io/badge/Mobile-Ready-16A34A?labelColor=555&style=flat" />
+</p>
+
+</div>
+
+---
 
 > 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
 

@@ -1,4 +1,24 @@
-# LeoBMS - Growth Department Management System
+<div align="center">
+
+# LeoBMS
+
+### Growth Department Management System
+
+<p>
+  <em>"Run growth data in one place. A weekly review lands ready to ship."</em><br />
+  <em>「把业务数据放进一个系统，把每周复盘变成可交付。」</em>
+</p>
+
+<p>
+  <a href="../README.md"><img alt="README: Chinese First" src="https://img.shields.io/badge/README-Chinese%20First-2563EB?labelColor=555&style=flat" /></a>
+  <img alt="License: Personal Use Only" src="https://img.shields.io/badge/License-Personal%20Use%20Only-EF6C2F?labelColor=555&style=flat" />
+  <img alt="Agent: Agnostic" src="https://img.shields.io/badge/Agent-Agnostic-7C3AED?labelColor=555&style=flat" />
+  <img alt="Mobile: Ready" src="https://img.shields.io/badge/Mobile-Ready-16A34A?labelColor=555&style=flat" />
+</p>
+
+</div>
+
+---
 
 > English companion README. The primary project README remains Chinese: [Chinese README](../README.md).
 
