@@ -310,7 +310,7 @@ function buildReportHtml(content) {
       businessHtml += `</div>`;
     }
     if (cps?.enabled) {
-      businessHtml += `<div class="business-card" style="border-left-color:#16A34A"><div class="business-title">WPS 投流</div>`;
+      businessHtml += `<div class="business-card" style="border-left-color:#16A34A"><div class="business-title">CPS 投流</div>`;
       if (cps.has_data) {
         businessHtml += `<div class="mini-grid">
           <div class="mini-metric"><div class="mini-label">实收</div><div class="mini-value">¥${fmtMoney(cps.current?.actual_amount)}</div></div>
@@ -319,10 +319,10 @@ function buildReportHtml(content) {
           <div class="mini-metric"><div class="mini-label">预警</div><div class="mini-value">${escapeHtml(cps.current?.alert_count || 0)}</div></div>
         </div>`;
         if (cps.current?.refund_rate > 0.05) {
-          businessHtml += `<div class="alert-box">退款率超 5% 阈值 ${((cps.current.refund_rate - 0.05) * 100).toFixed(2)}pt，建议专项复盘。</div>`;
+          businessHtml += `<div class="alert-box">退款率超 5% 阈值 ${((cps.current.refund_rate - 0.05) * 100).toFixed(2)} 个百分点，建议专项复盘。</div>`;
         }
       } else {
-        businessHtml += `<div class="no-data">本周暂无 WPS 投流数据</div>`;
+        businessHtml += `<div class="no-data">本周暂无 CPS 投流数据</div>`;
       }
       businessHtml += `</div>`;
     }

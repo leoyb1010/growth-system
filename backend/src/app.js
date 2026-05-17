@@ -16,7 +16,30 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // 安全中间件
-app.use(helmet());
+app.use(helmet({
+  hsts: {
+    maxAge: 31536000,        // 1年（与 leonote.top 对齐）
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  frameguard: { action: 'deny' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      fontSrc: ["'self'", 'https:', 'data:'],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      imgSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+      upgradeInsecureRequests: [],
+    }
+  }
+}));
 
 // 信任 Cloudflare Tunnel 代理，使限流器能正确识别真实 IP
 app.set('trust proxy', 1);
@@ -103,6 +126,14 @@ app.get('/health', async (req, res) => {
 
 // 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+
+// /build/assets/* — Vite 带 content hash 的文件，可长缓存（Cloudflare 边缘缓存 + 浏览器强缓存）
+app.use('/build/assets', (req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  next();
+});
+app.use('/build/assets', express.static(path.join(frontendBuildPath, 'assets'), { immutable: true, maxAge: '365d' }));
+
 // index.html 不缓存，确保每次都获取最新的 JS hash
 app.get('/', (req, res) => {
   const indexPath = path.join(frontendBuildPath, 'index.html');
@@ -115,7 +146,7 @@ app.get('/', (req, res) => {
     res.status(404).send('Frontend not built');
   }
 });
-// 静态资源：强制 no-cache 防止 Cloudflare 边缘缓存导致 chunk 版本不一致
+// /static 路径（旧版遗留，非 hash 资源）：no-cache 防版本不一致
 app.use('/static', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');

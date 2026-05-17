@@ -15,13 +15,14 @@ async function generateReport(req, res) {
   try {
     const { week_start, week_end } = req.body;
 
-    // 默认生成上一完整自然周（周一至周日），避免在周一生成时把未来日期纳入周报
+    // 默认生成本周（本周一至今天），确保本周更新的项目进展能被捕获
+    // 如需查看上周周报，前端可传入 week_start/week_end 指定日期范围
     const start = week_start
       ? moment(week_start).startOf('day').toDate()
-      : moment().subtract(1, 'week').startOf('isoWeek').toDate();
+      : moment().startOf('isoWeek').toDate();
     const end = week_end
       ? moment(week_end).endOf('day').toDate()
-      : moment().subtract(1, 'week').endOf('isoWeek').toDate();
+      : moment().endOf('day').toDate();
 
     // 传入部门过滤：admin 看全部，其他只看本部门
     const deptFilter = req.deptFilter || null;

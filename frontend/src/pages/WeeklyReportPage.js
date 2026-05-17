@@ -466,11 +466,11 @@ function WeeklyReportPage() {
     if (business?.cps?.enabled) {
       if (business.cps.has_data) {
         const cps = business.cps;
-        md += `### WPS 投流\n\n`;
+        md += `### CPS 投流\n\n`;
         md += `| 实收 | 签约 | 退款率 | 退款 | 预警 |\n|---:|---:|---:|---:|---:|\n`;
         md += `| ¥${fmtMoney(cps.current?.actual_amount)} | ${cps.current?.actual_count || 0} | ${fmtPercent(cps.current?.refund_rate)} | ${cps.current?.refund_count || 0} | ${cps.current?.alert_count || 0} |\n\n`;
       } else {
-        md += `### WPS 投流\n\n本周暂无 WPS 投流数据\n\n`;
+        md += `### CPS 投流\n\n本周暂无 CPS 投流数据\n\n`;
       }
     }
 
@@ -590,10 +590,10 @@ td.text-cell { white-space: pre-wrap; }
     }
     if (business?.cps?.enabled) {
       const cps = business.cps;
-      html += `<div class="business-card" style="border-left-color:#16A34A"><h3>WPS 投流</h3>`;
+      html += `<div class="business-card" style="border-left-color:#16A34A"><h3>CPS 投流</h3>`;
       html += cps.has_data
         ? `<div class="metric-line"><strong>实收</strong> ¥${fmtMoney(cps.current?.actual_amount)} · <strong>签约</strong> ${cps.current?.actual_count || 0}单 · <strong>退款率</strong> ${fmtPercent(cps.current?.refund_rate)}</div><div class="metric-line"><strong>退款</strong> ${cps.current?.refund_count || 0}笔 · <strong>预警</strong> ${cps.current?.alert_count || 0}项</div>`
-        : `<div class="metric-line">本周暂无 WPS 投流数据</div>`;
+        : `<div class="metric-line">本周暂无 CPS 投流数据</div>`;
       html += `</div>`;
     }
     html += `</div>`;
@@ -774,7 +774,7 @@ td.text-cell { white-space: pre-wrap; }
       <div style={{ marginBottom: 22 }}>
         <SectionHeader
           title="重点业务速览"
-          subtitle="ASO 与 WPS 投流 · 本周"
+          subtitle="ASO 与 CPS 投流 · 本周"
           icon={<BarChartOutlined style={{ color: '#3B5AFB' }} />}
         />
         <Row gutter={[12, 12]}>
@@ -815,8 +815,8 @@ td.text-cell { white-space: pre-wrap; }
             <Col xs={24} lg={12}>
               <div className="surface-card-secondary" style={{ padding: compact ? 12 : 16, height: '100%' }}>
                 <SectionHeader
-                  title="WPS 投流"
-                  subtitle={cps.has_data ? `${cps.period?.start || data.week_start} ~ ${cps.period?.end || data.week_end}` : '本周暂无 WPS 投流数据'}
+                  title="CPS 投流"
+                  subtitle={cps.has_data ? `${cps.period?.start || data.week_start} ~ ${cps.period?.end || data.week_end}` : '本周暂无 CPS 投流数据'}
                   icon={<DollarOutlined style={{ color: '#16A34A' }} />}
                   color="#111827"
                 />
@@ -838,7 +838,7 @@ td.text-cell { white-space: pre-wrap; }
                     )}
                   </>
                 ) : (
-                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', background: 'var(--bg-muted)', borderRadius: 10 }}>暂无可用于周报的 WPS 投流数据</div>
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', background: 'var(--bg-muted)', borderRadius: 10 }}>暂无可用于周报的 CPS 投流数据</div>
                 )}
               </div>
             </Col>

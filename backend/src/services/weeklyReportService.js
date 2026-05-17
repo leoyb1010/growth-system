@@ -165,7 +165,7 @@ async function buildBusinessSummary(weekStartStr, weekEndStr, options = {}) {
       };
     } catch (err) {
       console.error('周报 CPS 数据聚合失败:', err);
-      businessSummary.cps = { enabled: true, has_data: false, error: 'WPS 投流数据读取失败' };
+      businessSummary.cps = { enabled: true, has_data: false, error: 'CPS 投流数据读取失败' };
     }
   } else {
     businessSummary.cps = { enabled: false, has_data: false, reason: '当前账号无 CPS 查看权限' };
@@ -515,7 +515,7 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
   if (cps?.enabled && cps.has_data && cps.current?.refund_rate > 0.05) {
     const refundRate = (cps.current.refund_rate * 100).toFixed(2);
     const breach = ((cps.current.refund_rate - 0.05) * 100).toFixed(2);
-    conclusions.push(`WPS 投流退款率${refundRate}%，超阈值${breach}pt，需专项复盘。`);
+    conclusions.push(`CPS 投流退款率 ${refundRate}%（阈值 5%），超出 ${breach} 个百分点，需专项复盘。`);
   }
 
   const aso = businessSummary.aso;
@@ -573,12 +573,12 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList, timeProgress, 
     if (cps.current?.refund_rate > 0.05) {
       changes.push({
         type: 'risk',
-        text: `WPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 5% 阈值`,
+        text: `CPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 5% 阈值`,
       });
     } else if (Math.abs(cps.delta?.actual_amount || 0) > 0) {
       changes.push({
         type: cps.delta.actual_amount >= 0 ? 'progress' : 'deviation',
-        text: `WPS 投流实收较上周${cps.delta.actual_amount >= 0 ? '增加' : '减少'} ${Math.abs(cps.delta.actual_amount).toFixed(0)} 元`,
+        text: `CPS 投流实收较上周${cps.delta.actual_amount >= 0 ? '增加' : '减少'} ${Math.abs(cps.delta.actual_amount).toFixed(0)} 元`,
       });
     }
   }
