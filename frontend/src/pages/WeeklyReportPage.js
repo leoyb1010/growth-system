@@ -319,8 +319,8 @@ function WeeklyReportPage() {
     const c = content || currentReport?.content || currentReport;
     if (!c) return;
 
-    const html = generateMeetingDocHtml(c);
-    const plainText = generateMeetingDocPlainText(c);
+    const html = generateMeetingDocEditorHtml(c);
+    const plainText = generateMeetingDocEditorPlainText(c);
 
     try {
       if (navigator.clipboard?.write && window.ClipboardItem) {
@@ -332,14 +332,14 @@ function WeeklyReportPage() {
         ]);
       } else if (!copyHtmlSelectionFallback(html)) {
         await copyPlainTextFallback(plainText);
-        message.warning('当前浏览器不支持富文本复制，已复制 Markdown 文本');
+        message.warning('当前浏览器不支持富文本复制，已复制会议文档纯文本');
         return;
       }
       message.success('已复制为会议文档富文本，可直接粘贴到在线文档');
     } catch (err) {
       try {
         await copyPlainTextFallback(plainText);
-        message.warning('富文本复制受限，已复制 Markdown 文本');
+        message.warning('富文本复制受限，已复制会议文档纯文本');
       } catch (fallbackErr) {
         console.error('复制会议文档失败:', err, fallbackErr);
         message.error('复制失败，请检查浏览器剪贴板权限');
@@ -951,6 +951,318 @@ td.text-cell { white-space: pre-wrap; }
       ${docTable(['部门', '项目/工作', '成果类型', '量化结果', '优先级'], achievementRows, ['14%', '22%', '16%', '36%', '12%'])}
 
       <div style="margin-top:22px;padding-top:10px;border-top:1px solid #E5E7EB;color:#9CA3AF;font-size:12px;line-height:1.6">本周报基础数据由系统自动汇总生成于 ${docEsc(content.generated_at || '')}</div>
+    </div>`;
+
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body><!--StartFragment-->${fragment}<!--EndFragment--></body></html>`;
+  };
+
+  const meetingDocPlainValue = (value) => {
+    if (value === undefined || value === null || value === '') return '-';
+    return String(value).replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim() || '-';
+  };
+
+  const meetingDocRateText = (value) => {
+    const display = meetingDocPlainValue(value ?? 0);
+    return display.includes('%') ? display : `${display}%`;
+  };
+
+  const meetingDocColorByRate = (value) => {
+    const n = Number.parseFloat(String(value ?? 0).replace('%', '')) || 0;
+    if (n >= 90) return '#15803D';
+    if (n >= 60) return '#B45309';
+    return '#B91C1C';
+  };
+
+  const getMeetingDocContext = (content) => {
+    const {
+      kpi_summary,
+      project_progress,
+      risk_and_warnings,
+      next_week_key_work,
+      next_week_focus,
+      new_achievements,
+      key_changes,
+    } = content;
+    const keyWorkItems = Array.isArray(next_week_key_work)
+      ? next_week_key_work
+      : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
+    const grouped = content.kpi_summary_grouped;
+    const kpiRows = [];
+    const pushKpi = (label, rate, target, actual, unit = '') => {
+      kpiRows.push({
+        label,
+        rate: rate ?? 0,
+        target: `${target ?? '-'}${unit || ''}`,
+        actual: `${actual ?? '-'}${unit || ''}`,
+      });
+    };
+
+    if (grouped?.row1?.length) grouped.row1.forEach(k => pushKpi(k.label, k.rate, k.target, k.actual, k.unit));
+    if (grouped?.row2?.length) grouped.row2.forEach(k => pushKpi(k.label, k.completion_rate, k.target, k.actual, k.unit));
+    if (grouped?.row3?.length) grouped.row3.forEach(k => pushKpi(k.label, k.completion_rate, k.target, k.actual, k.unit));
+    if (!kpiRows.length && kpi_summary?.length) {
+      kpi_summary.forEach(k => pushKpi(`${k.dept_name || '-'} · ${k.indicator || '-'}`, k.completion_rate, k.target, k.actual, k.unit));
+    }
+
+    return {
+      business: getBusinessSummary(content),
+      conclusion: getConclusion(content),
+      grouped,
+      keyChanges: Array.isArray(key_changes) ? key_changes : [],
+      kpiRows,
+      visibleProjects: (project_progress || []).filter(p => !p._hidden),
+      visibleKeyWork: keyWorkItems.filter(p => !p._hidden),
+      riskProjects: Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [],
+      severeWarnings: Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings : [],
+      achievements: Array.isArray(new_achievements) ? new_achievements : [],
+    };
+  };
+
+  const meetingDocSection = (title) => (
+    `<h2 style="font-size:18px;font-weight:700;line-height:1.45;margin:22px 0 10px 0;color:#111827">${docEsc(title)}</h2>`
+  );
+
+  const meetingDocSubhead = (title) => (
+    `<p style="margin:12px 0 4px 0;line-height:1.65;color:#111827"><strong>${docText(title)}</strong></p>`
+  );
+
+  const meetingDocKpiTable = (rows) => {
+    if (!rows.length) {
+      return '<p style="margin:4px 0 12px 0;color:#6B7280;line-height:1.7">暂无数据</p>';
+    }
+
+    return `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:8px 0 16px 0">
+      <thead>
+        <tr>
+          ${['指标', '完成率', '目标', '实际'].map(label => `<th style="background:#F4F5F7;color:#222;font-weight:700;text-align:left;padding:7px 9px;border:1px solid #DADDE3;line-height:1.5">${docEsc(label)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `<tr>
+          <td style="vertical-align:top;color:#222;padding:7px 9px;border:1px solid #DADDE3;line-height:1.55">${docText(row.label)}</td>
+          <td style="vertical-align:top;color:${meetingDocColorByRate(row.rate)};font-weight:700;padding:7px 9px;border:1px solid #DADDE3;line-height:1.55">${docEsc(meetingDocRateText(row.rate))}</td>
+          <td style="vertical-align:top;color:#222;padding:7px 9px;border:1px solid #DADDE3;line-height:1.55">${docText(row.target)}</td>
+          <td style="vertical-align:top;color:#222;padding:7px 9px;border:1px solid #DADDE3;line-height:1.55">${docText(row.actual)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  };
+
+  const meetingDocWorkBlock = (item, label, body) => (
+    `<div style="margin:10px 0 14px 0;line-height:1.7">
+      <p style="margin:0 0 2px 0;color:#374151">${docText(item.dept_name)}</p>
+      <p style="margin:0 0 4px 0;color:#111827"><strong>${docText(item.name)}</strong> ｜ <span style="font-weight:700;color:${meetingDocColorByRate(item.progress_pct)}">${docEsc(meetingDocRateText(item.progress_pct))}</span> ｜ ${docText(item.status || '进行中')}</p>
+      <p style="margin:0;color:#222"><strong>${docEsc(label)}：</strong>${docText(body)}</p>
+    </div>`
+  );
+
+  const meetingDocRiskBlock = (item) => (
+    `<div style="margin:10px 0 14px 0;line-height:1.7">
+      <p style="margin:0 0 2px 0;color:#374151">${docText(item.dept_name)}</p>
+      <p style="margin:0 0 4px 0;color:#111827"><strong>${docText(item.name)}</strong></p>
+      <p style="margin:0;color:#B91C1C"><strong>风险说明：</strong>${docText(item.risk_desc)}</p>
+    </div>`
+  );
+
+  const meetingDocWarningBlock = (item) => (
+    `<div style="margin:10px 0 14px 0;line-height:1.7">
+      <p style="margin:0 0 2px 0;color:#374151">${docText(item.dept_name)}</p>
+      <p style="margin:0 0 4px 0;color:#111827"><strong>${docText(item.business_type)} · ${docText(item.indicator)}</strong></p>
+      <p style="margin:0;color:#B91C1C"><strong>预警：</strong>完成率 ${docEsc(meetingDocRateText(item.completion_rate))}，差额 ${docText(item.gap)}</p>
+    </div>`
+  );
+
+  const meetingDocAchievementBlock = (item) => (
+    `<div style="margin:10px 0 14px 0;line-height:1.7">
+      <p style="margin:0 0 2px 0;color:#374151">${docText(item.dept_name)}</p>
+      <p style="margin:0 0 4px 0;color:#111827"><strong>${docText(item.project_name)}</strong> ｜ ${docText(item.achievement_type)} ｜ ${docText(item.priority)}</p>
+      <p style="margin:0;color:#222"><strong>量化结果：</strong>${docText(item.quantified_result)}</p>
+    </div>`
+  );
+
+  const generateMeetingDocEditorPlainText = (content) => {
+    const { business, conclusion, grouped, keyChanges, kpiRows, visibleProjects, visibleKeyWork, riskProjects, severeWarnings, achievements } = getMeetingDocContext(content);
+    const lines = [];
+    const sectionNumbers = ['一', '二', '三', '四', '五', '六', '七', '八'];
+    let sectionIndex = 0;
+    const addBlank = () => {
+      if (lines[lines.length - 1] !== '') lines.push('');
+    };
+    const addSection = (title) => {
+      addBlank();
+      const sectionNumber = sectionNumbers[sectionIndex] || `${sectionIndex + 1}`;
+      sectionIndex += 1;
+      lines.push(`${sectionNumber}、${title}`);
+      lines.push('');
+    };
+    const addWork = (item, label, body) => {
+      lines.push(meetingDocPlainValue(item.dept_name));
+      lines.push(`${meetingDocPlainValue(item.name)}｜${meetingDocRateText(item.progress_pct)}｜${meetingDocPlainValue(item.status || '进行中')}`);
+      lines.push(`${label}：${meetingDocPlainValue(body)}`);
+      lines.push('');
+    };
+
+    lines.push(`增长组业务周报｜${meetingDocPlainValue(content.week_start)} 至 ${meetingDocPlainValue(content.week_end)}`);
+    if (conclusion) {
+      lines.push('');
+      lines.push('本周核心结论');
+      lines.push(meetingDocPlainValue(conclusion));
+    }
+    if (keyChanges.length) {
+      addSection('本周关键变化');
+      keyChanges.forEach(item => lines.push(`- ${meetingDocPlainValue(item.text)}`));
+    }
+
+    addSection('本周数据摘要');
+    if (grouped?.time_progress != null) lines.push(`季度时间进度 ${grouped.time_progress}%`);
+    if (kpiRows.length) {
+      lines.push('指标\t完成率\t目标\t实际');
+      kpiRows.forEach(row => lines.push(`${meetingDocPlainValue(row.label)}\t${meetingDocRateText(row.rate)}\t${meetingDocPlainValue(row.target)}\t${meetingDocPlainValue(row.actual)}`));
+    } else {
+      lines.push('暂无数据');
+    }
+
+    if (business?.aso?.enabled || business?.cps?.enabled) {
+      addSection('重点业务速览');
+      if (business?.aso?.enabled) {
+        const aso = business.aso;
+        lines.push('ASO 优化');
+        lines.push(aso.has_data
+          ? `优化词 ${aso.current?.optimized_keywords || 0} · T1 ${aso.current?.t1_keywords || 0} · T3 ${aso.current?.t3_keywords || 0} · T3率 ${fmtPercent(aso.current?.t3_rate)} · 消耗 ¥${fmtMoney(aso.current?.total_cost)}`
+          : '本周暂无 ASO 日报数据');
+        lines.push('');
+      }
+      if (business?.cps?.enabled) {
+        const cps = business.cps;
+        lines.push('CPS 投流');
+        lines.push(cps.has_data
+          ? `实收 ¥${fmtMoney(cps.current?.actual_amount)} · 签约 ${cps.current?.actual_count || 0} 单 · 退款率 ${fmtPercent(cps.current?.refund_rate)} · 退款 ${cps.current?.refund_count || 0} 笔 · 预警 ${cps.current?.alert_count || 0} 项`
+          : '本周暂无 CPS 投流数据');
+      }
+    }
+
+    addSection('重点工作进展');
+    lines.push(`更新 ${visibleProjects.length} 项`);
+    lines.push('');
+    if (visibleProjects.length) {
+      visibleProjects.forEach(item => addWork(item, '本周进展', item.weekly_progress));
+    } else {
+      lines.push('本周无更新项目');
+    }
+
+    addSection('风险与预警');
+    if (riskProjects.length || severeWarnings.length) {
+      riskProjects.forEach(item => {
+        lines.push(meetingDocPlainValue(item.dept_name));
+        lines.push(meetingDocPlainValue(item.name));
+        lines.push(`风险说明：${meetingDocPlainValue(item.risk_desc)}`);
+        lines.push('');
+      });
+      severeWarnings.forEach(item => {
+        lines.push(meetingDocPlainValue(item.dept_name));
+        lines.push(`${meetingDocPlainValue(item.business_type)} · ${meetingDocPlainValue(item.indicator)}`);
+        lines.push(`预警：完成率 ${meetingDocRateText(item.completion_rate)}，差额 ${meetingDocPlainValue(item.gap)}`);
+        lines.push('');
+      });
+    } else {
+      lines.push('本周无风险项目或严重预警指标');
+    }
+
+    addSection('下周重点工作');
+    lines.push(`${visibleKeyWork.length} 项`);
+    lines.push('');
+    if (visibleKeyWork.length) {
+      visibleKeyWork.forEach(item => addWork(item, '下周重点', item.next_week_focus || item.due_date));
+    } else {
+      lines.push('暂无项目填写下周重点工作');
+    }
+
+    addSection('新增成果');
+    lines.push(`${achievements.length} 项`);
+    lines.push('');
+    if (achievements.length) {
+      achievements.forEach(item => {
+        lines.push(meetingDocPlainValue(item.dept_name));
+        lines.push(`${meetingDocPlainValue(item.project_name)}｜${meetingDocPlainValue(item.achievement_type)}｜${meetingDocPlainValue(item.priority)}`);
+        lines.push(`量化结果：${meetingDocPlainValue(item.quantified_result)}`);
+        lines.push('');
+      });
+    } else {
+      lines.push('暂无数据');
+    }
+
+    addBlank();
+    lines.push(`本周报基础数据由系统自动汇总生成于 ${meetingDocPlainValue(content.generated_at)}`);
+    return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
+  };
+
+  const generateMeetingDocEditorHtml = (content) => {
+    const { business, conclusion, grouped, keyChanges, kpiRows, visibleProjects, visibleKeyWork, riskProjects, severeWarnings, achievements } = getMeetingDocContext(content);
+    const riskCount = riskProjects.length + severeWarnings.length;
+    const sectionNumbers = ['一', '二', '三', '四', '五', '六', '七', '八'];
+    let sectionIndex = 0;
+    const nextSection = (title) => {
+      const sectionNumber = sectionNumbers[sectionIndex] || `${sectionIndex + 1}`;
+      sectionIndex += 1;
+      return meetingDocSection(`${sectionNumber}、${title}`);
+    };
+
+    const keyChangeHtml = keyChanges.length
+      ? `${nextSection('本周关键变化')}
+        <ul style="margin:4px 0 16px 22px;padding:0;line-height:1.75">
+          ${keyChanges.map(item => `<li style="margin:2px 0;color:#222">${docText(item.text)}</li>`).join('')}
+        </ul>`
+      : '';
+
+    const businessHtml = [];
+    if (business?.aso?.enabled) {
+      const aso = business.aso;
+      businessHtml.push(`${meetingDocSubhead('ASO 优化')}
+        <p style="margin:0 0 10px 0;line-height:1.75;color:#222">${aso.has_data
+          ? `优化词 <strong>${docEsc(aso.current?.optimized_keywords || 0)}</strong> · T1 <strong>${docEsc(aso.current?.t1_keywords || 0)}</strong> · T3 <strong>${docEsc(aso.current?.t3_keywords || 0)}</strong><br/>T3率 <strong>${docEsc(fmtPercent(aso.current?.t3_rate))}</strong> · 消耗 <strong>¥${docEsc(fmtMoney(aso.current?.total_cost))}</strong>`
+          : '本周暂无 ASO 日报数据'}</p>`);
+    }
+    if (business?.cps?.enabled) {
+      const cps = business.cps;
+      businessHtml.push(`${meetingDocSubhead('CPS 投流')}
+        <p style="margin:0 0 10px 0;line-height:1.75;color:#222">${cps.has_data
+          ? `实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 退款率 <strong>${docEsc(fmtPercent(cps.current?.refund_rate))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项`
+          : '本周暂无 CPS 投流数据'}</p>`);
+    }
+
+    const fragment = `<div style="font-family:Arial,'Microsoft YaHei','PingFang SC',sans-serif;color:#222;line-height:1.7">
+      <h1 style="font-size:20px;font-weight:700;line-height:1.45;margin:0 0 10px 0;color:#111827">增长组业务周报｜${docEsc(content.week_start || '')} 至 ${docEsc(content.week_end || '')}</h1>
+
+      ${conclusion ? `<h2 style="font-size:18px;font-weight:700;line-height:1.45;margin:18px 0 8px 0;color:#111827">本周核心结论</h2>
+        <p style="margin:0 0 14px 0;line-height:1.85;color:#222">${docText(conclusion)}</p>` : ''}
+
+      ${keyChangeHtml}
+
+      ${nextSection('本周数据摘要')}
+      ${grouped?.time_progress != null ? `<p style="margin:0 0 8px 0;line-height:1.7;color:#374151">季度时间进度 ${docEsc(grouped.time_progress)}%</p>` : ''}
+      ${meetingDocKpiTable(kpiRows)}
+
+      ${businessHtml.length ? `${nextSection('重点业务速览')}${businessHtml.join('')}` : ''}
+
+      ${nextSection('重点工作进展')}
+      <p style="margin:0 0 8px 0;line-height:1.7;color:#374151">更新 ${docEsc(visibleProjects.length)} 项</p>
+      ${visibleProjects.length ? visibleProjects.map(item => meetingDocWorkBlock(item, '本周进展', item.weekly_progress)).join('') : '<p style="margin:0 0 12px 0;color:#6B7280;line-height:1.7">本周无更新项目</p>'}
+
+      ${nextSection('风险与预警')}
+      <p style="margin:0 0 8px 0;line-height:1.7;color:#374151">${riskCount > 0 ? `${docEsc(riskCount)} 项需关注` : '本周无风险项目或严重预警指标'}</p>
+      ${riskProjects.map(meetingDocRiskBlock).join('')}
+      ${severeWarnings.map(meetingDocWarningBlock).join('')}
+      ${riskCount === 0 ? '<p style="margin:0 0 12px 0;color:#15803D;line-height:1.7">本周无风险项目或严重预警指标</p>' : ''}
+
+      ${nextSection('下周重点工作')}
+      <p style="margin:0 0 8px 0;line-height:1.7;color:#374151">${docEsc(visibleKeyWork.length)} 项</p>
+      ${visibleKeyWork.length ? visibleKeyWork.map(item => meetingDocWorkBlock(item, '下周重点', item.next_week_focus || item.due_date)).join('') : '<p style="margin:0 0 12px 0;color:#6B7280;line-height:1.7">暂无项目填写下周重点工作</p>'}
+
+      ${nextSection('新增成果')}
+      <p style="margin:0 0 8px 0;line-height:1.7;color:#374151">${docEsc(achievements.length)} 项</p>
+      ${achievements.length ? achievements.map(meetingDocAchievementBlock).join('') : '<p style="margin:0 0 12px 0;color:#6B7280;line-height:1.7">暂无数据</p>'}
+
+      <p style="margin:18px 0 0 0;padding-top:8px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:12px;line-height:1.6">本周报基础数据由系统自动汇总生成于 ${docText(content.generated_at)}</p>
     </div>`;
 
     return `<!doctype html><html><head><meta charset="utf-8"></head><body><!--StartFragment-->${fragment}<!--EndFragment--></body></html>`;

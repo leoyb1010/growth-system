@@ -102,7 +102,7 @@ The weekly report experience includes a dedicated mobile layout. Dense tables ar
 
 ## Meeting Docs Copy
 
-Weekly reports can be copied as rich text for online meeting documents. The copied payload includes `text/html` for formatted tables and `text/plain` as a fallback, so the report remains selectable and editable after pasting instead of becoming a fixed PNG image.
+Weekly reports can be copied as rich text for online meeting documents. The copied payload includes `text/html` plus a structured `text/plain` fallback, so the report remains selectable and editable after pasting instead of becoming a fixed PNG image. The meeting-doc template uses document-friendly headings, short KPI tables, and project blocks instead of wide web tables, which reduces layout breakage in online editors.
 
 ## Production Notes
 
