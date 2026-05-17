@@ -47,10 +47,10 @@
 
 ## 技术栈
 
-- **前端**：React 18 + Ant Design 5 + ECharts 5 + html-to-image
+- **前端**：React 18 + Vite + Ant Design 5 + ECharts 5 + html-to-image
 - **后端**：Node.js + Express 4 + Sequelize ORM + DeepSeek LLM + SQLITE_READONLY 自愈
 - **数据库**：PostgreSQL 14+ / SQLite（本地开发 + 生产）
-- **认证**：JWT + bcrypt + token_version 校验
+- **认证**：短期 Access Token + HttpOnly Refresh Cookie + bcrypt + token_version 校验
 - **AI**：DeepSeek Chat + 规则引擎混合架构 + SSE 流式输出
 - **部署**：Docker + Docker Compose / 本地 Mac + Cloudflare Tunnel
 
@@ -184,7 +184,7 @@ growth-system/
 │   ├── nginx.conf             # Nginx 配置
 │   └── src/
 │       ├── App.js             # 路由配置（React.lazy 懒加载）[v6.1]
-│       ├── index.js           # 入口文件
+│       ├── index.jsx          # Vite 入口文件
 │       ├── index.css          # Design Token CSS 变量体系 [v6.1]
 │       ├── hooks/             # 自定义 Hooks（useAuth / useSubmitGuard / useAIStream）[v6.1]
 │       ├── utils/             # 工具函数
@@ -420,6 +420,28 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v1.17.1 — 2026-05-17 · 安全边界修复 · 周报权限加固 · Vite构建升级
+
+> 核心改动：修复周报跨部门读写/导出边界；加固服务端截图与Excel导出；Refresh Token迁移到HttpOnly Cookie；前端构建从 react-scripts 升级到 Vite。
+
+**安全修复**
+- 周报列表、详情、PNG导出按部门权限过滤，部门用户无法导出或读取其他部门/全局周报内容
+- 周报HTML保存与文件链接保存收敛为管理员操作，文件链接仅允许 `/api/files/weekly-reports/` 下的安全文件名
+- Puppeteer PNG截图模板统一HTML转义，禁用页面脚本和外部资源请求，降低服务端渲染XSS/SSRF风险
+- Refresh Token 从前端持久化存储迁移到 HttpOnly SameSite Cookie；Access Token 改为内存态，保留旧 localStorage refreshToken 平滑迁移
+- Excel导出统一防公式注入，`= + - @` 开头的字符串写出时自动加 `'` 前缀
+
+**正确性修复**
+- 修复 Project / MonthlyTask / Achievement 外键引用模型名与实际表名不一致的问题
+- 项目归档校验改用 `project.year`，避免跨年归档被绕过或误拦截
+- `quick-update` 更新后 reload 实例，返回值、审计日志、同步逻辑使用最新数据
+- 修复成员项目数据范围引用不存在字段、项目搜索条件被角色过滤覆盖的问题
+
+**构建与测试**
+- 前端从 `react-scripts` 迁移到 Vite，仍输出到 `frontend/build`，后端静态托管逻辑不变
+- 新增后端 `npm test`，覆盖 Excel 公式注入防护和周报跨部门数据检测
+- 前后端 `npm audit` 当前均为 0 漏洞
 
 ### v1.17.0 — 2026-05-11 · 周报仪表盘升级 · ASO/CPS业务速览 · 新UI组件库 · 看板视觉重设计
 
@@ -1313,6 +1335,7 @@ docker-compose up -d --build
 - [x] v1.16.0 安全深度加固（ExcelJS替换xlsx / 密码策略 / Refresh Token哈希 / 首次改密强制 / 数据范围重构 / Nginx安全头 / Docker非root）
 - [x] v1.16.1 周报编辑修复 + 下周重点隐藏功能 + KPI指标模糊匹配
 - [x] v1.17.0 周报仪表盘升级 + ASO/CPS业务速览 + 新UI组件库 + 看板视觉重设计
+- [x] v1.17.1 安全边界修复 + 周报权限加固 + Vite构建升级
 
 ## License
 

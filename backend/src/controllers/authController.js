@@ -5,6 +5,50 @@ const { logAudit } = require('../services/auditLogService');
 const { generateAccessToken, generateRefreshToken, verifyAndRotateRefreshToken, revokeAllUserTokens } = require('../services/refreshTokenService');
 const { validatePasswordStrength } = require('../utils/passwordPolicy');
 
+const REFRESH_COOKIE_NAME = 'refreshToken';
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+function getCookie(req, name) {
+  const header = req.headers.cookie || '';
+  const cookies = header.split(';').map(part => part.trim()).filter(Boolean);
+  for (const cookie of cookies) {
+    const index = cookie.indexOf('=');
+    if (index === -1) continue;
+    const key = cookie.slice(0, index);
+    if (key === name) return decodeURIComponent(cookie.slice(index + 1));
+  }
+  return null;
+}
+
+function refreshCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/auth/refresh',
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  };
+}
+
+function setRefreshTokenCookie(res, token) {
+  res.cookie(REFRESH_COOKIE_NAME, token, refreshCookieOptions());
+}
+
+function clearRefreshTokenCookie(res) {
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/auth/refresh',
+  });
+}
+
+function getRoleLevel(role) {
+  if (role === 'admin' || role === 'super_admin') return 0;
+  if (role === 'dept_manager' || role === 'dept' || role === 'cps_admin') return 1;
+  return 2;
+}
+
 /**
  * 用户登录
  * POST /api/auth/login
@@ -43,16 +87,16 @@ async function login(req, res) {
     await user.update({ last_login_at: new Date() });
 
     // 计算角色层级
-    const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
+    const roleLevel = getRoleLevel(user.role);
 
     const token = generateAccessToken(user);
 
     // 生成 refresh token
     const refreshToken = await generateRefreshToken(user);
+    setRefreshTokenCookie(res, refreshToken);
 
     success(res, {
       token,
-      refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -95,7 +139,7 @@ async function getCurrentUser(req, res) {
       return error(res, '账号待审核', 1, 403);
     }
     // 注入 roleLevel
-    const roleLevel = user.role === 'admin' ? 0 : (user.role === 'dept_manager' || user.role === 'dept') ? 1 : 2;
+    const roleLevel = getRoleLevel(user.role);
     const userData = user.toJSON();
     userData.roleLevel = roleLevel;
     success(res, userData);
@@ -213,7 +257,8 @@ async function register(req, res) {
  */
 async function refreshToken(req, res) {
   try {
-    const { refreshToken: token } = req.body;
+    const { refreshToken: legacyBodyToken } = req.body || {};
+    const token = getCookie(req, REFRESH_COOKIE_NAME) || legacyBodyToken;
     if (!token) return error(res, '缺少 refreshToken', 1, 400);
 
     const result = await verifyAndRotateRefreshToken(token);
@@ -221,10 +266,10 @@ async function refreshToken(req, res) {
 
     const { user, refreshToken: newRefreshToken } = result;
     const accessToken = generateAccessToken(user);
+    setRefreshTokenCookie(res, newRefreshToken);
 
     success(res, {
-      token: accessToken,
-      refreshToken: newRefreshToken
+      token: accessToken
     }, 'Token 刷新成功');
   } catch (err) {
     console.error('刷新 Token 失败:', err);
@@ -239,6 +284,7 @@ async function refreshToken(req, res) {
 async function logout(req, res) {
   try {
     await revokeAllUserTokens(req.user.id);
+    clearRefreshTokenCookie(res);
     success(res, null, '登出成功');
   } catch (err) {
     console.error('登出失败:', err);

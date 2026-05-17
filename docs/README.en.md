@@ -53,10 +53,10 @@ The system is designed around a weekly operating rhythm: teams update project pr
 
 ## Tech Stack
 
-- **Frontend**: React 18, Ant Design 5, ECharts, html-to-image
+- **Frontend**: React 18, Vite, Ant Design 5, ECharts, html-to-image
 - **Backend**: Node.js, Express 4, Sequelize ORM
 - **Database**: PostgreSQL 14+ or SQLite for local development
-- **Auth**: JWT, bcrypt, token version validation
+- **Auth**: short-lived access tokens, HttpOnly refresh cookies, bcrypt, token version validation
 - **AI**: DeepSeek Chat plus rule-based risk and review engines
 - **Deployment**: Docker Compose, local Mac service mode, or Cloudflare Tunnel
 
@@ -106,4 +106,6 @@ The weekly report experience includes a dedicated mobile layout. Dense tables ar
 - Set a strong `JWT_SECRET`.
 - Prefer PostgreSQL for production data.
 - Keep exported reports and uploaded files behind authenticated routes.
+- Weekly report reads and PNG exports are department-filtered; refresh tokens are stored in HttpOnly cookies.
+- Frontend builds with Vite and still emits `frontend/build` for the existing backend static hosting flow.
 - Use the health check endpoint before deployment handoff.

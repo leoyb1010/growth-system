@@ -10,6 +10,13 @@ function getOperator(req) {
   return { id: req.user.id, name: req.user.name || req.user.username };
 }
 
+function appendAndCondition(where, condition) {
+  const existingAnd = where[Op.and]
+    ? (Array.isArray(where[Op.and]) ? where[Op.and] : [where[Op.and]])
+    : [];
+  where[Op.and] = [...existingAnd, condition];
+}
+
 /**
  * 按角色追加项目查询过滤条件
  * admin: 无额外限制
@@ -30,7 +37,13 @@ function applyProjectRoleFilter(where, req) {
     { creator_id: id },
   ];
   if (name) orConditions.push({ owner_name: name }); // name 存在时才追加过渡兼容条件
-  where[Op.or] = orConditions;
+  const roleCondition = { [Op.or]: orConditions };
+  if (where[Op.or]) {
+    const searchCondition = { [Op.or]: where[Op.or] };
+    delete where[Op.or];
+    appendAndCondition(where, searchCondition);
+  }
+  appendAndCondition(where, roleCondition);
   return where;
 }
 
@@ -267,7 +280,7 @@ async function updateProject(req, res) {
       return error(res, '无权修改此项目', 403, 403);
     }
 
-    const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
+    const isBlocked = await checkArchived('projects', project.quarter, project.year, error, res);
     if (isBlocked) return;
 
     // 字段白名单，禁止任意字段直传
@@ -430,7 +443,7 @@ async function deleteProject(req, res) {
       return error(res, '无权删除项目', 403, 403);
     }
 
-    const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
+    const isBlocked = await checkArchived('projects', project.quarter, project.year, error, res);
     if (isBlocked) return;
 
     const oldValues = project.toJSON();
@@ -541,7 +554,7 @@ async function quickUpdateProject(req, res) {
       return error(res, '无权更新此项目', 403, 403);
     }
 
-    const isBlocked = await checkArchived('projects', project.quarter, new Date().getFullYear(), error, res);
+    const isBlocked = await checkArchived('projects', project.quarter, project.year, error, res);
     if (isBlocked) return;
 
     const allowedFields = ['progress_pct', 'status', 'weekly_progress', 'next_week_focus', 'risk_desc', 'next_action', 'block_reason'];
@@ -576,6 +589,7 @@ async function quickUpdateProject(req, res) {
     if (affected === 0) {
       return error(res, '数据已被他人修改，请刷新页面后重试', 409, 409);
     }
+    await project.reload();
 
     // 写入项目每日更新日志（内容更新，非操作审计）
     await ProjectUpdateLog.create({

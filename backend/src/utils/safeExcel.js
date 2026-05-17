@@ -119,6 +119,11 @@ function json_to_sheet(data) {
   return { __rows: [headers, ...data.map(row => headers.map(header => row?.[header]))] };
 }
 
+function sanitizeCellForWrite(value) {
+  if (typeof value !== 'string') return value;
+  return /^[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
 function book_append_sheet(workbook, sheet, name) {
   workbook.__sheets.push({ name, rows: sheet.__rows || [] });
 }
@@ -127,7 +132,7 @@ function toExcelWorkbook(workbook) {
   const excelWorkbook = new ExcelJS.Workbook();
   (workbook.__sheets || []).forEach(sheet => {
     const worksheet = excelWorkbook.addWorksheet(sheet.name || 'Sheet1');
-    (sheet.rows || []).forEach(row => worksheet.addRow(row));
+    (sheet.rows || []).forEach(row => worksheet.addRow((row || []).map(sanitizeCellForWrite)));
   });
   return excelWorkbook;
 }
@@ -144,6 +149,7 @@ async function writeFile(workbook, filePath) {
 module.exports = {
   readWorkbook,
   sheetToJson,
+  sanitizeCellForWrite,
   xlsx: {
     utils: {
       book_new,

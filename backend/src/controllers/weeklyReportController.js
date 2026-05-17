@@ -6,8 +6,6 @@ const { generateReportPng } = require('../services/reportScreenshotService');
 const { success, error } = require('../utils/response');
 const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProgress');
 const moment = require('moment');
-const fs = require('fs');
-const path = require('path');
 
 /**
  * 生成周报
@@ -73,17 +71,23 @@ async function getReports(req, res) {
 
     // 部门过滤：admin 看全部，其他只看本部门相关内容
     const deptFilter = req.deptFilter || null;
-    success(res, reports.map(r => {
+    const visibleReports = [];
+    for (const r of reports) {
+      if (deptFilter) {
+        const filtered = await filterReportContentForDept(r.content_json, deptFilter);
+        if (!filtered.hasData) continue;
+      }
       const item = {
         id: r.id,
         week_start: r.week_start,
         week_end: r.week_end,
         generated_at: moment(r.generated_at).format('YYYY-MM-DD HH:mm'),
-        png_url: r.png_url,
-        pdf_url: r.pdf_url
+        png_url: sanitizeReportFileUrlForResponse(r.png_url),
+        pdf_url: sanitizeReportFileUrlForResponse(r.pdf_url)
       };
-      return item;
-    }));
+      visibleReports.push(item);
+    }
+    success(res, visibleReports);
   } catch (err) {
     console.error('获取周报列表失败:', err);
     error(res, '获取周报列表失败', 1, 500);
@@ -96,28 +100,41 @@ async function getReports(req, res) {
  */
 async function getLatestReport(req, res) {
   try {
-    const report = await WeeklyReport.findOne({
-      order: [['generated_at', 'DESC']]
+    const reports = await WeeklyReport.findAll({
+      order: [['generated_at', 'DESC']],
+      limit: 50
     });
 
-    if (!report) {
+    if (!reports.length) {
       return error(res, '暂无周报数据');
     }
 
     // 部门过滤内容
     const deptFilter = req.deptFilter || null;
-    const content = deptFilter && report.content_json
-      ? (await filterReportContentForDept(report.content_json, deptFilter)).content
-      : report.content_json;
+    let report = reports[0];
+    let visibleContent = report.content_json;
+
+    if (deptFilter) {
+      report = null;
+      for (const candidate of reports) {
+        const filtered = await filterReportContentForDept(candidate.content_json, deptFilter);
+        if (filtered.hasData) {
+          report = candidate;
+          visibleContent = filtered.content;
+          break;
+        }
+      }
+      if (!report) return error(res, '暂无可见周报数据', 1, 404);
+    }
 
     success(res, {
       id: report.id,
       week_start: report.week_start,
       week_end: report.week_end,
-      content,
+      content: visibleContent,
       generated_at: moment(report.generated_at).format('YYYY-MM-DD HH:mm'),
-      png_url: report.png_url,
-      pdf_url: report.pdf_url
+      png_url: sanitizeReportFileUrlForResponse(report.png_url),
+      pdf_url: sanitizeReportFileUrlForResponse(report.pdf_url)
     });
   } catch (err) {
     console.error('获取最新周报失败:', err);
@@ -140,19 +157,24 @@ async function getReportById(req, res) {
 
     // 部门过滤内容
     const deptFilter = req.deptFilter || null;
-    const content = deptFilter && report.content_json
-      ? (await filterReportContentForDept(report.content_json, deptFilter)).content
-      : report.content_json;
+    let content = report.content_json;
+    if (deptFilter && report.content_json) {
+      const filtered = await filterReportContentForDept(report.content_json, deptFilter);
+      if (!filtered.hasData) {
+        return error(res, '无权查看该周报', 403, 403);
+      }
+      content = filtered.content;
+    }
 
     success(res, {
       id: report.id,
       week_start: report.week_start,
       week_end: report.week_end,
       content,
-      html_content: report.html_content,
+      html_content: deptFilter ? null : report.html_content,
       generated_at: moment(report.generated_at).format('YYYY-MM-DD HH:mm'),
-      png_url: report.png_url,
-      pdf_url: report.pdf_url
+      png_url: sanitizeReportFileUrlForResponse(report.png_url),
+      pdf_url: sanitizeReportFileUrlForResponse(report.pdf_url)
     });
   } catch (err) {
     console.error('获取周报详情失败:', err);
@@ -176,6 +198,21 @@ async function saveReportContent(req, res) {
     const report = await WeeklyReport.findByPk(id);
     if (!report) {
       return error(res, '周报不存在');
+    }
+
+    const deptFilter = req.deptFilter || null;
+    if (deptFilter) {
+      const dept = await Department.findByPk(deptFilter);
+      const deptName = dept ? dept.name : '';
+      const visible = await filterReportContentForDept(report.content_json, deptFilter);
+      if (!visible.hasData) {
+        return error(res, '无权修改该周报', 403, 403);
+      }
+      const currentScope = getOutOfScopeDeptData(report.content_json, deptFilter, deptName);
+      const incomingScope = getOutOfScopeDeptData(content_json, deptFilter, deptName);
+      if (currentScope.length || incomingScope.length) {
+        return error(res, '无权修改包含其他部门数据的周报', 403, 403);
+      }
     }
 
     // 合并更新：保留原始数据，用编辑后的字段覆盖
@@ -206,6 +243,10 @@ async function saveReportHtml(req, res) {
       return error(res, '周报不存在');
     }
 
+    if (req.deptFilter) {
+      return error(res, '仅管理员可保存周报 HTML 内容', 403, 403);
+    }
+
     await report.update({ html_content });
     success(res, null, 'HTML 内容保存成功');
   } catch (err) {
@@ -228,7 +269,21 @@ async function saveReportFiles(req, res) {
       return error(res, '周报不存在');
     }
 
-    await report.update({ png_url, pdf_url });
+    if (req.deptFilter) {
+      return error(res, '仅管理员可保存周报文件链接', 403, 403);
+    }
+
+    const updateData = {};
+    if (png_url !== undefined) {
+      if (!isSafeWeeklyReportFileUrl(png_url, '.png')) return error(res, '非法 PNG 文件链接', 1, 400);
+      updateData.png_url = png_url || null;
+    }
+    if (pdf_url !== undefined) {
+      if (!isSafeWeeklyReportFileUrl(pdf_url, '.pdf')) return error(res, '非法 PDF 文件链接', 1, 400);
+      updateData.pdf_url = pdf_url || null;
+    }
+
+    await report.update(updateData);
     success(res, null, '文件链接保存成功');
   } catch (err) {
     console.error('保存文件链接失败:', err);
@@ -249,9 +304,18 @@ async function exportReportPng(req, res) {
       return error(res, '周报不存在');
     }
 
-    const content = report.content_json;
+    let content = report.content_json;
     if (!content) {
       return error(res, '周报内容为空');
+    }
+
+    const deptFilter = req.deptFilter || null;
+    if (deptFilter) {
+      const filtered = await filterReportContentForDept(content, deptFilter);
+      if (!filtered.hasData) {
+        return error(res, '无权导出该周报', 403, 403);
+      }
+      content = filtered.content;
     }
 
     const pngBuffer = await generateReportPng(content);
@@ -282,8 +346,72 @@ module.exports = {
   saveReportContent,
   saveReportHtml,
   saveReportFiles,
-  exportReportPng
+  exportReportPng,
+  __private: {
+    filterReportContentForDept,
+    getOutOfScopeDeptData,
+    isSafeWeeklyReportFileUrl
+  }
 };
+
+function sanitizeReportFileUrlForResponse(value) {
+  if (!value) return null;
+  if (isSafeWeeklyReportFileUrl(value, '.png') || isSafeWeeklyReportFileUrl(value, '.pdf')) return value;
+  return null;
+}
+
+function isSafeWeeklyReportFileUrl(value, expectedExt) {
+  if (value === null || value === '') return true;
+  if (typeof value !== 'string') return false;
+  if (!value.startsWith('/api/files/weekly-reports/')) return false;
+  const filename = value.slice('/api/files/weekly-reports/'.length);
+  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) return false;
+  if (!/^[A-Za-z0-9._-]+$/.test(filename)) return false;
+  return filename.toLowerCase().endsWith(expectedExt);
+}
+
+function itemHasDeptMarker(item) {
+  return item && typeof item === 'object' && (
+    item.dept_id !== undefined ||
+    item.deptId !== undefined ||
+    item.dept_name !== undefined ||
+    item.department_name !== undefined
+  );
+}
+
+function itemBelongsToDept(item, deptId, deptName) {
+  if (!itemHasDeptMarker(item)) return true;
+  const itemDeptId = item.dept_id ?? item.deptId;
+  const itemDeptName = item.dept_name ?? item.department_name;
+  if (itemDeptId !== undefined && itemDeptId !== null && Number(itemDeptId) === Number(deptId)) return true;
+  if (itemDeptName && deptName && String(itemDeptName) === String(deptName)) return true;
+  return false;
+}
+
+function collectOutOfScopeItems(items, deptId, deptName, pathLabel, out) {
+  if (!Array.isArray(items)) return;
+  items.forEach((item, index) => {
+    if (!itemBelongsToDept(item, deptId, deptName)) {
+      out.push({ path: `${pathLabel}[${index}]`, dept_id: item.dept_id ?? item.deptId, dept_name: item.dept_name ?? item.department_name });
+    }
+  });
+}
+
+function getOutOfScopeDeptData(content, deptId, deptName = '') {
+  if (!content || !deptId) return [];
+  const out = [];
+  collectOutOfScopeItems(content.kpi_summary, deptId, deptName, 'kpi_summary', out);
+  collectOutOfScopeItems(content.project_progress, deptId, deptName, 'project_progress', out);
+  collectOutOfScopeItems(content.next_week_key_work, deptId, deptName, 'next_week_key_work', out);
+  collectOutOfScopeItems(content.new_achievements, deptId, deptName, 'new_achievements', out);
+  collectOutOfScopeItems(content.risk_and_warnings?.risk_projects, deptId, deptName, 'risk_and_warnings.risk_projects', out);
+  collectOutOfScopeItems(content.risk_and_warnings?.severe_warnings, deptId, deptName, 'risk_and_warnings.severe_warnings', out);
+  collectOutOfScopeItems(content.next_week_focus?.upcoming_projects, deptId, deptName, 'next_week_focus.upcoming_projects', out);
+  collectOutOfScopeItems(content.next_week_focus?.follow_up_items, deptId, deptName, 'next_week_focus.follow_up_items', out);
+  collectOutOfScopeItems(content.kpi_summary_grouped?.row2, deptId, deptName, 'kpi_summary_grouped.row2', out);
+  collectOutOfScopeItems(content.kpi_summary_grouped?.row3, deptId, deptName, 'kpi_summary_grouped.row3', out);
+  return out;
+}
 
 /**
  * 根据部门过滤周报内容
@@ -302,14 +430,22 @@ async function filterReportContentForDept(content, deptId) {
   // 过滤 KPI 摘要：优先 dept_id，fallback dept_name
   if (filtered.kpi_summary) {
     filtered.kpi_summary = filtered.kpi_summary.filter(k =>
-      k.dept_id === deptId || k.dept_name === deptName
+      itemBelongsToDept(k, deptId, deptName)
     );
+  }
+
+  if (filtered.kpi_summary_grouped) {
+    filtered.kpi_summary_grouped = {
+      ...filtered.kpi_summary_grouped,
+      row2: (filtered.kpi_summary_grouped.row2 || []).filter(k => itemBelongsToDept(k, deptId, deptName)),
+      row3: (filtered.kpi_summary_grouped.row3 || []).filter(k => itemBelongsToDept(k, deptId, deptName)),
+    };
   }
 
   // 过滤项目进展
   if (filtered.project_progress) {
     filtered.project_progress = filtered.project_progress.filter(p =>
-      p.dept_id === deptId || p.dept_name === deptName
+      itemBelongsToDept(p, deptId, deptName)
     );
   }
 
@@ -318,10 +454,10 @@ async function filterReportContentForDept(content, deptId) {
     const raw = filtered.risk_and_warnings;
     filtered.risk_and_warnings = {
       risk_projects: (raw.risk_projects || []).filter(p =>
-        p.dept_id === deptId || p.dept_name === deptName
+        itemBelongsToDept(p, deptId, deptName)
       ),
       severe_warnings: (raw.severe_warnings || []).filter(w =>
-        w.dept_id === deptId || w.dept_name === deptName
+        itemBelongsToDept(w, deptId, deptName)
       ),
     };
   }
@@ -329,7 +465,7 @@ async function filterReportContentForDept(content, deptId) {
   // 过滤下周重点工作
   if (filtered.next_week_key_work) {
     filtered.next_week_key_work = (filtered.next_week_key_work || []).filter(p =>
-      p.dept_id === deptId || p.dept_name === deptName
+      itemBelongsToDept(p, deptId, deptName)
     );
   }
 
@@ -338,10 +474,10 @@ async function filterReportContentForDept(content, deptId) {
     const raw = filtered.next_week_focus;
     filtered.next_week_focus = {
       upcoming_projects: (raw.upcoming_projects || []).filter(p =>
-        p.dept_id === deptId || p.dept_name === deptName
+        itemBelongsToDept(p, deptId, deptName)
       ),
       follow_up_items: (raw.follow_up_items || []).filter(t =>
-        t.dept_id === deptId || t.dept_name === deptName
+        itemBelongsToDept(t, deptId, deptName)
       ),
     };
   }
@@ -349,7 +485,7 @@ async function filterReportContentForDept(content, deptId) {
   // 过滤新增成果
   if (filtered.new_achievements) {
     filtered.new_achievements = filtered.new_achievements.filter(a =>
-      a.dept_id === deptId || a.dept_name === deptName
+      itemBelongsToDept(a, deptId, deptName)
     );
   }
 

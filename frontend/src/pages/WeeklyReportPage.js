@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin, Grid } from 'antd';
 import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined } from '@ant-design/icons';
-import { api } from '../hooks/useAuth';
+import { api, getAccessToken, useAuth } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import Sparkline from '../components/ui/Sparkline';
@@ -68,6 +68,7 @@ function addRowSpan(items) {
 }
 
 function WeeklyReportPage() {
+  const { isAdmin } = useAuth();
   const [reports, setReports] = useState([]);
   const [currentReport, setCurrentReport] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -210,10 +211,11 @@ function WeeklyReportPage() {
     }
     try {
       message.loading({ content: '正在生成 PNG（后端渲染中）...', key: 'png_export', duration: 0 });
-      const token = localStorage.getItem('token');
-      const apiBase = process.env.REACT_APP_API_URL || '';
+      const token = getAccessToken();
+      const apiBase = import.meta.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${apiBase}/api/weekly-reports/${currentReport.id}/png`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -1308,15 +1310,15 @@ td.text-cell { white-space: pre-wrap; }
           <Button key="gen" type="primary" icon={<FileTextOutlined />} onClick={handleGenerate} loading={generating}>
             生成周报
           </Button>,
-          currentReport && !editing && (
+          isAdmin && currentReport && !editing && (
             <Tooltip key="edit" title="编辑周报内容、补充结论和复盘">
               <Button icon={<EditOutlined />} onClick={handleStartEdit}>编辑</Button>
             </Tooltip>
           ),
-          editing && (
+          isAdmin && editing && (
             <Button key="save" type="primary" icon={<SaveOutlined />} onClick={handleSaveEdit} loading={saving}>保存</Button>
           ),
-          editing && (
+          isAdmin && editing && (
             <Button key="cancel" icon={<CloseOutlined />} onClick={handleCancelEdit}>取消</Button>
           ),
           currentReport && !editing && <ExportButtons key="export" />,

@@ -3,20 +3,57 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-const API_BASE = process.env.REACT_APP_API_URL || '';
+const API_BASE = import.meta.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL || '';
 let refreshPromise = null;
+let accessToken = localStorage.getItem('token') || null;
+
+function setAccessToken(token) {
+  accessToken = token || null;
+}
+
+function getAccessToken() {
+  return accessToken;
+}
+
+function clearStoredAuth() {
+  setAccessToken(null);
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+}
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    const legacyRefreshToken = localStorage.getItem('refreshToken');
+    refreshPromise = axios.post(
+      `${API_BASE}/api/auth/refresh`,
+      legacyRefreshToken ? { refreshToken: legacyRefreshToken } : {},
+      { withCredentials: true }
+    )
+      .then((res) => res.data)
+      .finally(() => { refreshPromise = null; });
+  }
+  const res = await refreshPromise;
+  if (res.code === 0 && res.data?.token) {
+    setAccessToken(res.data.token);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    return res.data.token;
+  }
+  throw new Error(res.message || '刷新登录态失败');
+}
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
   timeout: 10000,
+  withCredentials: true,
 });
 
 // 请求拦截器：自动附加 Token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
@@ -29,32 +66,18 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config || {};
     if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login') && !originalRequest.url?.includes('/auth/refresh')) {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        originalRequest._retry = true;
-        try {
-          if (!refreshPromise) {
-            refreshPromise = axios.post(`${API_BASE}/api/auth/refresh`, { refreshToken })
-              .then((res) => res.data)
-              .finally(() => { refreshPromise = null; });
-          }
-          const res = await refreshPromise;
-          if (res.code === 0 && res.data?.token && res.data?.refreshToken) {
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('refreshToken', res.data.refreshToken);
-            originalRequest.headers = {
-              ...(originalRequest.headers || {}),
-              Authorization: `Bearer ${res.data.token}`,
-            };
-            return api(originalRequest);
-          }
-        } catch (refreshError) {
-          // fall through to clear local auth state
-        }
+      originalRequest._retry = true;
+      try {
+        const token = await refreshAccessToken();
+        originalRequest.headers = {
+          ...(originalRequest.headers || {}),
+          Authorization: `Bearer ${token}`,
+        };
+        return api(originalRequest);
+      } catch (refreshError) {
+        // fall through to clear local auth state
       }
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      clearStoredAuth();
       window.location.href = '/login';
     }
     if (error.response?.data?.error_type === 'PASSWORD_CHANGE_REQUIRED') {
@@ -78,32 +101,44 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
-      // 验证 token 有效性
-      api.get('/auth/me')
-        .then((res) => {
-          if (res.code === 0) {
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data));
-          }
-        })
-        .catch(() => {
-          logout();
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (err) {
+        localStorage.removeItem('user');
+      }
     }
+
+    const bootstrapAuth = async () => {
+      try {
+        if (!accessToken) {
+          await refreshAccessToken();
+        }
+        const res = await api.get('/auth/me');
+        if (res.code === 0) {
+          setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        }
+      } catch (err) {
+        clearStoredAuth();
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    bootstrapAuth();
   }, []);
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
     if (res.code === 0) {
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('refreshToken', res.data.refreshToken);
+      setAccessToken(res.data.token);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.setItem('user', JSON.stringify(res.data.user));
       setUser(res.data.user);
     }
@@ -112,9 +147,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     api.post('/auth/logout').catch(() => {});
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    clearStoredAuth();
     setUser(null);
   };
 
@@ -135,4 +168,4 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-export { api };
+export { api, getAccessToken };

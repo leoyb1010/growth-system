@@ -67,7 +67,7 @@ const Project = sequelize.define('Project', {
   type: { type: DataTypes.STRING(50), allowNull: false }, // 项目类型
   name: { type: DataTypes.STRING(200), allowNull: false }, // 项目名称
   owner_name: { type: DataTypes.STRING(50), allowNull: false }, // 负责人（展示用，过渡期保留）
-  owner_user_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // V4: 稳定用户主键
+  owner_user_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } }, // V4: 稳定用户主键
   goal: { type: DataTypes.TEXT, allowNull: true }, // 工作目标
   weekly_progress: { type: DataTypes.TEXT, allowNull: true }, // 本周进展
   progress_pct: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, // 进度%
@@ -77,7 +77,7 @@ const Project = sequelize.define('Project', {
   due_date: { type: DataTypes.DATEONLY, allowNull: true }, // 预计完成时间
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
   year: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2026 },
-  creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' } }, // 创建人
+  creator_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } }, // 创建人
   updater_id: { type: DataTypes.INTEGER, allowNull: true }, // 最后更新人
   // V4 闭环字段
   priority: { type: DataTypes.ENUM('高', '中', '低'), allowNull: false, defaultValue: '中' },
@@ -131,7 +131,7 @@ const Performance = sequelize.define('Performance', {
 const MonthlyTask = sequelize.define('MonthlyTask', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   dept_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: Department, key: 'id' } },
-  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Project', key: 'id' } }, // 关联项目（可空）
+  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: Project, key: 'id' } }, // 关联项目（可空）
   month: { type: DataTypes.STRING(10), allowNull: false }, // 格式：2026-04
   owner_name: { type: DataTypes.STRING(50), allowNull: false },
   category: { type: DataTypes.STRING(50), allowNull: false }, // 工作类别
@@ -159,7 +159,7 @@ const MonthlyTask = sequelize.define('MonthlyTask', {
 const Achievement = sequelize.define('Achievement', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   dept_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: Department, key: 'id' } },
-  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Project', key: 'id' } }, // 关联项目（可空）
+  project_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: Project, key: 'id' } }, // 关联项目（可空）
   quarter: { type: DataTypes.ENUM('Q1', 'Q2', 'Q3', 'Q4'), allowNull: false },
   owner_name: { type: DataTypes.STRING(50), allowNull: false },
   achievement_type: { type: DataTypes.STRING(50), allowNull: false }, // 成果类型

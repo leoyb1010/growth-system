@@ -1,6 +1,21 @@
 {
-  "latestVersion": "1.17.0",
+  "latestVersion": "1.17.1",
   "releases": [
+    {
+      "version": "1.17.1",
+      "date": "2026-05-17",
+      "title": "安全边界修复 · 周报权限加固 · Vite构建升级",
+      "changes": [
+        { "type": "security", "module": "周报权限", "desc": "周报列表、详情、PNG导出按部门数据范围过滤；禁止部门用户保存全局HTML和文件链接，防止跨部门数据泄露与覆盖" },
+        { "type": "security", "module": "周报截图", "desc": "Puppeteer截图模板统一HTML转义，禁用页面脚本和外部资源请求，降低服务端渲染XSS/SSRF风险" },
+        { "type": "security", "module": "认证", "desc": "Refresh Token迁移到HttpOnly SameSite Cookie，前端Access Token改为内存态，并兼容旧localStorage refreshToken平滑迁移" },
+        { "type": "security", "module": "Excel导出", "desc": "Excel写出统一拦截= + - @开头的公式型字符串，防止导出文件公式注入" },
+        { "type": "fix", "module": "项目推进", "desc": "修复归档校验使用当前年份而非项目年份、quick-update返回旧数据、成员项目scope引用不存在字段的问题" },
+        { "type": "fix", "module": "数据模型", "desc": "修复Project/MonthlyTask/Achievement外键引用模型名与实际表名不一致导致的写入异常" },
+        { "type": "chore", "module": "前端构建", "desc": "前端从react-scripts迁移到Vite，保持build输出目录不变，开发依赖审计降为0漏洞" },
+        { "type": "test", "module": "后端测试", "desc": "新增node:test单元测试，覆盖Excel公式注入防护与周报跨部门数据检测" }
+      ]
+    },
     {
       "version": "1.17.0",
       "date": "2026-05-11",

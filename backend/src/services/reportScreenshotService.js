@@ -14,11 +14,11 @@ let browserInstance = null;
  */
 async function getBrowser() {
   if (!browserInstance || !browserInstance.isConnected()) {
+    const needsNoSandbox = process.env.PUPPETEER_NO_SANDBOX === 'true' || (typeof process.getuid === 'function' && process.getuid() === 0);
     const launchOptions = {
       headless: 'new',
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
+        ...(needsNoSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
         '--disable-dev-shm-usage',
         '--disable-gpu',
       ],
@@ -47,6 +47,12 @@ async function generateReportPng(content) {
 
   try {
     const html = buildReportHtml(content);
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    page.on('request', request => {
+      if (request.resourceType() === 'document') return request.continue();
+      return request.abort();
+    });
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
     // 等待字体渲染完成
@@ -90,7 +96,13 @@ function buildReportHtml(content) {
   // 兼容旧周报：management_comment 合并到 week_conclusion
   const fullConclusion = [week_conclusion, management_comment ? '✍️ ' + management_comment : ''].filter(Boolean).join('\n\n');
 
-  const textToHtml = (t) => (t || '-').replace(/\n/g, '<br/>');
+  const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const textToHtml = (t) => escapeHtml(t || '-').replace(/\n/g, '<br/>');
   const businessSummary = business_summary || { aso: aso_summary, cps: cps_summary };
   const fmtMoney = (value) => {
     const n = Number(value || 0);
@@ -100,8 +112,6 @@ function buildReportHtml(content) {
   const fmtPct = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
 
   // 同组合并 HTML 行辅助
-  const deptGroups = {};
-  const itemOrder = [];
   function addRowSpanInfo(items) {
     if (!items || items.length === 0) return [];
     const result = items.map(item => ({ ...item, deptRowSpan: 0 }));
@@ -119,9 +129,9 @@ function buildReportHtml(content) {
     const rows = addRowSpanInfo(items);
     return rows.map(p => {
       const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
-      const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${p.dept_name}</td>` : '';
-      const statusHtml = p.status === '风险' ? '<span class="risk-tag">风险</span>' : (p.status || '-');
-      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${p.name}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${p.progress_pct}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
+      const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${escapeHtml(p.dept_name || '-')}</td>` : '';
+      const statusHtml = p.status === '风险' ? '<span class="risk-tag">风险</span>' : escapeHtml(p.status || '-');
+      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${escapeHtml(p.name || '-')}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${escapeHtml(p.progress_pct ?? 0)}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
     }).join('');
   }
 
@@ -172,7 +182,6 @@ function buildReportHtml(content) {
   // 顶部核心卡片 + 部门指标行（合并原"核心指标速读"）
   let topCardsHtml = '';
   const grouped = kpi_summary && content.kpi_summary_grouped;
-  const tp = grouped?.time_progress;
 
   // 3 个核心卡片
   topCardsHtml += `<div class="card-row">`;
@@ -188,11 +197,11 @@ function buildReportHtml(content) {
     (grouped.row2 || []).forEach(k => {
       const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
       const shortLabel = (k.label || '').replace(' GMV', '');
-      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${shortLabel}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${escapeHtml(shortLabel)}</span><span style="font-weight:700;color:${color}">${escapeHtml(k.completion_rate ?? 0)}%</span></span>`;
     });
     (grouped.row3 || []).forEach(k => {
       const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${k.label}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${escapeHtml(k.label || '-')}</span><span style="font-weight:700;color:${color}">${escapeHtml(k.completion_rate ?? 0)}%</span></span>`;
     });
     deptMetricsHtml += `</div>`;
   } else if (kpi_summary?.length) {
@@ -200,7 +209,7 @@ function buildReportHtml(content) {
     deptMetricsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(0,0,0,0.02);border-radius:8px;margin-bottom:16px">`;
     kpi_summary.forEach(k => {
       const color = k.completion_rate >= 90 ? '#16A34A' : k.completion_rate >= 60 ? '#F59E0B' : '#DC2626';
-      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${k.dept_name}·${k.indicator}</span><span style="font-weight:700;color:${color}">${k.completion_rate}%</span></span>`;
+      deptMetricsHtml += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:#fff;border:1px solid #E5E7EB;font-size:12px"><span style="color:#6B7280">${escapeHtml(k.dept_name || '-')}·${escapeHtml(k.indicator || '-')}</span><span style="font-weight:700;color:${color}">${escapeHtml(k.completion_rate ?? 0)}%</span></span>`;
     });
     deptMetricsHtml += `</div>`;
   }
@@ -224,14 +233,14 @@ function buildReportHtml(content) {
       <table><colgroup><col style="width:80px"/><col style="width:180px"/><col/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>风险描述</th></tr></thead>
       <tbody>${riskProjects.map(p =>
-        `<tr class="risk-row"><td>${p.dept_name}</td><td>${p.name}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`
+        `<tr class="risk-row"><td>${escapeHtml(p.dept_name || '-')}</td><td>${escapeHtml(p.name || '-')}</td><td class="text-cell">${textToHtml(p.risk_desc)}</td></tr>`
       ).join('')}</tbody></table>`;
   }
   if (severeWarnings.length) {
     riskHtml += `<h4 style="color:#F59E0B;font-size:14px;margin:14px 0 8px">严重预警指标（${severeWarnings.length} 项）</h4>
       <table><thead><tr><th>部门</th><th>业务类型</th><th>指标</th><th>完成率</th><th>差额</th></tr></thead>
       <tbody>${severeWarnings.map(w =>
-        `<tr><td>${w.dept_name}</td><td>${w.business_type}</td><td>${w.indicator}</td><td style="color:#DC2626;font-weight:600">${w.completion_rate}%</td><td>${w.gap}</td></tr>`
+        `<tr><td>${escapeHtml(w.dept_name || '-')}</td><td>${escapeHtml(w.business_type || '-')}</td><td>${escapeHtml(w.indicator || '-')}</td><td style="color:#DC2626;font-weight:600">${escapeHtml(w.completion_rate ?? 0)}%</td><td>${escapeHtml(w.gap ?? 0)}</td></tr>`
       ).join('')}</tbody></table>`;
   }
   if (riskProjects.length === 0 && severeWarnings.length === 0) {
@@ -258,7 +267,7 @@ function buildReportHtml(content) {
       <thead><tr><th>部门</th><th>项目/工作</th><th>成果类型</th><th>量化结果</th><th>优先级</th></tr></thead>
       <tbody>${new_achievements.map(a => {
         const priColor = a.priority === '高' ? '#DC2626' : a.priority === '中' ? '#F59E0B' : '#6B7280';
-        return `<tr><td>${a.dept_name}</td><td>${a.project_name}</td><td>${a.achievement_type}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td style="color:${priColor};font-weight:600">${a.priority}</td></tr>`;
+        return `<tr><td>${escapeHtml(a.dept_name || '-')}</td><td>${escapeHtml(a.project_name || '-')}</td><td>${escapeHtml(a.achievement_type || '-')}</td><td class="text-cell">${textToHtml(a.quantified_result)}</td><td style="color:${priColor};font-weight:600">${escapeHtml(a.priority || '-')}</td></tr>`;
       }).join('')}</tbody></table>`;
   } else {
     achieveHtml = `<p class="no-data">本周无新增成果</p>`;
@@ -267,13 +276,12 @@ function buildReportHtml(content) {
   // 关键变化 — 紧凑网格
   let changesHtml = '';
   if (key_changes?.length) {
-    const labelMap = { risk: '风险', progress: '进展', deviation: '偏差', achieved: '达成' };
     const colorMap = { risk: '#DC2626', progress: '#16A34A', deviation: '#F59E0B', achieved: '#3B5AFB' };
     const textColorMap = { risk: '#991B1B', progress: '#14532D', deviation: '#92400E', achieved: '#1E3A8A' };
     const items = key_changes.map(c =>
       `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;font-size:12px;background:rgba(0,0,0,0.02)">` +
       `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${colorMap[c.type] || '#9CA3AF'};flex-shrink:0"></span>` +
-      `<span style="color:${textColorMap[c.type] || '#111827'};font-weight:500">${c.text}</span>` +
+      `<span style="color:${textColorMap[c.type] || '#111827'};font-weight:500">${escapeHtml(c.text || '')}</span>` +
       `</div>`
     ).join('');
     changesHtml = `<div style="margin-bottom:20px">
@@ -291,9 +299,9 @@ function buildReportHtml(content) {
       businessHtml += `<div class="business-card"><div class="business-title">ASO 优化</div>`;
       if (aso.has_data) {
         businessHtml += `<div class="mini-grid">
-          <div class="mini-metric"><div class="mini-label">优化词</div><div class="mini-value">${aso.current?.optimized_keywords || 0}</div></div>
-          <div class="mini-metric"><div class="mini-label">T1 到榜</div><div class="mini-value">${aso.current?.t1_keywords || 0}</div></div>
-          <div class="mini-metric"><div class="mini-label">T3 到榜</div><div class="mini-value">${aso.current?.t3_keywords || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">优化词</div><div class="mini-value">${escapeHtml(aso.current?.optimized_keywords || 0)}</div></div>
+          <div class="mini-metric"><div class="mini-label">T1 到榜</div><div class="mini-value">${escapeHtml(aso.current?.t1_keywords || 0)}</div></div>
+          <div class="mini-metric"><div class="mini-label">T3 到榜</div><div class="mini-value">${escapeHtml(aso.current?.t3_keywords || 0)}</div></div>
           <div class="mini-metric"><div class="mini-label">消耗</div><div class="mini-value">¥${fmtMoney(aso.current?.total_cost)}</div></div>
         </div>`;
       } else {
@@ -306,9 +314,9 @@ function buildReportHtml(content) {
       if (cps.has_data) {
         businessHtml += `<div class="mini-grid">
           <div class="mini-metric"><div class="mini-label">实收</div><div class="mini-value">¥${fmtMoney(cps.current?.actual_amount)}</div></div>
-          <div class="mini-metric"><div class="mini-label">签约</div><div class="mini-value">${cps.current?.actual_count || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">签约</div><div class="mini-value">${escapeHtml(cps.current?.actual_count || 0)}</div></div>
           <div class="mini-metric"><div class="mini-label">退款率</div><div class="mini-value" style="color:${cps.current?.refund_rate > 0.05 ? '#DC2626' : '#16A34A'}">${fmtPct(cps.current?.refund_rate)}</div></div>
-          <div class="mini-metric"><div class="mini-label">预警</div><div class="mini-value">${cps.current?.alert_count || 0}</div></div>
+          <div class="mini-metric"><div class="mini-label">预警</div><div class="mini-value">${escapeHtml(cps.current?.alert_count || 0)}</div></div>
         </div>`;
         if (cps.current?.refund_rate > 0.05) {
           businessHtml += `<div class="alert-box">退款率超 5% 阈值 ${((cps.current.refund_rate - 0.05) * 100).toFixed(2)}pt，建议专项复盘。</div>`;
@@ -322,10 +330,10 @@ function buildReportHtml(content) {
   }
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>增长组业务周报</title><style>${baseStyle}</style></head>
-<body>
+  <html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src 'self' data:"><title>增长组业务周报</title><style>${baseStyle}</style></head>
+  <body>
   <h1>增长组业务周报</h1>
-  <div class="date">📅 ${week_start} 至 ${week_end}</div>
+  <div class="date">📅 ${escapeHtml(week_start || '')} 至 ${escapeHtml(week_end || '')}</div>
 
   ${fullConclusion ? `<div class="conclusion-box">
     <div class="conclusion-title">本周核心结论 · KEY TAKEAWAYS <span class="auto-tag">自动生成+可补充</span></div>
@@ -360,7 +368,7 @@ function buildReportHtml(content) {
   </div>
 
   <div class="footer">
-    <span>🤖 本周报基础数据由系统自动汇总生成于 ${generated_at || ''}</span>
+    <span>🤖 本周报基础数据由系统自动汇总生成于 ${escapeHtml(generated_at || '')}</span>
     <span>结论与复盘可手动补充编辑</span>
   </div>
 </body></html>`;

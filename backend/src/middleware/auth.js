@@ -282,8 +282,7 @@ function applyDataScope(resourceType) {
         if (['project'].includes(resourceType)) {
           scopeWhere[Op.or] = [
             { owner_user_id: userId },
-            { owner_id: userId },
-            { created_by: userId }
+            { creator_id: userId }
           ];
         }
         if (['action_item'].includes(resourceType)) {

@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
+import { getAccessToken } from './useAuth';
+
+const API_BASE = import.meta.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL || '';
 
 /**
  * AI 流式输出 Hook
@@ -18,16 +21,17 @@ function useAIStream() {
     setError(null);
     setIsStreaming(true);
 
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const response = await fetch('/api/ai/chat-stream', {
+      const response = await fetch(`${API_BASE}/api/ai/chat-stream`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ query, currentPage }),
         signal: controller.signal,

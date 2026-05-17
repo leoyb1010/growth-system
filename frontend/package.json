@@ -1,6 +1,6 @@
 {
   "name": "growth-system-frontend",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "description": "增长组业务管理系统前端",
   "private": true,
   "dependencies": {
@@ -17,9 +17,10 @@
     "react-router-dom": "^6.20.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test"
+    "start": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "echo \"No frontend tests configured\""
   },
   "eslintConfig": {
     "extends": [
@@ -39,7 +40,8 @@
     ]
   },
   "devDependencies": {
-    "react-scripts": "5.0.1"
+    "@vitejs/plugin-react": "^4.6.0",
+    "vite": "^6.0.0"
   },
   "proxy": "http://localhost:3001"
 }

@@ -1,12 +1,13 @@
 {
   "name": "growth-system-backend",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "description": "增长组业务管理系统后端",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "db:migrate": "node src/migrations/run.js"
+    "db:migrate": "node src/migrations/run.js",
+    "test": "node --test"
   },
   "dependencies": {
     "axios": "^1.16.0",
