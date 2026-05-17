@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin, Grid } from 'antd';
-import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined } from '@ant-design/icons';
+import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined, CopyOutlined } from '@ant-design/icons';
 import { api, getAccessToken, useAuth } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -262,6 +262,89 @@ function WeeklyReportPage() {
     link.href = URL.createObjectURL(blob);
     link.click();
     message.success('Word 文档导出成功');
+  };
+
+  const copyPlainTextFallback = async (text) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return copied;
+  };
+
+  const copyHtmlSelectionFallback = (html) => {
+    const fragmentMatch = html.match(/<!--StartFragment-->([\s\S]*?)<!--EndFragment-->/);
+    const fragment = fragmentMatch ? fragmentMatch[1] : html;
+    const container = document.createElement('div');
+    container.setAttribute('contenteditable', 'true');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '860px';
+    container.innerHTML = fragment;
+    document.body.appendChild(container);
+
+    const selection = window.getSelection();
+    if (!selection) {
+      document.body.removeChild(container);
+      return false;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(container);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const copied = document.execCommand('copy');
+    selection.removeAllRanges();
+    document.body.removeChild(container);
+    return copied;
+  };
+
+  const handleCopyMeetingDoc = async (content) => {
+    if (!content && editing) {
+      message.warning('当前周报还在编辑中，请先保存后再复制到会议文档');
+      return;
+    }
+
+    const c = content || currentReport?.content || currentReport;
+    if (!c) return;
+
+    const html = generateMeetingDocHtml(c);
+    const plainText = generateMeetingDocPlainText(c);
+
+    try {
+      if (navigator.clipboard?.write && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new window.ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          })
+        ]);
+      } else if (!copyHtmlSelectionFallback(html)) {
+        await copyPlainTextFallback(plainText);
+        message.warning('当前浏览器不支持富文本复制，已复制 Markdown 文本');
+        return;
+      }
+      message.success('已复制为会议文档富文本，可直接粘贴到在线文档');
+    } catch (err) {
+      try {
+        await copyPlainTextFallback(plainText);
+        message.warning('富文本复制受限，已复制 Markdown 文本');
+      } catch (fallbackErr) {
+        console.error('复制会议文档失败:', err, fallbackErr);
+        message.error('复制失败，请检查浏览器剪贴板权限');
+      }
+    }
   };
 
   // ===== 兼容旧周报：management_comment 合并到 week_conclusion =====
@@ -646,6 +729,231 @@ td.text-cell { white-space: pre-wrap; }
 
     html += `<div class="footer">自动生成于 ${content.generated_at}</div></body></html>`;
     return html;
+  };
+
+  const docEsc = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const docText = (value) => {
+    const displayValue = value === undefined || value === null || value === '' ? '-' : value;
+    const escaped = docEsc(displayValue);
+    return escaped
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#2563EB;text-decoration:underline">$1</a>')
+      .replace(/\n/g, '<br/>');
+  };
+
+  const docColorByRate = (value) => {
+    const n = Number(value || 0);
+    if (n >= 90) return '#15803D';
+    if (n >= 60) return '#B45309';
+    return '#B91C1C';
+  };
+
+  const docStatusTag = (status) => {
+    const isRisk = status === '风险';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${isRisk ? '#FEE2E2' : '#F3F4F6'};color:${isRisk ? '#B91C1C' : '#374151'};font-size:12px;line-height:18px">${docEsc(status || '-')}</span>`;
+  };
+
+  const docTable = (headers, rows, widths = []) => {
+    if (!rows.length) {
+      return `<div style="padding:12px 14px;border:1px solid #E5E7EB;background:#F9FAFB;color:#6B7280;font-size:13px;line-height:1.7">暂无数据</div>`;
+    }
+
+    const colgroup = widths.length
+      ? `<colgroup>${widths.map(width => `<col style="width:${width}"/>`).join('')}</colgroup>`
+      : '';
+
+    return `<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;table-layout:fixed;margin:10px 0 18px 0;border:1px solid #E5E7EB">
+      ${colgroup}
+      <thead>
+        <tr>
+          ${headers.map(label => `<th style="background:#F3F4F6;color:#374151;font-weight:700;font-size:13px;text-align:left;padding:9px 10px;border:1px solid #E5E7EB;line-height:1.5">${docEsc(label)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `<tr>${row.map(cell => `<td style="vertical-align:top;color:#111827;font-size:13px;text-align:left;padding:9px 10px;border:1px solid #E5E7EB;line-height:1.65;word-break:break-word;overflow-wrap:anywhere">${cell}</td>`).join('')}</tr>`).join('')}
+      </tbody>
+    </table>`;
+  };
+
+  const docSection = (title, subtitle = '') => (
+    `<div style="margin:24px 0 10px 0;padding-left:10px;border-left:4px solid #3B5AFB">
+      <div style="font-size:17px;font-weight:700;line-height:1.4;color:#111827">${docEsc(title)}</div>
+      ${subtitle ? `<div style="font-size:12px;line-height:1.6;color:#6B7280;margin-top:2px">${docEsc(subtitle)}</div>` : ''}
+    </div>`
+  );
+
+  const metricCard = (label, value, note, color = '#111827') => (
+    `<td style="width:33.33%;padding:10px 12px;border:1px solid #E5E7EB;background:#F9FAFB;text-align:center;vertical-align:top">
+      <div style="font-size:12px;line-height:1.5;color:#6B7280">${docEsc(label)}</div>
+      <div style="font-size:26px;line-height:1.25;font-weight:800;color:${color};margin-top:2px">${docEsc(value)}</div>
+      <div style="font-size:11px;line-height:1.5;color:#9CA3AF;margin-top:2px">${docEsc(note)}</div>
+    </td>`
+  );
+
+  const generateMeetingDocPlainText = (content) => generateMarkdown(content);
+
+  const generateMeetingDocHtml = (content) => {
+    const { kpi_summary, project_progress, risk_and_warnings, next_week_key_work, next_week_focus, new_achievements, key_changes } = content;
+    const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
+    const visibleProjects = (project_progress || []).filter(p => !p._hidden);
+    const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
+    const riskProjects = Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects : [];
+    const severeWarnings = Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings : [];
+    const achievements = Array.isArray(new_achievements) ? new_achievements : [];
+    const business = getBusinessSummary(content);
+    const conclusion = getConclusion(content);
+    const riskCount = riskProjects.length + severeWarnings.length;
+
+    const projectRows = visibleProjects.map(p => [
+      docText(p.dept_name),
+      `<strong style="color:#111827">${docText(p.name)}</strong>`,
+      docText(p.weekly_progress),
+      `<span style="font-weight:700;color:${docColorByRate(p.progress_pct)}">${docEsc(p.progress_pct ?? 0)}%</span>`,
+      docStatusTag(p.status),
+    ]);
+
+    const riskRows = [
+      ...riskProjects.map(p => [
+        docText(p.dept_name),
+        `<strong style="color:#111827">${docText(p.name)}</strong>`,
+        `<span style="color:#B91C1C">${docText(p.risk_desc)}</span>`,
+      ]),
+      ...severeWarnings.map(w => [
+        docText(w.dept_name),
+        `<strong style="color:#111827">${docText(w.business_type)} · ${docText(w.indicator)}</strong>`,
+        `<span style="color:#B91C1C">完成率 ${docEsc(w.completion_rate ?? 0)}%，差额 ${docEsc(w.gap ?? '-')}</span>`,
+      ]),
+    ];
+
+    const nextRows = visibleKeyWork.map(p => [
+      docText(p.dept_name),
+      `<strong style="color:#111827">${docText(p.name)}</strong>`,
+      docText(p.next_week_focus || p.due_date),
+      `<span style="font-weight:700;color:${docColorByRate(p.progress_pct)}">${docEsc(p.progress_pct ?? 0)}%</span>`,
+      docStatusTag(p.status),
+    ]);
+
+    const achievementRows = achievements.map(a => [
+      docText(a.dept_name),
+      `<strong style="color:#111827">${docText(a.project_name)}</strong>`,
+      docText(a.achievement_type),
+      docText(a.quantified_result),
+      docText(a.priority),
+    ]);
+
+    const kpiRows = [];
+    const grouped = content.kpi_summary_grouped;
+    if (grouped?.row1?.length) {
+      grouped.row1.forEach(k => kpiRows.push([
+        docText(k.label),
+        `<span style="font-weight:700;color:${docColorByRate(k.rate)}">${docEsc(k.rate)}%</span>`,
+        docText(`${k.target ?? '-'}${k.unit || ''}`),
+        docText(`${k.actual ?? '-'}${k.unit || ''}`),
+      ]));
+    }
+    if (grouped?.row2?.length) {
+      grouped.row2.forEach(k => kpiRows.push([
+        docText(k.label),
+        `<span style="font-weight:700;color:${docColorByRate(k.completion_rate)}">${docEsc(k.completion_rate)}%</span>`,
+        docText(`${k.target ?? '-'}${k.unit || ''}`),
+        docText(`${k.actual ?? '-'}${k.unit || ''}`),
+      ]));
+    }
+    if (grouped?.row3?.length) {
+      grouped.row3.forEach(k => kpiRows.push([
+        docText(k.label),
+        `<span style="font-weight:700;color:${docColorByRate(k.completion_rate)}">${docEsc(k.completion_rate)}%</span>`,
+        docText(`${k.target ?? '-'}${k.unit || ''}`),
+        docText(`${k.actual ?? '-'}${k.unit || ''}`),
+      ]));
+    }
+    if (!kpiRows.length && kpi_summary?.length) {
+      kpi_summary.forEach(k => kpiRows.push([
+        docText(`${k.dept_name || '-'} · ${k.indicator || '-'}`),
+        `<span style="font-weight:700;color:${docColorByRate(k.completion_rate)}">${docEsc(k.completion_rate ?? 0)}%</span>`,
+        docText(`${k.target ?? '-'}${k.unit || ''}`),
+        docText(`${k.actual ?? '-'}${k.unit || ''}`),
+      ]));
+    }
+
+    const businessCards = [];
+    if (business?.aso?.enabled) {
+      const aso = business.aso;
+      businessCards.push(`<td style="width:50%;vertical-align:top;padding:12px;border:1px solid #E5E7EB;border-left:4px solid #3B5AFB;background:#FFFFFF">
+        <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px">ASO 优化</div>
+        ${aso.has_data
+          ? `<div style="font-size:13px;line-height:1.8;color:#374151">优化词 <strong>${docEsc(aso.current?.optimized_keywords || 0)}</strong> · T1 <strong>${docEsc(aso.current?.t1_keywords || 0)}</strong> · T3 <strong>${docEsc(aso.current?.t3_keywords || 0)}</strong><br/>T3率 <strong>${docEsc(fmtPercent(aso.current?.t3_rate))}</strong> · 消耗 <strong>¥${docEsc(fmtMoney(aso.current?.total_cost))}</strong></div>`
+          : `<div style="font-size:13px;line-height:1.8;color:#6B7280">本周暂无 ASO 日报数据</div>`}
+      </td>`);
+    }
+    if (business?.cps?.enabled) {
+      const cps = business.cps;
+      businessCards.push(`<td style="width:50%;vertical-align:top;padding:12px;border:1px solid #E5E7EB;border-left:4px solid #16A34A;background:#FFFFFF">
+        <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px">CPS 投流</div>
+        ${cps.has_data
+          ? `<div style="font-size:13px;line-height:1.8;color:#374151">实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 退款率 <strong>${docEsc(fmtPercent(cps.current?.refund_rate))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项</div>`
+          : `<div style="font-size:13px;line-height:1.8;color:#6B7280">本周暂无 CPS 投流数据</div>`}
+      </td>`);
+    }
+
+    const keyChangeHtml = Array.isArray(key_changes) && key_changes.length
+      ? `<div style="margin:12px 0 18px 0">${key_changes.map(c => `<div style="font-size:13px;line-height:1.7;color:#374151;padding:6px 10px;margin:4px 0;background:#F9FAFB;border-left:3px solid ${c.type === 'risk' ? '#DC2626' : c.type === 'achieved' ? '#16A34A' : '#3B5AFB'}">${docText(c.text)}</div>`).join('')}</div>`
+      : '';
+    const sectionNumbers = ['一', '二', '三', '四', '五', '六', '七', '八'];
+    let sectionIndex = 0;
+    const nextSection = (title, subtitle = '') => {
+      const sectionNumber = sectionNumbers[sectionIndex] || `${sectionIndex + 1}`;
+      sectionIndex += 1;
+      return docSection(`${sectionNumber}、${title}`, subtitle);
+    };
+
+    const fragment = `<div style="max-width:860px;margin:0 auto;font-family:Arial,'Microsoft YaHei','PingFang SC',sans-serif;color:#111827;background:#FFFFFF;line-height:1.6">
+      <div style="text-align:center;padding:8px 0 14px 0;border-bottom:3px solid #3B5AFB;margin-bottom:16px">
+        <div style="font-size:26px;font-weight:800;line-height:1.35;color:#111827">增长组业务周报</div>
+        <div style="font-size:13px;color:#6B7280;margin-top:4px">${docEsc(content.week_start || '')} 至 ${docEsc(content.week_end || '')}</div>
+      </div>
+
+      ${conclusion ? `<div style="background:#F0F4FF;border:1px solid #C7D7FE;border-left:4px solid #3B5AFB;padding:14px 16px;margin:14px 0 16px 0">
+        <div style="font-size:13px;font-weight:700;color:#1E40AF;margin-bottom:6px">本周核心结论</div>
+        <div style="font-size:14px;color:#111827;line-height:1.8">${docText(conclusion)}</div>
+      </div>` : ''}
+
+      ${keyChangeHtml}
+
+      <table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;table-layout:fixed;margin:12px 0 18px 0">
+        <tr>
+          ${metricCard('关键成果', achievements.length, '本周新增')}
+          ${metricCard('风险事项', riskCount, riskCount > 0 ? '需要关注' : '一切正常', riskCount > 0 ? '#B91C1C' : '#15803D')}
+          ${metricCard('下周重点', visibleKeyWork.length, '已填写重点工作')}
+        </tr>
+      </table>
+
+      ${nextSection('本周数据摘要', grouped?.time_progress != null ? `季度时间进度 ${grouped.time_progress}%` : '')}
+      ${docTable(['指标', '完成率', '目标', '实际'], kpiRows, ['36%', '18%', '23%', '23%'])}
+
+      ${businessCards.length ? `${nextSection('重点业务速览', 'ASO 与 CPS 投流 · 本周')}<table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0 0;margin:10px 0 18px 0;table-layout:fixed"><tr>${businessCards.join('')}</tr></table>` : ''}
+
+      ${nextSection('重点工作进展', `更新 ${visibleProjects.length} 项`)}
+      ${docTable(['部门', '项目名称', '本周进展', '进度', '状态'], projectRows, ['12%', '22%', '42%', '10%', '14%'])}
+
+      ${nextSection('风险与预警', riskCount > 0 ? `${riskCount} 项需关注` : '本周无风险项目或严重预警指标')}
+      ${riskRows.length ? docTable(['部门', '事项', '说明'], riskRows, ['16%', '28%', '56%']) : `<div style="padding:12px 14px;border:1px solid #BBF7D0;background:#F0FDF4;color:#15803D;font-size:13px;line-height:1.7">本周无风险项目或严重预警指标</div>`}
+
+      ${nextSection('下周重点工作', `${visibleKeyWork.length} 项`)}
+      ${docTable(['部门', '项目名称', '下周重点工作', '进度', '状态'], nextRows, ['12%', '22%', '42%', '10%', '14%'])}
+
+      ${nextSection('新增成果', `${achievements.length} 项`)}
+      ${docTable(['部门', '项目/工作', '成果类型', '量化结果', '优先级'], achievementRows, ['14%', '22%', '16%', '36%', '12%'])}
+
+      <div style="margin-top:22px;padding-top:10px;border-top:1px solid #E5E7EB;color:#9CA3AF;font-size:12px;line-height:1.6">本周报基础数据由系统自动汇总生成于 ${docEsc(content.generated_at || '')}</div>
+    </div>`;
+
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body><!--StartFragment-->${fragment}<!--EndFragment--></body></html>`;
   };
 
   // ===== 周报内容渲染 =====
@@ -1293,6 +1601,7 @@ td.text-cell { white-space: pre-wrap; }
 
   const ExportButtons = () => (
     <>
+      <Button icon={<CopyOutlined />} onClick={() => handleCopyMeetingDoc()}>复制会议文档</Button>
       <Button icon={<FileImageOutlined />} onClick={handleExportPng}>PNG</Button>
       <Button icon={<FileWordOutlined />} onClick={() => handleExportDoc()}>Word</Button>
       <Button icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown()}>MD</Button>
@@ -1355,12 +1664,13 @@ td.text-cell { white-space: pre-wrap; }
         footer={[
           <Button key="close" onClick={() => { setHistoryModalVisible(false); setHistoryReport(null); }}>关闭</Button>,
           <Button key="png" icon={<FileImageOutlined />} onClick={() => { message.info('请在当前周报Tab中导出PNG'); }}>导出 PNG</Button>,
-          <Button key="word" icon={<FileWordOutlined />} onClick={() => handleExportDoc(historyReport)}>导出 Word</Button>,
-          <Button key="md" icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown(historyReport)}>导出 MD</Button>,
+          <Button key="copy" icon={<CopyOutlined />} onClick={() => handleCopyMeetingDoc(historyReport?.content || historyReport)}>复制会议文档</Button>,
+          <Button key="word" icon={<FileWordOutlined />} onClick={() => handleExportDoc(historyReport?.content || historyReport)}>导出 Word</Button>,
+          <Button key="md" icon={<FileMarkdownOutlined />} onClick={() => handleExportMarkdown(historyReport?.content || historyReport)}>导出 MD</Button>,
         ]}
       >
         <div style={{ background: '#F5F7FB', padding: isMobile ? 8 : 20, borderRadius: isMobile ? 10 : 14, maxHeight: isMobile ? '72vh' : '70vh', overflowY: 'auto' }}>
-          {renderReportContent(historyReport, true)}
+          {renderReportContent(historyReport?.content || historyReport, true)}
         </div>
       </Modal>
     </div>

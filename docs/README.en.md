@@ -100,6 +100,10 @@ Open `http://localhost:3001`.
 
 The weekly report experience includes a dedicated mobile layout. Dense tables are converted into readable cards on phone-sized viewports, so long Chinese text no longer collapses into narrow one-character columns.
 
+## Meeting Docs Copy
+
+Weekly reports can be copied as rich text for online meeting documents. The copied payload includes `text/html` for formatted tables and `text/plain` as a fallback, so the report remains selectable and editable after pasting instead of becoming a fixed PNG image.
+
 ## Production Notes
 
 - Do not use default passwords in production.

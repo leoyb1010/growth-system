@@ -1,6 +1,17 @@
 {
-  "latestVersion": "1.17.1",
+  "latestVersion": "1.17.2",
   "releases": [
+    {
+      "version": "1.17.2",
+      "date": "2026-05-17",
+      "title": "周报复制到会议文档 · 富文本粘贴输出",
+      "changes": [
+        { "type": "feat", "module": "周报导出", "desc": "新增「复制会议文档」按钮，将已保存周报复制为text/html富文本和text/plain兜底文本，可直接粘贴到在线文档" },
+        { "type": "improve", "module": "在线文档样式", "desc": "会议文档模板使用内联样式和表格布局，避免复杂CSS在飞书、腾讯文档、Notion、Google Docs等平台粘贴后错乱" },
+        { "type": "fix", "module": "历史周报", "desc": "历史周报弹窗导出/复制统一读取content内容，避免导出空结构" },
+        { "type": "safety", "module": "编辑流程", "desc": "复制会议文档保持生成→编辑→保存→复制逻辑；编辑中提示先保存，防止复制未确认内容" }
+      ]
+    },
     {
       "version": "1.17.1",
       "date": "2026-05-17",
