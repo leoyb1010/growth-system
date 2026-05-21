@@ -13,7 +13,7 @@ const { initCpsCron } = require('./services/cpsCronService');
 const { dbWriteGuard, dbReadOnlyGuard, checkDbWritable, periodicCheck } = require('./middleware/dbHealthCheck');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 58931;
 
 // 安全中间件
 app.use(helmet({

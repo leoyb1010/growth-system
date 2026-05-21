@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 const PORT = 3456;
-const API_PORT = 3001;
+const API_PORT = 58931;
 
 // 代理 /api 到后端
 app.use('/api', createProxyMiddleware({
