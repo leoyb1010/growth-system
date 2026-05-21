@@ -131,7 +131,10 @@ export function AuthProvider({ children }) {
     };
 
     bootstrapAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 注：accessToken, api, refreshAccessToken, clearStoredAuth 均为模块级变量，
+  // 在组件生命周期内稳定不变，空依赖数组是有意为之的挂载时一次性初始化。
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });

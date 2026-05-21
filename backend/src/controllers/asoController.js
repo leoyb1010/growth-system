@@ -218,6 +218,12 @@ async function exportDailyMetrics(req, res) {
     });
 
     // Simple CSV export
+    // 安全：CSV注入防护 — 对以 =, +, -, @ 开头的单元格添加单引号前缀
+    function sanitizeCsvCell(value) {
+      const str = String(value ?? '');
+      if (/^[=+\-@]/.test(str)) return `'${str}`;
+      return str;
+    }
     const headers = ['日期', '产品', '关键词', '类型', '搜索指数', '流行度', '初始排名', '昨日排名', '当前排名', '排名变化', '今日量级', '消耗金额', '状态'];
     const lines = [headers.join(',')];
     for (const row of rows) {
@@ -226,7 +232,7 @@ async function exportDailyMetrics(req, res) {
         r.stat_date, r.product?.name || '', r.keyword?.keyword || '', r.keyword?.keyword_type || '',
         r.search_index || '', r.popularity || '', r.initial_rank || '', r.yesterday_rank || '',
         r.current_rank || '', r.rank_delta || '', r.today_volume, r.cost_amount, r.keyword_status || '',
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      ].map(v => `"${sanitizeCsvCell(v).replace(/"/g, '""')}"`).join(','));
     }
     const csv = '﻿' + lines.join('\n');
     res.setHeader('Content-Disposition', `attachment; filename="aso_metrics_${Date.now()}.csv"`);

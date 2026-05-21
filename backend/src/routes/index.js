@@ -36,7 +36,7 @@ const asoUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/aso/')
 const router = express.Router();
 
 // 接收精细化限流器
-module.exports = function({ loginLimiter, aiLimiter, aiStreamLimiter, importLimiter } = {}) {
+module.exports = function({ loginLimiter, registerLimiter, aiLimiter, aiStreamLimiter, importLimiter } = {}) {
 
 // 文件上传配置
 const upload = multer({
@@ -84,7 +84,7 @@ router.get('/changelog', (req, res) => {
 
 // ==================== 认证路由 ====================
 router.post('/auth/login', loginLimiter || [], authController.login);
-router.post('/auth/register', authController.register);                         // 用户注册（公开）
+router.post('/auth/register', registerLimiter || [], authController.register);  // 用户注册（公开，含限流）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
 router.post('/auth/change-password', authenticate, authController.changePassword);
 router.post('/auth/refresh', authController.refreshToken);                      // 刷新 Token

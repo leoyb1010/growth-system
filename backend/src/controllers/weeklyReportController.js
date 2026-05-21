@@ -205,14 +205,23 @@ async function saveReportContent(req, res) {
     if (deptFilter) {
       const dept = await Department.findByPk(deptFilter);
       const deptName = dept ? dept.name : '';
+      // 检查旧报告是否对当前用户可见
       const visible = await filterReportContentForDept(report.content_json, deptFilter);
       if (!visible.hasData) {
         return error(res, '无权修改该周报', 403, 403);
       }
       const currentScope = getOutOfScopeDeptData(report.content_json, deptFilter, deptName);
-      const incomingScope = getOutOfScopeDeptData(content_json, deptFilter, deptName);
-      if (currentScope.length || incomingScope.length) {
+      if (currentScope.length) {
         return error(res, '无权修改包含其他部门数据的周报', 403, 403);
+      }
+      // 检查新内容：必须对当前部门可见，防止写入其他部门数据
+      const newVisible = await filterReportContentForDept(content_json, deptFilter);
+      if (!newVisible.hasData && content_json && Object.keys(content_json).length > 0) {
+        return error(res, '无权写入不包含本部门数据的周报内容', 403, 403);
+      }
+      const incomingScope = getOutOfScopeDeptData(content_json, deptFilter, deptName);
+      if (incomingScope.length) {
+        return error(res, '无权写入包含其他部门数据的周报', 403, 403);
       }
     }
 
@@ -385,6 +394,8 @@ function itemBelongsToDept(item, deptId, deptName) {
   const itemDeptId = item.dept_id ?? item.deptId;
   const itemDeptName = item.dept_name ?? item.department_name;
   if (itemDeptId !== undefined && itemDeptId !== null && Number(itemDeptId) === Number(deptId)) return true;
+  // TODO: 部门名称字符串匹配是已知局限性，依赖 dept_name 文本相等。
+  // 当部门重命名时可能失效，应迁移到 dept_id 整数匹配（需要清洗历史数据）。
   if (itemDeptName && deptName && String(itemDeptName) === String(deptName)) return true;
   return false;
 }

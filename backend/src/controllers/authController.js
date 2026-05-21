@@ -199,6 +199,9 @@ async function changePassword(req, res) {
  * 用户注册
  * POST /api/auth/register
  * 默认关闭公开注册，需设置 ENABLE_PUBLIC_REGISTER=true 才开放
+ *
+ * 当前密码策略（v1）：最少8位，必须包含字母和数字，拒绝常见弱密码。
+ * TODO v2：增强密码策略 — 添加大小写区分、特殊字符要求、密码历史检查。
  */
 async function register(req, res) {
   try {

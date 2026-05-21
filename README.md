@@ -1360,6 +1360,16 @@ docker-compose up -d --build
 - [x] v1.17.2 周报复制到会议文档 + 富文本粘贴输出
 - [x] v1.17.3 周报会议文档复制优化 + 在线文档粘贴友好版
 
+## Security & Quality Review (2026-05-21)
+
+### 修复清单
+- **Critical**: 归档检查现在使用记录本身年份而非当前年份 (monthlyTask/achievement); 注册接口增加频率限制 (3次/小时); 新增14个安全单元测试
+- **High**: CSV导出现已防护公式注入 (=、+、-、@ 前缀自动加单引号); Refresh Token 并发旋转加 per-user mutex 锁; 项目同步逻辑提取为共享 helper (消除3处重复); AI路径穿越防护 (/dashboard//evil.com 已拦截); 周报保存时验证新内容的部门权限
+- **Medium**: LIKE 搜索中转义 `%` `_` 防SQL通配符注入; Q1仪表盘回退逻辑修复 (正确退回上年Q4); 周报服务的硬编码阈值提取为命名常量
+- **Low**: 密码策略v2 TODO注释; 前后端权限双写文档化; useAuth deps文档化; proxy-server 与 app.js 功能重叠已标记
+
+所有修复为向后兼容，无 Breaking Changes。
+
 ## License
 
 MIT

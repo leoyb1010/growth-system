@@ -2,6 +2,11 @@
  * V4 统一权限中心
  * 所有菜单、按钮、Tab、快捷入口统一走 can(permission)
  * 禁止在各页面散落使用 isAdmin / isDeptManager 做零碎显隐
+ *
+ * 注意：此文件维护了一份与后端 middleware/auth.js 重复的权限定义
+ * （ROLE_PERMISSIONS, ROLE_COMPAT, CPS_ROLE_PERMS, ASO_ROLE_PERMS）。
+ * TODO：权限应以后端为唯一数据源，前端通过 /api/auth/me 返回的 permissions
+ * 数组推导菜单可见性，避免双写不一致风险。
  */
 
 // 角色兼容映射（与后端 ROLE_COMPAT 一致）

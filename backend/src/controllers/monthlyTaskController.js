@@ -112,7 +112,9 @@ async function updateMonthlyTask(req, res) {
       }
     }
 
-    const isBlocked = await checkArchived('monthly_tasks', task.quarter, new Date().getFullYear(), error, res);
+    // 从 month 字段提取年份（格式：2026-04）
+    const recordYear = task.month ? parseInt(task.month.split('-')[0]) : new Date().getFullYear();
+    const isBlocked = await checkArchived('monthly_tasks', task.quarter, recordYear, error, res);
     if (isBlocked) return;
 
     // 字段白名单
@@ -160,7 +162,9 @@ async function deleteMonthlyTask(req, res) {
       }
     }
 
-    const isBlocked = await checkArchived('monthly_tasks', task.quarter, new Date().getFullYear(), error, res);
+    // 从 month 字段提取年份（格式：2026-04）
+    const recordYear = task.month ? parseInt(task.month.split('-')[0]) : new Date().getFullYear();
+    const isBlocked = await checkArchived('monthly_tasks', task.quarter, recordYear, error, res);
     if (isBlocked) return;
 
     const oldValues = task.toJSON();

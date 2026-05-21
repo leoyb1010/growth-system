@@ -59,6 +59,13 @@ const loginLimiter = rateLimit({
   message: { code: 429, data: null, message: '登录尝试过于频繁，请1分钟后再试' }
 });
 
+// 限流 - 注册接口：防批量注册滥用
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1小时
+  max: 3, // 最多3次注册尝试
+  message: { code: 429, data: null, message: '注册请求过于频繁，请稍后再试' }
+});
+
 // 限流 - AI 接口：防滥用（LLM调用有成本）
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1分钟
@@ -100,6 +107,7 @@ app.use(dbWriteGuard);
 // API 路由（传入精细化限流器）
 app.use('/api', routes({
   loginLimiter,
+  registerLimiter,
   aiLimiter,
   aiStreamLimiter,
   importLimiter
@@ -125,6 +133,7 @@ app.get('/health', async (req, res) => {
 });
 
 // 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
+// 注意：此逻辑与根目录 proxy-server.js 重复。TODO：统一静态文件服务位置，消除双写。
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
 
 // /build/assets/* — Vite 带 content hash 的文件，可长缓存（Cloudflare 边缘缓存 + 浏览器强缓存）

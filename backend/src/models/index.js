@@ -1,3 +1,14 @@
+/**
+ * TODO: 此文件包含了所有模型定义（Department, User, Kpi, Project, Performance,
+ * MonthlyTask, Achievement, WeeklyReport, AuditLog, QuarterArchive, ProjectUpdateLog,
+ * ActionItem, RiskRegister, AiCallLog, AiResultCache, RefreshToken, CpsChannel,
+ * CpsProduct, CpsDailyMetric, CpsDailyMetricSnapshot, CpsUploadLog, CpsAlertRule,
+ * CpsAlertEvent, AsoProduct, AsoKeyword, AsoDailyKeywordMetric, AsoCampaign,
+ * AsoCampaignKeyword, AsoCampaignDailyPlan, AsoProductBaselineMetric,
+ * AsoMetadataVersion, AsoSnapshot, AsoImportLog）。
+ * 建议在后续重构中拆分为独立的模型文件（如 models/User.js, models/Project.js）
+ * 以提高可维护性和降低单文件认知负担。
+ */
 const sequelize = require('../../config/database');
 const { DataTypes } = require('sequelize');
 

@@ -78,9 +78,11 @@ async function getProjects(req, res) {
     if (req.deptFilter) where.dept_id = req.deptFilter;
     else if (dept_id) where.dept_id = parseInt(dept_id);
     if (search) {
+      // 转义 LIKE 通配符，防止用户输入 % 和 _ 绕过搜索
+      const safe = String(search).replace(/[%_]/g, '\\$&');
       where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { owner_name: { [Op.like]: `%${search}%` } }
+        { name: { [Op.like]: `%${safe}%` } },
+        { owner_name: { [Op.like]: `%${safe}%` } }
       ];
     }
 
@@ -174,83 +176,13 @@ async function createProject(req, res) {
     const project = await Project.create(payload);
     await logAudit('projects', project.id, 'create', getOperator(req), null, project.toJSON());
 
-    // 同步选项：同步到月度任务
-    if (data.sync_to_monthly) {
-      const syncSource = payload.weekly_progress || payload.goal;
-      if (syncSource) {
-        const currentMonth = moment().format('YYYY-MM');
-        let monthlyTask = await MonthlyTask.findOne({
-          where: { project_id: project.id, month: currentMonth },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果月度任务不存在，自动创建
-        if (!monthlyTask) {
-          monthlyTask = await MonthlyTask.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            month: currentMonth,
-            owner_name: project.owner_name || '',
-            category: project.type || '其他',
-            task: project.name,
-            goal: project.goal || '',
-            actual_result: '',
-            completion_rate: project.progress_pct || 0,
-            status: project.status === '完成' ? '完成' : '进行中',
-            quarter: project.quarter,
-            year: project.year || new Date().getFullYear(),
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('monthly_tasks', monthlyTask.id, 'create', getOperator(req), null, { note: '项目同步时自动创建月度任务' });
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const existing = monthlyTask.actual_result || '';
-        const newResult = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await monthlyTask.update({ actual_result: newResult, completion_rate: project.progress_pct || 0, updater_id: req.user?.id || null });
-      }
-    }
-
-    // 同步选项：同步到季度成果
-    if (data.sync_to_achievement) {
-      const syncSource = payload.weekly_progress || payload.goal;
-      if (syncSource) {
-        let achievements = await Achievement.findAll({
-          where: { project_id: project.id, quarter: project.quarter },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果成果不存在，自动创建
-        if (achievements.length === 0) {
-          const newAch = await Achievement.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            quarter: project.quarter,
-            owner_name: project.owner_name || '',
-            achievement_type: project.type || '其他',
-            project_name: project.name,
-            description: '',
-            quantified_result: '',
-            business_value: '',
-            reusable_content: '',
-            include_next_quarter: false,
-            priority: project.priority || '中',
-            achievement_status: '草稿',
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('achievements', newAch.id, 'create', getOperator(req), null, { note: '项目同步时自动创建成果草稿' });
-          achievements = [newAch];
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const achievement = achievements[0];
-        const existing = achievement.description || '';
-        const newDesc = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
-      }
-    }
+    // 同步选项：同步到月度任务和季度成果
+    await syncProjectData(project, {
+      sync_to_monthly: data.sync_to_monthly,
+      sync_to_achievement: data.sync_to_achievement,
+      syncSource: payload.weekly_progress || payload.goal,
+      updaterId: req.user?.id || null,
+    });
 
     success(res, project, '项目创建成功');
   } catch (err) {
@@ -308,83 +240,13 @@ async function updateProject(req, res) {
     await project.reload();
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
 
-    // 同步选项：同步到月度任务
-    if (req.body.sync_to_monthly) {
-      const syncSource = updateData.weekly_progress || updateData.goal || project.weekly_progress || project.goal;
-      if (syncSource) {
-        const currentMonth = moment().format('YYYY-MM');
-        let monthlyTask = await MonthlyTask.findOne({
-          where: { project_id: project.id, month: currentMonth },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果月度任务不存在，自动创建
-        if (!monthlyTask) {
-          monthlyTask = await MonthlyTask.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            month: currentMonth,
-            owner_name: project.owner_name || '',
-            category: project.type || '其他',
-            task: project.name,
-            goal: project.goal || '',
-            actual_result: '',
-            completion_rate: project.progress_pct || 0,
-            status: project.status === '完成' ? '完成' : '进行中',
-            quarter: project.quarter,
-            year: project.year || new Date().getFullYear(),
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('monthly_tasks', monthlyTask.id, 'create', getOperator(req), null, { note: '项目同步时自动创建月度任务' });
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const existing = monthlyTask.actual_result || '';
-        const newResult = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await monthlyTask.update({ actual_result: newResult, completion_rate: project.progress_pct || 0, updater_id: req.user?.id || null });
-      }
-    }
-
-    // 同步选项：同步到季度成果
-    if (req.body.sync_to_achievement) {
-      const syncSource = updateData.weekly_progress || updateData.goal || project.weekly_progress || project.goal;
-      if (syncSource) {
-        let achievements = await Achievement.findAll({
-          where: { project_id: project.id, quarter: project.quarter },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果成果不存在，自动创建
-        if (achievements.length === 0) {
-          const newAch = await Achievement.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            quarter: project.quarter,
-            owner_name: project.owner_name || '',
-            achievement_type: project.type || '其他',
-            project_name: project.name,
-            description: '',
-            quantified_result: '',
-            business_value: '',
-            reusable_content: '',
-            include_next_quarter: false,
-            priority: project.priority || '中',
-            achievement_status: '草稿',
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('achievements', newAch.id, 'create', getOperator(req), null, { note: '项目同步时自动创建成果草稿' });
-          achievements = [newAch];
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const achievement = achievements[0];
-        const existing = achievement.description || '';
-        const newDesc = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
-      }
-    }
+    // 同步选项：同步到月度任务和季度成果
+    await syncProjectData(project, {
+      sync_to_monthly: req.body.sync_to_monthly,
+      sync_to_achievement: req.body.sync_to_achievement,
+      syncSource: updateData.weekly_progress || updateData.goal || project.weekly_progress || project.goal,
+      updaterId: req.user?.id || null,
+    });
 
     // 项目完成时自动生成成果草稿
     if (updateData.status === '完成' && oldValues.status !== '完成') {
@@ -605,83 +467,13 @@ async function quickUpdateProject(req, res) {
 
     await logAudit('projects', project.id, 'update', getOperator(req), oldValues, project.toJSON());
 
-    // [6] 同步选项：将进展同步到月度任务
-    if (req.body.sync_to_monthly) {
-      const syncSource = updateData.weekly_progress || project.weekly_progress || project.goal;
-      if (syncSource) {
-        const currentMonth = moment().format('YYYY-MM');
-        let monthlyTask = await MonthlyTask.findOne({
-          where: { project_id: project.id, month: currentMonth },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果月度任务不存在，自动创建
-        if (!monthlyTask) {
-          monthlyTask = await MonthlyTask.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            month: currentMonth,
-            owner_name: project.owner_name || '',
-            category: project.type || '其他',
-            task: project.name,
-            goal: project.goal || '',
-            actual_result: '',
-            completion_rate: project.progress_pct || 0,
-            status: project.status === '完成' ? '完成' : '进行中',
-            quarter: project.quarter,
-            year: project.year || new Date().getFullYear(),
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('monthly_tasks', monthlyTask.id, 'create', getOperator(req), null, { note: '项目同步时自动创建月度任务' });
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const existing = monthlyTask.actual_result || '';
-        const newResult = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await monthlyTask.update({ actual_result: newResult, completion_rate: project.progress_pct || 0, updater_id: req.user?.id || null });
-      }
-    }
-
-    // [7] 同步选项：将进展同步到季度成果
-    if (req.body.sync_to_achievement) {
-      const syncSource = updateData.weekly_progress || project.weekly_progress || project.goal;
-      if (syncSource) {
-        let achievements = await Achievement.findAll({
-          where: { project_id: project.id, quarter: project.quarter },
-          order: [['created_at', 'DESC']]
-        });
-        // 如果成果不存在，自动创建
-        if (achievements.length === 0) {
-          const newAch = await Achievement.create({
-            dept_id: project.dept_id,
-            project_id: project.id,
-            quarter: project.quarter,
-            owner_name: project.owner_name || '',
-            achievement_type: project.type || '其他',
-            project_name: project.name,
-            description: '',
-            quantified_result: '',
-            business_value: '',
-            reusable_content: '',
-            include_next_quarter: false,
-            priority: project.priority || '中',
-            achievement_status: '草稿',
-            creator_id: req.user?.id || null,
-            updater_id: req.user?.id || null,
-          });
-          await logAudit('achievements', newAch.id, 'create', getOperator(req), null, { note: '项目同步时自动创建成果草稿' });
-          achievements = [newAch];
-        }
-        const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
-        const achievement = achievements[0];
-        const existing = achievement.description || '';
-        const newDesc = existing
-          ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
-          : `[同步${moment().format('M/D')}] ${syncContent}`;
-        await achievement.update({ description: newDesc, updater_id: req.user?.id || null });
-      }
-    }
+    // 同步选项：同步到月度任务和季度成果
+    await syncProjectData(project, {
+      sync_to_monthly: req.body.sync_to_monthly,
+      sync_to_achievement: req.body.sync_to_achievement,
+      syncSource: updateData.weekly_progress || project.weekly_progress || project.goal,
+      updaterId: req.user?.id || null,
+    });
 
     success(res, project, '快速更新成功');
   } catch (err) {
@@ -717,6 +509,85 @@ async function getProjectUpdateLogs(req, res) {
   } catch (err) {
     console.error('获取项目更新日志失败:', err);
     error(res, '获取项目更新日志失败', 1, 500);
+  }
+}
+
+/**
+ * 共享辅助：将项目进展同步到月度任务和季度成果
+ * @param {Object} project - 项目实例
+ * @param {Object} opts - { sync_to_monthly, sync_to_achievement, syncSource, updaterId }
+ */
+async function syncProjectData(project, opts = {}) {
+  const { sync_to_monthly, sync_to_achievement, syncSource, updaterId } = opts;
+  if (!sync_to_monthly && !sync_to_achievement) return;
+  if (!syncSource) return;
+
+  if (sync_to_monthly) {
+    const currentMonth = moment().format('YYYY-MM');
+    let monthlyTask = await MonthlyTask.findOne({
+      where: { project_id: project.id, month: currentMonth },
+      order: [['created_at', 'DESC']]
+    });
+    if (!monthlyTask) {
+      monthlyTask = await MonthlyTask.create({
+        dept_id: project.dept_id,
+        project_id: project.id,
+        month: currentMonth,
+        owner_name: project.owner_name || '',
+        category: project.type || '其他',
+        task: project.name,
+        goal: project.goal || '',
+        actual_result: '',
+        completion_rate: project.progress_pct || 0,
+        status: project.status === '完成' ? '完成' : '进行中',
+        quarter: project.quarter,
+        year: project.year || new Date().getFullYear(),
+        creator_id: updaterId,
+        updater_id: updaterId,
+      });
+      await logAudit('monthly_tasks', monthlyTask.id, 'create', getOperator({ user: { id: updaterId, name: '' } }), null, { note: '项目同步时自动创建月度任务' });
+    }
+    const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+    const existing = monthlyTask.actual_result || '';
+    const newResult = existing
+      ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+      : `[同步${moment().format('M/D')}] ${syncContent}`;
+    await monthlyTask.update({ actual_result: newResult, completion_rate: project.progress_pct || 0, updater_id: updaterId });
+  }
+
+  if (sync_to_achievement) {
+    let achievements = await Achievement.findAll({
+      where: { project_id: project.id, quarter: project.quarter },
+      order: [['created_at', 'DESC']]
+    });
+    if (achievements.length === 0) {
+      const newAch = await Achievement.create({
+        dept_id: project.dept_id,
+        project_id: project.id,
+        quarter: project.quarter,
+        owner_name: project.owner_name || '',
+        achievement_type: project.type || '其他',
+        project_name: project.name,
+        description: '',
+        quantified_result: '',
+        business_value: '',
+        reusable_content: '',
+        include_next_quarter: false,
+        priority: project.priority || '中',
+        achievement_status: '草稿',
+        creator_id: updaterId,
+        updater_id: updaterId,
+      });
+      await logAudit('achievements', newAch.id, 'create', getOperator({ user: { id: updaterId, name: '' } }), null, { note: '项目同步时自动创建成果草稿' });
+      achievements = [newAch];
+    }
+    const syncContent = syncSource.replace(/\[\d{2}\/\d{2}\]\s*/g, '').trim();
+    const achievement = achievements[0];
+    const existing = achievement.description || '';
+    const newDesc = existing
+      ? `${existing}\n[同步${moment().format('M/D')}] ${syncContent}`
+      : `[同步${moment().format('M/D')}] ${syncContent}`;
+    await achievement.update({ description: newDesc, updater_id: updaterId });
   }
 }
 

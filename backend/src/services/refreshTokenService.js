@@ -5,6 +5,16 @@ const { JWT_SECRET } = require('../utils/jwt');
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
 const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// 互斥锁：防止同一用户的 refresh token 并发轮转竞态
+const refreshLocks = new Map();
+function acquireRefreshLock(userId) {
+  if (refreshLocks.has(userId)) return refreshLocks.get(userId);
+  let release;
+  const lock = new Promise(resolve => { release = resolve; });
+  refreshLocks.set(userId, lock);
+  return { promise: lock, release: () => { refreshLocks.delete(userId); release(); } };
+}
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(String(token)).digest('hex');
 }
@@ -57,22 +67,39 @@ async function verifyAndRotateRefreshToken(token) {
     return null;
   }
 
-  // 轮转：旧 token 失效，生成新的
-  await stored.update({ revoked: true });
+  // 并发安全：按 userId 加锁，防止同一用户并发刷新导致竞态
+  const userId = stored.user_id;
+  const existing = refreshLocks.get(userId);
+  if (existing) {
+    // 已有进行中的轮转，等待前一个完成
+    await existing;
+    return null; // 前一个请求已轮转完毕，本次 token 已失效
+  }
+  const lock = acquireRefreshLock(userId);
+  try {
+    // 重新查询：可能已被前一个并发请求处理
+    const recheck = await RefreshToken.findOne({ where: { token: tokenHash, revoked: false } });
+    if (!recheck) return null;
 
-  const { User } = require('../models');
-  const user = await User.findByPk(stored.user_id);
-  if (!user || user.status !== 'active') return null;
+    // 轮转：旧 token 失效，生成新的
+    await recheck.update({ revoked: true });
 
-  const newToken = crypto.randomBytes(64).toString('hex');
-  await RefreshToken.create({
-    user_id: user.id,
-    token: hashToken(newToken),
-    expires_at: new Date(Date.now() + REFRESH_EXPIRES_MS),
-    revoked: false
-  });
+    const { User } = require('../models');
+    const user = await User.findByPk(userId);
+    if (!user || user.status !== 'active') return null;
 
-  return { user, refreshToken: newToken };
+    const newToken = crypto.randomBytes(64).toString('hex');
+    await RefreshToken.create({
+      user_id: user.id,
+      token: hashToken(newToken),
+      expires_at: new Date(Date.now() + REFRESH_EXPIRES_MS),
+      revoked: false
+    });
+
+    return { user, refreshToken: newToken };
+  } finally {
+    lock.release();
+  }
 }
 
 async function revokeAllUserTokens(userId) {

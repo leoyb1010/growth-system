@@ -110,7 +110,9 @@ async function updateAchievement(req, res) {
       }
     }
 
-    const isBlocked = await checkArchived('achievements', achievement.quarter, new Date().getFullYear(), error, res);
+    // Achievement 模型无 year 字段，从 completed_at 提取年份，无则用当前年份
+    const recordYear = achievement.completed_at ? new Date(achievement.completed_at).getFullYear() : new Date().getFullYear();
+    const isBlocked = await checkArchived('achievements', achievement.quarter, recordYear, error, res);
     if (isBlocked) return;
 
     // 字段白名单
@@ -158,7 +160,9 @@ async function deleteAchievement(req, res) {
       }
     }
 
-    const isBlocked = await checkArchived('achievements', achievement.quarter, new Date().getFullYear(), error, res);
+    // Achievement 模型无 year 字段，从 completed_at 提取年份，无则用当前年份
+    const recordYear = achievement.completed_at ? new Date(achievement.completed_at).getFullYear() : new Date().getFullYear();
+    const isBlocked = await checkArchived('achievements', achievement.quarter, recordYear, error, res);
     if (isBlocked) return;
 
     const oldValues = achievement.toJSON();

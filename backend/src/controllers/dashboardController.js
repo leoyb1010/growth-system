@@ -34,8 +34,10 @@ async function getDashboard(req, res) {
         const quarterOrder = ['Q4', 'Q3', 'Q2', 'Q1'];
         for (const q of quarterOrder) {
           if (q === currentQuarter) continue;
-          const pCount = await Project.count({ where: { quarter: q, year: currentYear, ...deptFilter } });
-          const kCount = await Kpi.count({ where: { quarter: q, year: currentYear, ...deptFilter } });
+          // Q1 回退到 Q4 时应使用上一年
+          const searchYear = (currentQuarter === 'Q1' && q === 'Q4') ? currentYear - 1 : currentYear;
+          const pCount = await Project.count({ where: { quarter: q, year: searchYear, ...deptFilter } });
+          const kCount = await Kpi.count({ where: { quarter: q, year: searchYear, ...deptFilter } });
           if (pCount > 0 || kCount > 0) {
             effectiveQuarter = q;
             quarterFallback = true;

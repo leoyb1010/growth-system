@@ -6,6 +6,17 @@ const { getQuarterTimeProgress, getProgressStatus } = require('../utils/timeProg
 const asoDashboardService = require('./asoDashboardService');
 const cpsDashboardService = require('./cpsDashboardService');
 
+// ===== 业务常量 =====
+// 部门排序优先级（数字越小越靠前）
+const DEPT_SORT_ORDER = { 3: 0, 1: 1, 2: 2 };
+// 严重预警阈值
+const SEVERE_WARNING_TIME_RATIO = 0.7;   // 完成率低于时间进度此比例视为严重
+const SEVERE_WARNING_MAX_RATE = 60;      // 完成率低于此百分比视为严重
+// CPS 退款率阈值
+const CPS_REFUND_RATE_THRESHOLD = 0.05;  // 5%
+// 项目进度达成阈值
+const PROJECT_HIGH_PROGRESS_PCT = 80;    // 进度达80%视为高进度
+
 // ===== 数值格式化工具 =====
 
 /**
@@ -159,8 +170,8 @@ async function buildBusinessSummary(weekStartStr, weekEndStr, options = {}) {
         top_channels: currentCps?.top_channels || [],
         alerts: {
           alert_count: Number(currentCps?.alert_count) || 0,
-          refund_rate_breach: current.refund_rate > 0.05,
-          refund_threshold: 0.05,
+          refund_rate_breach: current.refund_rate > CPS_REFUND_RATE_THRESHOLD,
+          refund_threshold: CPS_REFUND_RATE_THRESHOLD,
         },
       };
     } catch (err) {
@@ -258,8 +269,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   });
 
   // 按部门排序：袁博(3) → 拓展(1) → 运营(2)
-  const deptOrder = { 3: 0, 1: 1, 2: 2 };
-  const sortByDept = (a, b) => (deptOrder[a.dept_id] ?? 99) - (deptOrder[b.dept_id] ?? 99);
+  const sortByDept = (a, b) => (DEPT_SORT_ORDER[a.dept_id] ?? 99) - (DEPT_SORT_ORDER[b.dept_id] ?? 99);
 
   const projectProgress = updatedProjects.map(p => ({
     id: p.id,
@@ -301,7 +311,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   // 优先从 KPI 数据中提取完成率低于时间进度的指标
   const currentTimeProgress = getQuarterTimeProgress(quarterLabel, currentYear);
   kpiSummary.forEach(k => {
-    if (k.completion_rate < currentTimeProgress * 0.7 && k.completion_rate < 60) {
+    if (k.completion_rate < currentTimeProgress * SEVERE_WARNING_TIME_RATIO && k.completion_rate < SEVERE_WARNING_MAX_RATE) {
       severeWarnings.push({
         dept_id: k.dept_id,
         dept_name: k.dept_name,
@@ -328,7 +338,7 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
       const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
       if (totalTarget > 0) {
         const rate = (totalActual / totalTarget) * 100;
-        if (rate < 60) {
+        if (rate < SEVERE_WARNING_MAX_RATE) {
           severeWarnings.push({
             dept_id: p.dept_id,
             dept_name: p.Department?.name || '',
@@ -512,9 +522,9 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
   }
 
   const cps = businessSummary.cps;
-  if (cps?.enabled && cps.has_data && cps.current?.refund_rate > 0.05) {
+  if (cps?.enabled && cps.has_data && cps.current?.refund_rate > CPS_REFUND_RATE_THRESHOLD) {
     const refundRate = (cps.current.refund_rate * 100).toFixed(2);
-    const breach = ((cps.current.refund_rate - 0.05) * 100).toFixed(2);
+    const breach = ((cps.current.refund_rate - CPS_REFUND_RATE_THRESHOLD) * 100).toFixed(2);
     conclusions.push(`CPS 投流退款率 ${refundRate}%（阈值 5%），超出 ${breach} 个百分点，需专项复盘。`);
   }
 
@@ -550,7 +560,7 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList, timeProgress, 
 
   // 进度有推进的项目
   updatedProjects.forEach(p => {
-    if (p.progress_pct >= 80) {
+    if (p.progress_pct >= PROJECT_HIGH_PROGRESS_PCT) {
       changes.push({ type: 'progress', text: `${p.name} 进度达${p.progress_pct}%` });
     }
   });
@@ -570,10 +580,10 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList, timeProgress, 
 
   const cps = businessSummary.cps;
   if (cps?.enabled && cps.has_data) {
-    if (cps.current?.refund_rate > 0.05) {
+    if (cps.current?.refund_rate > CPS_REFUND_RATE_THRESHOLD) {
       changes.push({
         type: 'risk',
-        text: `CPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 5% 阈值`,
+        text: `CPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 ${Math.round(CPS_REFUND_RATE_THRESHOLD * 100)}% 阈值`,
       });
     } else if (Math.abs(cps.delta?.actual_amount || 0) > 0) {
       changes.push({

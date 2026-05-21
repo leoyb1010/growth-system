@@ -415,6 +415,8 @@ async function executeAction(req, res) {
       case 'navigate_to': {
         const { path } = params || {};
         if (!path || typeof path !== 'string') return error(res, '缺少 path 参数');
+        // 防止路径绕过：拒绝含 // 的路径（如 /dashboard//evil.com）
+        if (path.includes('//')) return error(res, '不合法的路径');
         // 路径安全：只允许白名单内部路径
         const ALLOWED_PATH_PREFIXES = ['/dashboard', '/projects', '/kpis', '/week', '/monthly-tasks', '/achievements', '/weekly-reports', '/settlement', '/today', '/departments'];
         if (!path.startsWith('/')) return error(res, '只允许内部路径');

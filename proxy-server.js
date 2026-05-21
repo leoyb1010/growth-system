@@ -17,6 +17,8 @@ app.use('/api', createProxyMiddleware({
 }));
 
 // serve 前端静态文件
+// 注意：proxy-server.js 和 backend/src/app.js 都包含了前端静态文件服务逻辑。
+// TODO：统一由一处（proxy-server 或 app.js）负责静态文件服务，避免重复和版本不一致。
 app.use(express.static(path.join(__dirname, 'frontend/build')));
 
 // SPA 回退
