@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Alert } from 'antd';
+import { Alert, Spin } from 'antd';
 import { AuthProvider } from './hooks/useAuth';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -32,10 +32,7 @@ const AsoPage = React.lazy(() => import('./pages/AsoPage'));
 // 页面加载 Spinner
 const PageLoading = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-    <div style={{ textAlign: 'center', color: 'var(--text-2)' }}>
-      <div style={{ fontSize: 24, marginBottom: 12 }}>⏳</div>
-      <div>加载中...</div>
-    </div>
+    <Spin />
   </div>
 );
 

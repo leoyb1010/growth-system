@@ -142,9 +142,9 @@ psql -U growth -d growth_system -f backend/init.sql
 ```
 
 ```
-⚠️ 生产环境：禁止使用默认密码。首次部署后必须修改所有账号密码。
-开发环境：seed 脚本会创建测试账号但密码已随机化（通过 OPENSSL_RAND_HEX）。
-账号列表见 seedDatabase，密码通过环境变量或 .env 设置。
+生产环境：禁止使用默认密码。首次部署后必须修改所有账号密码。
+开发环境：seed 脚本会创建 `admin`、`expand`、`ops` 三个账号；默认密码会随机化并要求首次登录改密。
+如需本地固定 seed 密码，请在 `.env` 显式设置 `DEFAULT_SEED_PASSWORD`；只有设置 `ALLOW_INSECURE_DEFAULT_SEED=true` 时才会启用旧的 `123456` 开发捷径。
 ```
 
 ## 项目结构

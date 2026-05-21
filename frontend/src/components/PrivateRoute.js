@@ -6,7 +6,7 @@ function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '100px' }}>加载中...</div>;
+    return null;
   }
 
   if (!user) {

@@ -20,7 +20,7 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "echo \"No frontend tests configured\""
+    "test": "vitest run --environment jsdom"
   },
   "eslintConfig": {
     "extends": [
@@ -40,8 +40,12 @@
     ]
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.6.0",
-    "vite": "^6.0.0"
+    "jsdom": "^29.1.1",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.7"
   },
   "proxy": "http://localhost:3001"
 }

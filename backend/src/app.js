@@ -248,20 +248,26 @@ async function seedDatabase() {
     const userCount = await User.count();
     if (userCount === 0) {
       const isProduction = process.env.NODE_ENV === 'production';
-      // 生产环境：随机密码 + 强制必须修改
-      const defaultPassword = isProduction
-        ? require('crypto').randomBytes(16).toString('hex')
-        : '123456';
+      const allowInsecureSeed = process.env.ALLOW_INSECURE_DEFAULT_SEED === 'true';
+      const configuredSeedPassword = process.env.DEFAULT_SEED_PASSWORD;
+      const defaultPassword = configuredSeedPassword || (
+        allowInsecureSeed && !isProduction
+          ? '123456'
+          : require('crypto').randomBytes(16).toString('hex')
+      );
       const defaultHash = await bcrypt.hash(defaultPassword, 10);
+      const mustChangePassword = true;
       await User.bulkCreate([
-        { id: 1, username: 'admin', name: '管理员', role: 'admin', dept_id: null, password_hash: defaultHash, must_change_password: isProduction },
-        { id: 2, username: 'expand', name: '拓展组账号', role: 'dept', dept_id: 1, password_hash: defaultHash, must_change_password: isProduction },
-        { id: 3, username: 'ops', name: '运营组账号', role: 'dept', dept_id: 2, password_hash: defaultHash, must_change_password: isProduction },
+        { id: 1, username: 'admin', name: '管理员', role: 'admin', dept_id: null, password_hash: defaultHash, must_change_password: mustChangePassword },
+        { id: 2, username: 'expand', name: '拓展组账号', role: 'dept', dept_id: 1, password_hash: defaultHash, must_change_password: mustChangePassword },
+        { id: 3, username: 'ops', name: '运营组账号', role: 'dept', dept_id: 2, password_hash: defaultHash, must_change_password: mustChangePassword },
       ]);
-      if (isProduction) {
-        console.log(`⚠️  生产环境：已创建3个默认用户，密码已随机化。请立即通过前端修改密码！`);
+      if (configuredSeedPassword) {
+        console.log('种子数据：已插入 3 个默认用户（使用 DEFAULT_SEED_PASSWORD，首次登录必须改密）');
+      } else if (allowInsecureSeed && !isProduction) {
+        console.log('种子数据：已插入 3 个默认用户（开发显式开启 123456，首次登录必须改密）');
       } else {
-        console.log('种子数据：已插入 3 个默认用户（开发环境，密码 123456）');
+        console.log('种子数据：已插入 3 个默认用户（密码已随机化，首次登录必须改密）');
       }
     }
   } catch (err) {
