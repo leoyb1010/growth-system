@@ -9,13 +9,10 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Pull latest code
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd /Users/leo/WorkBuddy/20260421163042/growth-system
-          # Use token-based URL to avoid credential prompt
-          git -c "http.https://github.com/.extraheader=Authorization: basic $GITHUB_TOKEN" fetch origin
-          git reset --hard origin/main
+          # self-hosted runner 本地已有 repo，直接 pull
+          git pull origin main
 
       - name: Install backend dependencies
         run: |
