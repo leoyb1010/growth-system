@@ -1,0 +1,44 @@
+name: Auto Deploy on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest code
+        run: |
+          cd /Users/leo/WorkBuddy/20260421163042/growth-system
+          git fetch origin
+          git reset --hard origin/main
+
+      - name: Install backend dependencies
+        run: |
+          cd /Users/leo/WorkBuddy/20260421163042/growth-system
+          npm install --prefix backend
+
+      - name: Install frontend dependencies & build
+        run: |
+          cd /Users/leo/WorkBuddy/20260421163042/growth-system/frontend
+          npm install
+          npm run build
+
+      - name: Deploy backend (PM2 delete + start)
+        run: |
+          cd /Users/leo/WorkBuddy/20260421163042/growth-system
+          /Users/leo/.npm-global/bin/pm2 delete growth-system 2>/dev/null || true
+          DB_DIALECT=sqlite NODE_ENV=production \
+            AI_LLM_PROVIDER=deepseek \
+            AI_LLM_API_KEY=***REMOVED*** \
+            AI_LLM_MODEL=deepseek-v4-flash \
+            AI_LLM_BASE_URL=https://api.deepseek.com \
+            JWT_SECRET=leobms_jwt_secret_2026 \
+            /Users/leo/.npm-global/bin/pm2 start backend/src/app.js --name growth-system
+
+      - name: Verify deployment
+        run: |
+          sleep 3
+          curl -sf --noproxy '*' http://localhost:58931/api/changelog | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Deployed: V{d[\"data\"][\"latestVersion\"]}')" || echo "WARNING: Health check failed"
+          /Users/leo/.npm-global/bin/pm2 save
