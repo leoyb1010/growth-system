@@ -11,8 +11,8 @@ jobs:
       - name: Pull latest code
         run: |
           cd /Users/leo/WorkBuddy/20260421163042/growth-system
-          # self-hosted runner 本地已有 repo，直接 pull
-          git pull origin main
+          # 使用文件凭据存储（不依赖 keychain，LaunchAgent 环境可用）
+          git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' pull origin main
 
       - name: Install backend dependencies
         run: |
