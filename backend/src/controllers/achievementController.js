@@ -19,7 +19,11 @@ async function getAchievements(req, res) {
 
     if (quarter) where.quarter = quarter;
     if (priority) where.priority = priority;
-    if (owner_name) where.owner_name = { [Op.like]: `%${owner_name}%` };
+    if (owner_name) {
+      // 转义 LIKE 通配符，防止用户输入 % 和 _ 绕过搜索（与 projectController 保持一致）
+      const safe = String(owner_name).replace(/[%_]/g, '\\$&');
+      where.owner_name = { [Op.like]: `%${safe}%` };
+    }
     if (dept_id && req.deptFilter && parseInt(dept_id) !== req.deptFilter) {
       return error(res, '无权查看其他部门数据', 403, 403);
     }

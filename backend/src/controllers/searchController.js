@@ -66,8 +66,10 @@ async function globalSearch(req, res) {
       return success(res, []);
     }
     const keyword = q.trim();
+    // 转义 LIKE 通配符，防止用户输入 % 和 _ 绕过搜索（与 projectController 保持一致）
+    const safe = keyword.replace(/[%_]/g, '\\$&');
     // SQLite 不支持 ILIKE，使用 LIKE（SQLite 对 ASCII 默认大小写不敏感）
-    const likeQuery = { [Op.like]: `%${keyword}%` };
+    const likeQuery = { [Op.like]: `%${safe}%` };
 
     // 使用 access 权限上下文构建数据范围
     const projectScope = buildScopeWhere(req.access, 'project');
