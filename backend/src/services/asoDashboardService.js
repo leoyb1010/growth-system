@@ -1,14 +1,11 @@
 const { Op, fn, col, literal } = require('sequelize');
 const { AsoProduct, AsoKeyword, AsoDailyKeywordMetric, AsoProductBaselineMetric } = require('../models');
+const { todayString } = require('../utils/businessDate');
 
 function parseIds(value) {
   if (value === null || value === undefined || value === '') return [];
   if (Array.isArray(value)) return value.map(Number).filter(Boolean);
   return String(value).split(',').map(Number).filter(Boolean);
-}
-
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function rankDelta(current, compare) {

@@ -6,6 +6,7 @@ const cpsDashboardService = require('../services/cpsDashboardService');
 const cpsImportService = require('../services/cpsImportService');
 const cpsExportService = require('../services/cpsExportService');
 const cpsAlertService = require('../services/cpsAlertService');
+const { yesterdayString } = require('../utils/businessDate');
 
 function parseIds(value) {
   if (!value) return [];
@@ -307,8 +308,7 @@ async function ackAlert(req, res) {
 // 手动触发预警检查（不用等 cron，立即检查昨天的数据）
 async function checkAlertsNow(req, res) {
   try {
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    const date = req.query.date || yesterday.toISOString().slice(0, 10);
+    const date = req.query.date || yesterdayString();
     const events = await cpsAlertService.checkAlertsForDate(date);
     return success(res, { date, events_count: events.length });
   } catch (err) {

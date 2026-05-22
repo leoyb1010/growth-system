@@ -367,7 +367,30 @@ async function streamChat(req, res) {
     res.end();
   } catch (err) {
     console.error('AI Stream Chat 错误:', err);
-    res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI 服务暂时不可用' })}\n\n`);
+    try {
+      const mockProvider = require('../services/aiMockProvider');
+      const aiContextService = require('../services/aiContextService');
+      const currentUser = {
+        id: req.access?.userId,
+        role: req.access?.role,
+        deptId: req.access?.deptId,
+        dataScopeType: req.access?.dataScopeType,
+        dataScopeValue: req.access?.dataScopeValue,
+      };
+      const context = await aiContextService.assembleContext({
+        currentPage: currentPage || 'dashboard',
+        currentObject: {},
+        currentUser
+      });
+      const answer = mockProvider.mockChatAnswer(safeQuery, context);
+      const text = typeof answer === 'string' ? answer : (answer.answer || answer.content || '');
+      const meta = typeof answer === 'object' ? { confidence: answer.confidence, sources: answer.sources } : {};
+      res.write(`data: ${JSON.stringify({ type: 'content', text: `${text}\n\n（LLM 不可用，以上为规则分析结果）` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done', isMock: true, llmReason: err.llmReason || 'unavailable', ...meta })}\n\n`);
+    } catch (fallbackErr) {
+      console.error('AI Stream fallback 错误:', fallbackErr);
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI 服务暂时不可用' })}\n\n`);
+    }
     res.end();
   }
 }

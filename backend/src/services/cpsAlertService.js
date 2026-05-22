@@ -1,8 +1,7 @@
 const { Op } = require('sequelize');
 const { CpsDailyMetric, CpsChannel, CpsProduct, CpsAlertRule, CpsAlertEvent } = require('../models');
 const cpsCalc = require('./cpsCalcService');
-
-function todayStr() { const d = new Date(); return d.toISOString().slice(0, 10); }
+const { todayString } = require('../utils/businessDate');
 
 function shouldTrigger(value, operator, threshold) {
   const v = Number(value), t = Number(threshold);
@@ -27,7 +26,7 @@ async function checkAlertsForDate(date) {
 
   for (const rule of rules) {
     try {
-      const where = { stat_date: date || new Date().toISOString().slice(0, 10) };
+      const where = { stat_date: date || todayString() };
       if (rule.scope_type === 'channel' && rule.scope_json) {
         try { where.channel_id = { [Op.in]: JSON.parse(rule.scope_json) }; } catch(e) {}
       }

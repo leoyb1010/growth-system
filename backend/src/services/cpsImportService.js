@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { CpsChannel, CpsProduct, CpsDailyMetric, CpsDailyMetricSnapshot, CpsUploadLog } = require('../models');
 const cpsCalc = require('./cpsCalcService');
 const { safeCode } = require('../utils/cpsCode');
+const { parseBusinessDate } = require('../utils/businessDate');
 
 function norm(v) {
   return String(v || '').trim().toLowerCase();
@@ -25,32 +26,7 @@ function extractRowDim(raw) {
 }
 
 function formatDate(v) {
-  if (!v) return new Date().toISOString().slice(0, 10);
-  // Excel serial date number (e.g. 46143 = 2026-05-01)
-  // 标准公式：(序列号 - 25569) * 86400000，25569 = 1900-01-01与1970-01-01的天数差
-  if (typeof v === 'number' && v > 40000 && v < 60000) {
-    const d = new Date((v - 25569) * 86400000);
-    return d.toISOString().slice(0, 10);
-  }
-  // Standard date strings
-  const d = new Date(v);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  // Chinese date with day: "2026年5月7日" or "5月7日"
-  const mDay = String(v).match(/(\d{4})?[年\-\/]?(\d{1,2})[月\-\/](\d{1,2})[日号]?/);
-  if (mDay && mDay[1]) return `${mDay[1]}-${mDay[2].padStart(2,'0')}-${mDay[3].padStart(2,'0')}`;
-  if (mDay) {
-    const y = new Date().getFullYear();
-    return `${y}-${mDay[2].padStart(2,'0')}-${mDay[3].padStart(2,'0')}`;
-  }
-  // Chinese date month-level: "2026年1月" or "1月" or "2026-01"
-  const mMth = String(v).match(/^(\d{4})?[年\-\/]?(\d{1,2})[月]?$/);
-  if (mMth && mMth[1]) return `${mMth[1]}-${mMth[2].padStart(2,'0')}-01`;
-  if (mMth) {
-    const y = new Date().getFullYear();
-    return `${y}-${mMth[2].padStart(2,'0')}-01`;
-  }
-  // Fallback: try slice
-  return String(v).slice(0, 10);
+  return parseBusinessDate(v);
 }
 
 async function importFromExcel(filePath, opts = {}) {
@@ -240,4 +216,4 @@ async function importFromExcel(filePath, opts = {}) {
   };
 }
 
-module.exports = { importFromExcel };
+module.exports = { importFromExcel, __private: { formatDate } };

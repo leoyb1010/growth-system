@@ -2,6 +2,7 @@ const { readWorkbook, sheetToJson } = require('../utils/safeExcel');
 const { AsoProduct, AsoKeyword, AsoDailyKeywordMetric, AsoSnapshot, AsoImportLog } = require('../models');
 const asoCalc = require('./asoCalcService');
 const { safeCode } = require('../utils/asoCode');
+const { parseBusinessDate, todayString } = require('../utils/businessDate');
 
 function norm(v) {
   return String(v || '').trim().toLowerCase();
@@ -14,25 +15,8 @@ function getCell(raw, keys) {
   return '';
 }
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function formatDate(v) {
-  if (!v) return todayString();
-  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
-  if (typeof v === 'number' && v > 40000 && v < 60000) {
-    return new Date((v - 25569) * 86400000).toISOString().slice(0, 10);
-  }
-  const d = new Date(v);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  const mDay = String(v).match(/(\d{4})?[年\-\/]?(\d{1,2})[月\-\/](\d{1,2})[日号]?/);
-  if (mDay && mDay[1]) return `${mDay[1]}-${mDay[2].padStart(2, '0')}-${mDay[3].padStart(2, '0')}`;
-  if (mDay) {
-    const y = new Date().getFullYear();
-    return `${y}-${mDay[2].padStart(2, '0')}-${mDay[3].padStart(2, '0')}`;
-  }
-  return String(v).slice(0, 10);
+  return parseBusinessDate(v, todayString());
 }
 
 // 中文产品名称标准化映射，防止重复创建

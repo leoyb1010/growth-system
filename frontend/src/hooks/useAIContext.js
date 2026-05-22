@@ -4,6 +4,7 @@
  */
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import moment from 'moment';
 
 // 路由 → 页面映射（精确匹配优先）
 const ROUTE_PAGE_MAP = {
@@ -60,14 +61,9 @@ export function useAIContext() {
     }
 
     // 当前周范围
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + mondayOffset);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    currentObject.weekRange = `${monday.toISOString().split('T')[0]}~${sunday.toISOString().split('T')[0]}`;
+    const monday = moment().startOf('isoWeek');
+    const sunday = moment(monday).add(6, 'days');
+    currentObject.weekRange = `${monday.format('YYYY-MM-DD')}~${sunday.format('YYYY-MM-DD')}`;
 
     // 页面语义描述
     const pageDescription = PAGE_DESCRIPTIONS[currentPage] || '';

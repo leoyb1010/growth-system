@@ -1,7 +1,8 @@
-const { ActionItem, User } = require('../models');
+const { ActionItem, User, sequelize } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const { logAudit } = require('../services/auditLogService');
+const { todayString } = require('../utils/businessDate');
 
 function getOperator(req) {
   return { id: req.user?.id, name: req.user?.name || req.user?.username };
@@ -58,7 +59,7 @@ async function list(req, res) {
     if (owner_id) where.owner_id = parseInt(owner_id);
     if (mine === 'true' && req.user?.id) where.owner_id = req.user.id;
     if (overdue === 'true') {
-      where.due_date = { [Op.lt]: new Date().toISOString().slice(0, 10) };
+      where.due_date = { [Op.lt]: todayString() };
       where.status = { [Op.notIn]: ['done', 'cancelled'] };
     }
 
@@ -67,7 +68,7 @@ async function list(req, res) {
     // aggregate 模式：返回总量统计（不受分页影响）
     if (aggregate === 'true') {
       const rows = await ActionItem.findAll({ where, attributes: ['status', 'due_date'], raw: true });
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayString();
       return success(res, {
         aggregate: {
           total: rows.length,

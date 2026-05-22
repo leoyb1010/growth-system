@@ -116,16 +116,19 @@ app.use('/api', routes({
 // 健康检查（含 DB 写入状态）
 app.get('/health', async (req, res) => {
   const { isDbReadOnly, checkDbWritable } = require('./middleware/dbHealthCheck');
+  const llmProvider = require('./ai/services/aiLLMProvider');
   let dbWritable = true;
   try {
     dbWritable = !isDbReadOnly();
   } catch (e) { /* ignore */ }
+  const aiStatus = llmProvider.getStatus();
 
   res.json({
     code: 0,
     data: {
       status: dbWritable ? 'ok' : 'degraded',
       db_writable: dbWritable,
+      ai_llm: aiStatus,
       time: new Date().toISOString()
     },
     message: dbWritable ? '服务正常' : '数据库只读，写入功能不可用'

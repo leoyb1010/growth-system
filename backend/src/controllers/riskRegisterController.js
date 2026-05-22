@@ -1,4 +1,4 @@
-const { RiskRegister, Project, User } = require('../models');
+const { RiskRegister, Project, User, sequelize } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const { logAudit } = require('../services/auditLogService');
