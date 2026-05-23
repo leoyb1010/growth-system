@@ -8,6 +8,14 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    env:
+      # 清除代理环境变量，避免 ClashX 代理导致 git/npm 连接 github.com 失败
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+      NO_PROXY: ""
+      no_proxy: ""
     steps:
       - name: Pull latest code
         run: |
