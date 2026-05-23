@@ -1,28 +1,60 @@
-<div align="center">
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/leoyb1010/growth-system/main/docs/screenshot-dashboard.png" width="0" height="0" alt="">
+  LeoBMS · 增长部门管理系统
+</h1>
 
-# LeoBMS
-
-### 增长部门管理系统
-
-<p>
-  <em>「把业务数据放进一个系统，把每周复盘变成可交付。」</em><br />
-  <em>"Run growth data in one place. A weekly review lands ready to ship."</em>
+<p align="center">
+  <b>把业务数据放进一个系统，把每周复盘变成可交付。</b><br>
+  Run growth data in one place. A weekly review lands ready to ship.<br>
+  <a href="#系统截图">截图</a> ·
+  <a href="#核心功能">五大模块</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#技术栈">技术栈</a> ·
+  <a href="#api-文档">API</a> ·
+  <a href="#部署到-ubuntu-服务器">部署</a> ·
+  <a href="#版本更新日志">版本</a> ·
+  <a href="docs/README.en.md">English</a>
 </p>
 
-<p>
-  <a href="docs/README.en.md"><img alt="README: Chinese First" src="https://img.shields.io/badge/README-Chinese%20First-2563EB?labelColor=555&style=flat" /></a>
-  <img alt="License: Personal Use Only" src="https://img.shields.io/badge/License-Personal%20Use%20Only-EF6C2F?labelColor=555&style=flat" />
-  <img alt="Agent: Agnostic" src="https://img.shields.io/badge/Agent-Agnostic-7C3AED?labelColor=555&style=flat" />
-  <img alt="Mobile: Ready" src="https://img.shields.io/badge/Mobile-Ready-16A34A?labelColor=555&style=flat" />
+<p align="center">
+  <img alt="Version" src="https://img.shields.io/badge/version-v1.17.3-2673FF?style=flat-square">
+  <img alt="React" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white">
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white">
+  <img alt="Ant Design" src="https://img.shields.io/badge/Ant%20Design-5-0170FE?style=flat-square&logo=antdesign&logoColor=white">
+  <img alt="ECharts" src="https://img.shields.io/badge/ECharts-5-AA344D?style=flat-square&logo=apacheecharts&logoColor=white">
+  <img alt="Express" src="https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-14%2B-4169E1?style=flat-square&logo=postgresql&logoColor=white">
+  <img alt="DeepSeek" src="https://img.shields.io/badge/AI-DeepSeek%20%2B%20Rules-7C3AED?style=flat-square">
+  <img alt="Mobile" src="https://img.shields.io/badge/Mobile-Ready-16A34A?style=flat-square">
+  <img alt="License" src="https://img.shields.io/badge/License-Personal%20Use-EF6C2F?style=flat-square">
 </p>
 
-</div>
+<p align="center">
+  <img src="docs/screenshot-dashboard.png" width="960" alt="LeoBMS 管理驾驶舱">
+</p>
+
+<p align="center">
+  <sub>专为增长组设计的业务数据管理 Web 系统：5 大业务模块 · 可视化驾驶舱 · 智能周报生成 · ASO / CPS 速览 · 数据导入导出 · 移动端就绪。</sub>
+</p>
+
+<p align="center">
+  简体中文 | <a href="docs/README.en.md">English</a>
+</p>
 
 ---
 
-> 专为增长组设计的业务数据管理 Web 系统，支持五大业务模块管理、可视化仪表盘、智能周报生成和数据导入导出。
+## 是什么
 
-**语言 / Languages**：中文（默认）｜[English](docs/README.en.md)
+LeoBMS（**Leo Business Management System**）是一套**部门级业务数据中枢**，把"KPI 核心指标、重点工作、业务线业绩、月度工作、季度成果"5 大模块装进同一套权限/驾驶舱/周报闭环里，让管理者一周一份**带结论、带关键变化、带下周焦点的可交付周报**。
+
+- **驱动行动而非展示数据**：管理驾驶舱不是仪表盘秀场，"今日变化 + 本周关注"双栏推动当周的下一步动作
+- **周 + 日双节奏**：周一规划、周中跟进、周五自动生成周报草稿（node-cron），项目今日更新写回项目表 + 审计日志
+- **结论由规则驱动**：周报本周结论 / 关键变化由规则引擎自动写入，不依赖 LLM 幻觉，LLM 只负责润色
+- **ASO / CPS 业务速览**：周报集成 ASO 关键词到榜、CPS 实收 / 退款率，超阈值自动写入告警
+- **管理优先排序**：项目列表"风险 > 临期 > 低进度 > 其他"，让人 5 秒锁定要救的项目
+- **跨端可用**：移动端 PWA 就绪，周报支持 PNG / Word / Markdown / 富文本（飞书 / 腾讯文档 / Notion 友好）导出
+
+<a id="系统截图"></a>
 
 ## 系统截图
 
@@ -32,15 +64,15 @@
     <td align="center"><b>周管理</b></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshot-dashboard.png" alt="管理驾驶舱" width="520" /></td>
-    <td><img src="docs/screenshot-week.png" alt="周管理" width="520" /></td>
+    <td><img src="docs/screenshot-dashboard.png" alt="管理驾驶舱" width="480" /></td>
+    <td><img src="docs/screenshot-week.png" alt="周管理" width="480" /></td>
   </tr>
   <tr>
     <td align="center"><b>项目推进</b></td>
     <td align="center"><b>周报移动端</b></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshot-projects.png" alt="项目推进" width="520" /></td>
+    <td><img src="docs/screenshot-projects.png" alt="项目推进" width="480" /></td>
     <td align="center"><img src="docs/screenshot-weekly-mobile.png" alt="周报移动端" width="260" /></td>
   </tr>
 </table>
