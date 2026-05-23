@@ -8,29 +8,24 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-    env:
-      # 清除代理环境变量，避免 ClashX 代理导致 git/npm 连接 github.com 失败
-      HTTP_PROXY: ""
-      HTTPS_PROXY: ""
-      http_proxy: ""
-      https_proxy: ""
-      NO_PROXY: ""
-      no_proxy: ""
     steps:
       - name: Pull latest code
         run: |
           cd /Users/leo/WorkBuddy/20260421163042/growth-system
-          # 使用文件凭据存储（不依赖 keychain，LaunchAgent 环境可用）
+          # 清除代理环境变量（ClashX 代理会导致 git/npm 连接 github.com 不稳定）
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' pull origin main
 
       - name: Install backend dependencies
         run: |
           cd /Users/leo/WorkBuddy/20260421163042/growth-system
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           npm install --prefix backend
 
       - name: Install frontend dependencies & build
         run: |
           cd /Users/leo/WorkBuddy/20260421163042/growth-system/frontend
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           npm install
           npm run build
 
