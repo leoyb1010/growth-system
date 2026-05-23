@@ -70,6 +70,7 @@ function WeekPage() {
         weekly_progress: quickProgress,
         sync_to_monthly: quickSyncMonthly,
         sync_to_achievement: quickSyncAchievement,
+        updated_at: quickEditItem.updated_at,
       });
       message.success('每日更新成功');
       setQuickEditVisible(false);

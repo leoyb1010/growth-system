@@ -334,9 +334,9 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
       include: [{ model: Department, attributes: ['name'] }]
     });
     performances.forEach(p => {
-      const totalTarget = parseFloat(p.q1_target) + parseFloat(p.q2_target) + parseFloat(p.q3_target) + parseFloat(p.q4_target);
-      const totalActual = parseFloat(p.q1_actual) + parseFloat(p.q2_actual) + parseFloat(p.q3_actual) + parseFloat(p.q4_actual);
-      if (totalTarget > 0) {
+      const totalTarget = (parseFloat(p.q1_target) || 0) + (parseFloat(p.q2_target) || 0) + (parseFloat(p.q3_target) || 0) + (parseFloat(p.q4_target) || 0);
+      const totalActual = (parseFloat(p.q1_actual) || 0) + (parseFloat(p.q2_actual) || 0) + (parseFloat(p.q3_actual) || 0) + (parseFloat(p.q4_actual) || 0);
+      if (totalTarget !== 0) {
         const rate = (totalActual / totalTarget) * 100;
         if (rate < SEVERE_WARNING_MAX_RATE) {
           severeWarnings.push({

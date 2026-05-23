@@ -170,6 +170,10 @@ async function createProject(req, res) {
     const payload = {};
     allowedFields.forEach(f => { if (data[f] !== undefined) payload[f] = data[f]; });
 
+    if (payload.progress_pct !== undefined) {
+      payload.progress_pct = Math.max(0, Math.min(100, Number(payload.progress_pct) || 0));
+    }
+
     payload.creator_id = req.user?.id || null;
     payload.updater_id = req.user?.id || null;
 
@@ -228,9 +232,18 @@ async function updateProject(req, res) {
       return error(res, '无权将数据转移到其他部门', 403, 403);
     }
 
+    if (updateData.progress_pct !== undefined) {
+      updateData.progress_pct = Math.max(0, Math.min(100, Number(updateData.progress_pct) || 0));
+    }
+
+    const providedUpdatedAt = req.body.updated_at;
+    if (!providedUpdatedAt) {
+      return error(res, '缺少 updated_at 参数，无法验证数据版本', 400, 400);
+    }
+
     const oldValues = project.toJSON();
     const [affectedRows] = await Project.update(updateData, {
-      where: { id: project.id, updated_at: project.updated_at },
+      where: { id: project.id, updated_at: providedUpdatedAt },
       individualHooks: false,
     });
     if (affectedRows === 0) {
@@ -442,10 +455,19 @@ async function quickUpdateProject(req, res) {
 
     updateData.updater_id = req.user?.id || null;
 
+    if (updateData.progress_pct !== undefined) {
+      updateData.progress_pct = Math.max(0, Math.min(100, Number(updateData.progress_pct) || 0));
+    }
+
+    const providedUpdatedAt = req.body.updated_at;
+    if (!providedUpdatedAt) {
+      return error(res, '缺少 updated_at 参数，无法验证数据版本', 400, 400);
+    }
+
     const oldValues = project.toJSON();
     // 乐观锁：防止并发更新覆盖 — 仅当 updated_at 未变时才写入
     const [affected] = await Project.update(updateData, {
-      where: { id: project.id, updated_at: project.updated_at },
+      where: { id: project.id, updated_at: providedUpdatedAt },
       individualHooks: false,
     });
     if (affected === 0) {

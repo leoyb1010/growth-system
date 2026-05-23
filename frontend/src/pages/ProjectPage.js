@@ -97,6 +97,7 @@ function ProjectPage() {
         sync_to_achievement: values.sync_to_achievement || false,
       };
       if (editingRecord) {
+        payload.updated_at = editingRecord.updated_at;
         await api.put(`/projects/${editingRecord.id}`, payload);
         message.success('更新成功');
       } else {
@@ -166,7 +167,8 @@ function ProjectPage() {
 
   const handleProgressSave = async (id) => {
     try {
-      await api.put(`/projects/${id}/quick-update`, { progress_pct: editingProgressValue });
+      const item = data.find(i => i.id === id);
+      await api.put(`/projects/${id}/quick-update`, { progress_pct: editingProgressValue, updated_at: item?.updated_at });
       message.success('进度更新成功');
       setEditingProgressId(null);
       fetchData();
@@ -179,7 +181,7 @@ function ProjectPage() {
   const handleQuickUpdate = async () => {
     if (!quickUpdateItem || !quickWeeklyProgress.trim()) return;
     try {
-      await api.put(`/projects/${quickUpdateItem.id}/quick-update`, { weekly_progress: quickWeeklyProgress });
+      await api.put(`/projects/${quickUpdateItem.id}/quick-update`, { weekly_progress: quickWeeklyProgress, updated_at: quickUpdateItem.updated_at });
       message.success('本周进展更新成功');
       setQuickUpdateVisible(false);
       setQuickUpdateItem(null);
@@ -208,6 +210,7 @@ function ProjectPage() {
         weekly_progress: todayDailyInput.trim(),
         sync_to_monthly: todaySyncMonthly,
         sync_to_achievement: todaySyncAchievement,
+        updated_at: todayUpdateItem.updated_at,
       });
       message.success('每日更新成功');
       setTodayUpdateVisible(false);

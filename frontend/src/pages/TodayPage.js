@@ -43,7 +43,7 @@ function TodayPage() {
   const handleQuickUpdate = async () => {
     if (!quickEditItem || !quickProgress.trim()) return;
     try {
-      await api.put(`/projects/${quickEditItem.id}/quick-update`, { weekly_progress: quickProgress });
+      await api.put(`/projects/${quickEditItem.id}/quick-update`, { weekly_progress: quickProgress, updated_at: quickEditItem.updated_at });
       message.success('更新成功');
       setQuickEditVisible(false);
       setQuickEditItem(null);
