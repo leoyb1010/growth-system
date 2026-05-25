@@ -1,6 +1,16 @@
 {
-  "latestVersion": "1.17.3",
+  "latestVersion": "1.17.4",
   "releases": [
+    {
+      "version": "1.17.4",
+      "date": "2026-05-25",
+      "title": "周报默认周期修复 · 周一复盘上周进展",
+      "changes": [
+        { "type": "fix", "module": "周报生成", "desc": "未指定日期时默认生成上一完整自然周，匹配周一部门会复盘上周工作的使用场景" },
+        { "type": "fix", "module": "重点工作进展", "desc": "重点工作进展优先按项目更新日志 update_date 归属到周报周期，避免周一编辑下周重点导致上周进展被 Project.updated_at 覆盖后丢失" },
+        { "type": "test", "module": "周报日期", "desc": "新增默认周报周期单元测试，覆盖上一完整 ISO 周和显式日期范围" }
+      ]
+    },
     {
       "version": "1.17.3",
       "date": "2026-05-17",

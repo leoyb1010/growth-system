@@ -1,4 +1,4 @@
-const { Kpi, Project, Performance, MonthlyTask, Achievement, WeeklyReport, Department } = require('../models');
+const { Kpi, Project, Performance, MonthlyTask, Achievement, WeeklyReport, Department, ProjectUpdateLog } = require('../models');
 const moment = require('moment');
 const { Op } = require('sequelize');
 const { sendWeeklyReportToFeishu } = require('./feishuService');
@@ -256,32 +256,74 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     row3: otherKpis.map(k => ({ label: `${k.dept_name} · ${k.indicator}`, ...k })),
   };
 
-  // 2. 重点工作进展（本周有更新的项目）
-  const projectWhere = {
-    updated_at: { [Op.between]: [weekStart, weekEnd] }
+  // 按部门排序：袁博(3) → 拓展(1) → 运营(2)
+  const sortByDept = (a, b) => (DEPT_SORT_ORDER[a.dept_id] ?? 99) - (DEPT_SORT_ORDER[b.dept_id] ?? 99);
+
+  // 2. 重点工作进展
+  // 优先按项目更新日志归属到周报周期，避免周一编辑 next_week_focus 覆盖 Project.updated_at 后丢失上周进展。
+  const projectScopeWhere = {};
+  if (deptFilter) projectScopeWhere.dept_id = deptFilter;
+  else if (excludeDeptIds.length) projectScopeWhere.dept_id = { [Op.notIn]: excludeDeptIds };
+
+  const updateLogs = await ProjectUpdateLog.findAll({
+    where: {
+      update_date: { [Op.between]: [weekStartStr, weekEndStr] },
+      progress_content: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
+    },
+    include: [{
+      model: Project,
+      required: true,
+      where: projectScopeWhere,
+      include: [{ model: Department, attributes: ['name'] }]
+    }],
+    order: [['update_date', 'DESC'], ['created_at', 'DESC']]
+  });
+
+  const projectProgressById = new Map();
+  updateLogs.forEach(log => {
+    const p = log.Project;
+    if (!p || projectProgressById.has(p.id)) return;
+    projectProgressById.set(p.id, {
+      id: p.id,
+      dept_id: p.dept_id,
+      dept_name: p.Department?.name || '',
+      name: p.name,
+      owner_name: p.owner_name,
+      weekly_progress: log.progress_content || p.weekly_progress,
+      progress_pct: log.progress_pct ?? p.progress_pct,
+      status: log.status || p.status,
+      updated_at: moment(log.update_date).format('YYYY-MM-DD')
+    });
+  });
+
+  const fallbackWhere = {
+    ...projectScopeWhere,
+    updated_at: { [Op.between]: [weekStart, weekEnd] },
+    weekly_progress: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
   };
-  if (deptFilter) projectWhere.dept_id = deptFilter;
-  else if (excludeDeptIds.length) projectWhere.dept_id = { [Op.notIn]: excludeDeptIds };
-  const updatedProjects = await Project.findAll({
-    where: projectWhere,
+  const loggedProjectIds = Array.from(projectProgressById.keys());
+  if (loggedProjectIds.length) fallbackWhere.id = { [Op.notIn]: loggedProjectIds };
+  const fallbackProjects = await Project.findAll({
+    where: fallbackWhere,
     include: [{ model: Department, attributes: ['name'] }],
     order: [['updated_at', 'DESC']]
   });
 
-  // 按部门排序：袁博(3) → 拓展(1) → 运营(2)
-  const sortByDept = (a, b) => (DEPT_SORT_ORDER[a.dept_id] ?? 99) - (DEPT_SORT_ORDER[b.dept_id] ?? 99);
+  fallbackProjects.forEach(p => {
+    projectProgressById.set(p.id, {
+      id: p.id,
+      dept_id: p.dept_id,
+      dept_name: p.Department?.name || '',
+      name: p.name,
+      owner_name: p.owner_name,
+      weekly_progress: p.weekly_progress,
+      progress_pct: p.progress_pct,
+      status: p.status,
+      updated_at: moment(p.updated_at).format('YYYY-MM-DD HH:mm')
+    });
+  });
 
-  const projectProgress = updatedProjects.map(p => ({
-    id: p.id,
-    dept_id: p.dept_id,
-    dept_name: p.Department?.name || '',
-    name: p.name,
-    owner_name: p.owner_name,
-    weekly_progress: p.weekly_progress,
-    progress_pct: p.progress_pct,
-    status: p.status,
-    updated_at: moment(p.updated_at).format('YYYY-MM-DD HH:mm')
-  })).sort(sortByDept);
+  const projectProgress = Array.from(projectProgressById.values()).sort(sortByDept);
 
   // 3. 风险与预警
   // 风险项目：只认 status='风险'（risk_desc 是风险备注，不是风险声明）
@@ -458,12 +500,12 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
     week_end: weekEndStr,
     generated_at: moment().format('YYYY-MM-DD HH:mm:ss'),
     // ===== 新增：本周结论（规则驱动） =====
-    week_conclusion: generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedProjects, reportTimeProgress, businessSummary),
+    week_conclusion: generateWeekConclusion(kpiSummary, riskList, severeWarnings, projectProgress, reportTimeProgress, businessSummary),
     // ===== 新增：关键变化 =====
-    key_changes: extractKeyChanges(kpiSummary, updatedProjects, riskList, reportTimeProgress, businessSummary),
+    key_changes: extractKeyChanges(kpiSummary, projectProgress, riskList, reportTimeProgress, businessSummary),
     summary: {
       kpi_summary: kpiSummary,
-      total_updated_projects: updatedProjects.length,
+      total_updated_projects: projectProgress.length,
       total_risk_projects: riskProjects.length,
       total_severe_warnings: severeWarnings.length,
       total_next_week_key_work: focusProjects.length,

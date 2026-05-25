@@ -3,6 +3,7 @@ process.env.DB_STORAGE = process.env.DB_STORAGE || ':memory:';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const moment = require('moment');
 
 const { __private } = require('../src/controllers/weeklyReportController');
 
@@ -31,4 +32,22 @@ test('weekly report scope check detects other department data', () => {
     'project_progress[1]',
     'risk_and_warnings.risk_projects[0]',
   ]);
+});
+
+test('weekly report default range uses previous complete ISO week', () => {
+  const now = moment('2026-05-25T10:00:00+08:00');
+  const { start, end } = __private.resolveWeeklyReportRange({}, now);
+
+  assert.equal(moment(start).format('YYYY-MM-DD HH:mm:ss'), '2026-05-18 00:00:00');
+  assert.equal(moment(end).format('YYYY-MM-DD HH:mm:ss'), '2026-05-24 23:59:59');
+});
+
+test('weekly report explicit range keeps requested dates', () => {
+  const { start, end } = __private.resolveWeeklyReportRange({
+    week_start: '2026-05-04',
+    week_end: '2026-05-10',
+  }, moment('2026-05-25T10:00:00+08:00'));
+
+  assert.equal(moment(start).format('YYYY-MM-DD HH:mm:ss'), '2026-05-04 00:00:00');
+  assert.equal(moment(end).format('YYYY-MM-DD HH:mm:ss'), '2026-05-10 23:59:59');
 });

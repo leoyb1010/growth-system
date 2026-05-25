@@ -104,6 +104,10 @@ The weekly report experience includes a dedicated mobile layout. Dense tables ar
 
 Weekly reports can be copied as rich text for online meeting documents. The copied payload includes `text/html` plus a structured `text/plain` fallback, so the report remains selectable and editable after pasting instead of becoming a fixed PNG image. The meeting-doc template uses document-friendly headings, short KPI tables, and project blocks instead of wide web tables, which reduces layout breakage in online editors.
 
+## Weekly Report Periods
+
+When no date range is provided, weekly report generation uses the previous complete ISO week. This matches the Monday meeting workflow, where the report should review last week's completed progress. Explicit `week_start` and `week_end` values can still be used for custom periods.
+
 ## Production Notes
 
 - Do not use default passwords in production.
