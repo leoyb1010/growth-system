@@ -109,7 +109,21 @@ function buildReportHtml(content) {
     if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`;
     return n.toFixed(0);
   };
-  const fmtPct = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
+  const fmtSignedMoney = (value) => {
+    const n = Number(value || 0);
+    const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+    return `${sign}¥${fmtMoney(Math.abs(n))}`;
+  };
+  const fmtSignedCount = (value) => {
+    const n = Number(value || 0);
+    const sign = n > 0 ? '+' : '';
+    return `${sign}${n}`;
+  };
+  const fmtDayOverDayPct = (value) => {
+    if (value == null) return '前日为0';
+    const n = Number(value) || 0;
+    return `${n.toFixed(Math.abs(n) >= 10 ? 1 : 2)}%`;
+  };
 
   // 同组合并 HTML 行辅助
   function addRowSpanInfo(items) {
@@ -315,11 +329,11 @@ function buildReportHtml(content) {
         businessHtml += `<div class="mini-grid">
           <div class="mini-metric"><div class="mini-label">实收</div><div class="mini-value">¥${fmtMoney(cps.current?.actual_amount)}</div></div>
           <div class="mini-metric"><div class="mini-label">签约</div><div class="mini-value">${escapeHtml(cps.current?.actual_count || 0)}</div></div>
-          <div class="mini-metric"><div class="mini-label">退款率</div><div class="mini-value" style="color:${cps.current?.refund_rate > 0.05 ? '#DC2626' : '#16A34A'}">${fmtPct(cps.current?.refund_rate)}</div></div>
+          <div class="mini-metric"><div class="mini-label">较前一日</div><div class="mini-value">${escapeHtml(fmtSignedMoney(cps.day_over_day?.actual_amount_delta))}</div><div style="font-size:10px;color:#666;margin-top:3px">${escapeHtml(fmtDayOverDayPct(cps.day_over_day?.actual_amount_delta_pct))}</div></div>
           <div class="mini-metric"><div class="mini-label">预警</div><div class="mini-value">${escapeHtml(cps.current?.alert_count || 0)}</div></div>
         </div>`;
-        if (cps.current?.refund_rate > 0.05) {
-          businessHtml += `<div class="alert-box">退款率超 5% 阈值 ${((cps.current.refund_rate - 0.05) * 100).toFixed(2)} 个百分点，建议专项复盘。</div>`;
+        if (cps.day_over_day?.current_date) {
+          businessHtml += `<div style="font-size:11px;color:#666;margin-top:8px">${escapeHtml(cps.day_over_day.current_date)} 对比 ${escapeHtml(cps.day_over_day.compare_date)}：签约 ${escapeHtml(fmtSignedCount(cps.day_over_day.actual_count_delta))} 单，退款 ${escapeHtml(fmtSignedCount(cps.day_over_day.refund_count_delta))} 笔。</div>`;
         }
       } else {
         businessHtml += `<div class="no-data">本周暂无 CPS 投流数据</div>`;

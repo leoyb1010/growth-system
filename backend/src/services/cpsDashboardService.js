@@ -40,6 +40,12 @@ function addDays(value, days) {
   ].join('-');
 }
 
+function normalizeStatDate(value, fallback) {
+  if (!value) return fallback;
+  if (value instanceof Date) return toDateString(value);
+  return String(value).slice(0, 10);
+}
+
 function inclusiveDaySpan(start, end) {
   return Math.floor((parseDate(end) - parseDate(start)) / 86400000) + 1;
 }
@@ -87,6 +93,45 @@ async function aggregate(where) {
     refund_rate: totalDeals > 0 ? refunds / totalDeals : 0,
     complaint_rate: totalDeals > 0 ? Number(row.complaints || 0) / totalDeals : 0,
   };
+}
+
+function countRefunds(period) {
+  return (Number(period.new_refund) || 0) + (Number(period.renewal_refund) || 0);
+}
+
+function calcDeltaPct(current, compare) {
+  const currentValue = Number(current) || 0;
+  const compareValue = Number(compare) || 0;
+  if (compareValue === 0) return currentValue === 0 ? 0 : null;
+  return (currentValue - compareValue) / compareValue;
+}
+
+function buildDayOverDay(currentDate, compareDate, current, compare) {
+  const currentRefunds = countRefunds(current);
+  const compareRefunds = countRefunds(compare);
+
+  return {
+    current_date: currentDate,
+    compare_date: compareDate,
+    actual_amount: Number(current.actual_amount) || 0,
+    actual_count: Number(current.actual_count) || 0,
+    refund_count: currentRefunds,
+    actual_amount_delta: (Number(current.actual_amount) || 0) - (Number(compare.actual_amount) || 0),
+    actual_amount_delta_pct: calcDeltaPct(current.actual_amount, compare.actual_amount),
+    actual_count_delta: (Number(current.actual_count) || 0) - (Number(compare.actual_count) || 0),
+    actual_count_delta_pct: calcDeltaPct(current.actual_count, compare.actual_count),
+    refund_count_delta: currentRefunds - compareRefunds,
+    refund_count_delta_pct: calcDeltaPct(currentRefunds, compareRefunds),
+  };
+}
+
+async function getLatestStatDate(where, fallback) {
+  const row = await CpsDailyMetric.findOne({
+    where,
+    attributes: [[fn('MAX', col('stat_date')), 'date']],
+    raw: true,
+  });
+  return normalizeStatDate(row?.date, fallback);
 }
 
 async function getChannelAmounts(where) {
@@ -217,13 +262,22 @@ async function getDashboard(query = {}) {
     compareWhere = { ...baseDim, stat_date: { [Op.between]: [compareStart, compareEnd] } };
   }
 
-  const [period, yearly, quarterly, daily, total, topChannels] = await Promise.all([
+  const dayAnchorFallback = usePeriodFilter ? end_date : yesterday;
+  const dayAnchorWhere = usePeriodFilter
+    ? periodWhere
+    : { ...baseDim, stat_date: { [Op.lte]: dayAnchorFallback } };
+  const currentDay = await getLatestStatDate(dayAnchorWhere, dayAnchorFallback);
+  const compareDay = addDays(currentDay, -1);
+
+  const [period, yearly, quarterly, daily, total, topChannels, dayCurrent, dayCompare] = await Promise.all([
     aggregate(periodWhere),
     aggregate({ ...baseDim, stat_date: { [Op.between]: [yearStart, yearEnd] } }),
     aggregate({ ...baseDim, stat_date: { [Op.between]: [quarterStart, quarterEnd] } }),
     aggregate({ ...baseDim, stat_date: yesterday }),
     aggregate(baseDim),
     getTopChannels(periodWhere, compareWhere),
+    aggregate({ ...baseDim, stat_date: currentDay }),
+    aggregate({ ...baseDim, stat_date: compareDay }),
   ]);
 
   const trendRaw = await CpsDailyMetric.findAll({
@@ -274,6 +328,7 @@ async function getDashboard(query = {}) {
     quarterly,
     daily,
     total,
+    day_over_day: buildDayOverDay(currentDay, compareDay, dayCurrent, dayCompare),
     trend,
     top_channels: topChannels,
     alert_count: alertCount,
@@ -283,6 +338,7 @@ async function getDashboard(query = {}) {
       yearly: { start: yearStart, end: yearEnd },
       quarterly: { start: quarterStart, end: quarterEnd },
       daily: { date: yesterday },
+      day_over_day: { current: currentDay, compare: compareDay },
     },
     granularity,
   };

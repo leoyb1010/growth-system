@@ -47,6 +47,30 @@ const fmtCompact = (value) => {
 
 const fmtPercent = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
 
+const fmtSignedMoney = (value) => {
+  const n = Number(value || 0);
+  const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+  return `${sign}¥${fmtMoney(Math.abs(n))}`;
+};
+
+const fmtSignedCount = (value) => {
+  const n = Number(value || 0);
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n}`;
+};
+
+const fmtDayOverDayPct = (value) => {
+  if (value == null) return '前日为0';
+  const n = Number(value) || 0;
+  return `${n.toFixed(Math.abs(n) >= 10 ? 1 : 2)}%`;
+};
+
+const fmtCpsDayOverDay = (cps) => {
+  const d = cps?.day_over_day || {};
+  if (!d.current_date) return '暂无日环比';
+  return `${fmtSignedMoney(d.actual_amount_delta)}（${fmtDayOverDayPct(d.actual_amount_delta_pct)}）`;
+};
+
 /**
  * 同组 rowSpan 合并辅助函数
  * 返回带 rowSpan 信息的数组，同 dept_name 连续行的部门列合并
@@ -550,8 +574,8 @@ function WeeklyReportPage() {
       if (business.cps.has_data) {
         const cps = business.cps;
         md += `### CPS 投流\n\n`;
-        md += `| 实收 | 签约 | 退款率 | 退款 | 预警 |\n|---:|---:|---:|---:|---:|\n`;
-        md += `| ¥${fmtMoney(cps.current?.actual_amount)} | ${cps.current?.actual_count || 0} | ${fmtPercent(cps.current?.refund_rate)} | ${cps.current?.refund_count || 0} | ${cps.current?.alert_count || 0} |\n\n`;
+        md += `| 实收 | 签约 | 较前一日实收 | 退款 | 预警 |\n|---:|---:|---:|---:|---:|\n`;
+        md += `| ¥${fmtMoney(cps.current?.actual_amount)} | ${cps.current?.actual_count || 0} | ${fmtCpsDayOverDay(cps)} | ${cps.current?.refund_count || 0} | ${cps.current?.alert_count || 0} |\n\n`;
       } else {
         md += `### CPS 投流\n\n本周暂无 CPS 投流数据\n\n`;
       }
@@ -675,7 +699,7 @@ td.text-cell { white-space: pre-wrap; }
       const cps = business.cps;
       html += `<div class="business-card" style="border-left-color:#16A34A"><h3>CPS 投流</h3>`;
       html += cps.has_data
-        ? `<div class="metric-line"><strong>实收</strong> ¥${fmtMoney(cps.current?.actual_amount)} · <strong>签约</strong> ${cps.current?.actual_count || 0}单 · <strong>退款率</strong> ${fmtPercent(cps.current?.refund_rate)}</div><div class="metric-line"><strong>退款</strong> ${cps.current?.refund_count || 0}笔 · <strong>预警</strong> ${cps.current?.alert_count || 0}项</div>`
+        ? `<div class="metric-line"><strong>实收</strong> ¥${fmtMoney(cps.current?.actual_amount)} · <strong>签约</strong> ${cps.current?.actual_count || 0}单 · <strong>较前一日</strong> ${fmtCpsDayOverDay(cps)}</div><div class="metric-line"><strong>退款</strong> ${cps.current?.refund_count || 0}笔 · <strong>预警</strong> ${cps.current?.alert_count || 0}项</div>`
         : `<div class="metric-line">本周暂无 CPS 投流数据</div>`;
       html += `</div>`;
     }
@@ -896,7 +920,7 @@ td.text-cell { white-space: pre-wrap; }
       businessCards.push(`<td style="width:50%;vertical-align:top;padding:12px;border:1px solid #E5E7EB;border-left:4px solid #16A34A;background:#FFFFFF">
         <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px">CPS 投流</div>
         ${cps.has_data
-          ? `<div style="font-size:13px;line-height:1.8;color:#374151">实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 退款率 <strong>${docEsc(fmtPercent(cps.current?.refund_rate))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项</div>`
+          ? `<div style="font-size:13px;line-height:1.8;color:#374151">实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 较前一日 <strong>${docEsc(fmtCpsDayOverDay(cps))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项</div>`
           : `<div style="font-size:13px;line-height:1.8;color:#6B7280">本周暂无 CPS 投流数据</div>`}
       </td>`);
     }
@@ -1136,7 +1160,7 @@ td.text-cell { white-space: pre-wrap; }
         const cps = business.cps;
         lines.push('CPS 投流');
         lines.push(cps.has_data
-          ? `实收 ¥${fmtMoney(cps.current?.actual_amount)} · 签约 ${cps.current?.actual_count || 0} 单 · 退款率 ${fmtPercent(cps.current?.refund_rate)} · 退款 ${cps.current?.refund_count || 0} 笔 · 预警 ${cps.current?.alert_count || 0} 项`
+          ? `实收 ¥${fmtMoney(cps.current?.actual_amount)} · 签约 ${cps.current?.actual_count || 0} 单 · 较前一日 ${fmtCpsDayOverDay(cps)} · 退款 ${cps.current?.refund_count || 0} 笔 · 预警 ${cps.current?.alert_count || 0} 项`
           : '本周暂无 CPS 投流数据');
       }
     }
@@ -1226,7 +1250,7 @@ td.text-cell { white-space: pre-wrap; }
       const cps = business.cps;
       businessHtml.push(`${meetingDocSubhead('CPS 投流')}
         <p style="margin:0 0 10px 0;line-height:1.75;color:#222">${cps.has_data
-          ? `实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 退款率 <strong>${docEsc(fmtPercent(cps.current?.refund_rate))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项`
+          ? `实收 <strong>¥${docEsc(fmtMoney(cps.current?.actual_amount))}</strong> · 签约 <strong>${docEsc(cps.current?.actual_count || 0)}</strong> 单 · 较前一日 <strong>${docEsc(fmtCpsDayOverDay(cps))}</strong><br/>退款 <strong>${docEsc(cps.current?.refund_count || 0)}</strong> 笔 · 预警 <strong>${docEsc(cps.current?.alert_count || 0)}</strong> 项`
           : '本周暂无 CPS 投流数据'}</p>`);
     }
 
@@ -1442,21 +1466,21 @@ td.text-cell { white-space: pre-wrap; }
                 />
                 {cps.has_data ? (
                   <>
-                    <Row gutter={[8, 8]}>
-                      <Col xs={12} sm={6}><MiniMetric label="实收" value={`¥${fmtMoney(cps.current?.actual_amount)}`} delta={cps.delta?.actual_amount} color="#16A34A" /></Col>
-                      <Col xs={12} sm={6}><MiniMetric label="签约" value={fmtCompact(cps.current?.actual_count)} suffix="单" delta={cps.delta?.actual_count} /></Col>
-                      <Col xs={12} sm={6}><MiniMetric label="退款率" value={fmtPercent(cps.current?.refund_rate)} alert={cps.current?.refund_rate > 0.05} /></Col>
-                      <Col xs={12} sm={6}><MiniMetric label="预警" value={cps.current?.alert_count || 0} alert={(cps.current?.alert_count || 0) > 0} /></Col>
-                    </Row>
-                    <div style={{ marginTop: 10 }}>
-                      <Sparkline data={(cps.trend_7d || []).map(item => item.amount)} color="#16A34A" height={compact ? 30 : 44} tooltipName="实收" />
-                    </div>
-                    {cps.current?.refund_rate > 0.05 && (
-                      <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: 'var(--color-error-light)', color: '#991B1B', fontSize: 12 }}>
-                        退款率超 5% 阈值 {((cps.current.refund_rate - 0.05) * 100).toFixed(2)}pt，建议进入专项复盘。
+                      <Row gutter={[8, 8]}>
+                        <Col xs={12} sm={6}><MiniMetric label="实收" value={`¥${fmtMoney(cps.current?.actual_amount)}`} delta={cps.delta?.actual_amount} color="#16A34A" /></Col>
+                        <Col xs={12} sm={6}><MiniMetric label="签约" value={fmtCompact(cps.current?.actual_count)} suffix="单" delta={cps.delta?.actual_count} /></Col>
+                        <Col xs={12} sm={6}><MiniMetric label="较前一日" value={cps.day_over_day?.current_date ? fmtSignedMoney(cps.day_over_day?.actual_amount_delta) : '暂无'} delta={cps.day_over_day?.actual_amount_delta_pct ?? undefined} deltaSuffix="%" /></Col>
+                        <Col xs={12} sm={6}><MiniMetric label="预警" value={cps.current?.alert_count || 0} alert={(cps.current?.alert_count || 0) > 0} /></Col>
+                      </Row>
+                      <div style={{ marginTop: 10 }}>
+                        <Sparkline data={(cps.trend_7d || []).map(item => item.amount)} color="#16A34A" height={compact ? 30 : 44} tooltipName="实收" />
                       </div>
-                    )}
-                  </>
+                      {cps.day_over_day?.current_date && (
+                        <div style={{ marginTop: 8, color: 'var(--text-3)', fontSize: 12 }}>
+                          {cps.day_over_day.current_date} 对比 {cps.day_over_day.compare_date}：签约 {fmtSignedCount(cps.day_over_day.actual_count_delta)} 单，退款 {fmtSignedCount(cps.day_over_day.refund_count_delta)} 笔。
+                        </div>
+                      )}
+                    </>
                 ) : (
                   <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', background: 'var(--bg-muted)', borderRadius: 10 }}>暂无可用于周报的 CPS 投流数据</div>
                 )}

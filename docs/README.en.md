@@ -93,7 +93,7 @@ Open `http://localhost:3001`.
 - **Weekly Management**: weekly summary, today updates, risk projects, due-soon projects, and next-week focus.
 - **Project Tracking**: the single source of truth for project status, progress, risks, next actions, and decision needs.
 - **Weekly Reports**: generated review reports with editable conclusions, export support, and mobile-friendly report cards.
-- **Business Modules**: KPIs, business performance, monthly work, quarterly achievements, CPS delivery, and ASO optimization.
+- **Business Modules**: KPIs, business performance, monthly work, quarterly achievements, CPS delivery with day-over-day metrics, and ASO optimization.
 - **System Management**: departments, users, audit logs, archive management, and role-based access.
 
 ## Mobile Support
@@ -103,6 +103,10 @@ The weekly report experience includes a dedicated mobile layout. Dense tables ar
 ## Meeting Docs Copy
 
 Weekly reports can be copied as rich text for online meeting documents. The copied payload includes `text/html` plus a structured `text/plain` fallback, so the report remains selectable and editable after pasting instead of becoming a fixed PNG image. The meeting-doc template uses document-friendly headings, short KPI tables, and project blocks instead of wide web tables, which reduces layout breakage in online editors.
+
+## CPS Dashboard
+
+The CPS dashboard highlights daily operating movement instead of a refund-rate card. The core KPI area now shows the latest available day in the selected range compared with the previous day, including revenue, signed orders, and refund-count deltas.
 
 ## Weekly Report Periods
 

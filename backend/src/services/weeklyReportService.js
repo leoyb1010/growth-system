@@ -12,8 +12,6 @@ const DEPT_SORT_ORDER = { 3: 0, 1: 1, 2: 2 };
 // 严重预警阈值
 const SEVERE_WARNING_TIME_RATIO = 0.7;   // 完成率低于时间进度此比例视为严重
 const SEVERE_WARNING_MAX_RATE = 60;      // 完成率低于此百分比视为严重
-// CPS 退款率阈值
-const CPS_REFUND_RATE_THRESHOLD = 0.05;  // 5%
 // 项目进度达成阈值
 const PROJECT_HIGH_PROGRESS_PCT = 80;    // 进度达80%视为高进度
 
@@ -81,6 +79,24 @@ function normalizeCpsSummary(dashboard) {
     complaint_rate: Number(p.complaint_rate) || 0,
     complaints: Number(p.complaints) || 0,
     alert_count: Number(dashboard?.alert_count) || 0,
+  };
+}
+
+function normalizeCpsDayOverDay(dashboard) {
+  const d = dashboard?.day_over_day || {};
+  const toPct = value => (value == null ? null : round(Number(value) * 100, 2));
+  return {
+    current_date: d.current_date || null,
+    compare_date: d.compare_date || null,
+    actual_amount: round(d.actual_amount, 2),
+    actual_count: Number(d.actual_count) || 0,
+    refund_count: Number(d.refund_count) || 0,
+    actual_amount_delta: round(d.actual_amount_delta, 2),
+    actual_amount_delta_pct: toPct(d.actual_amount_delta_pct),
+    actual_count_delta: Number(d.actual_count_delta) || 0,
+    actual_count_delta_pct: toPct(d.actual_count_delta_pct),
+    refund_count_delta: Number(d.refund_count_delta) || 0,
+    refund_count_delta_pct: toPct(d.refund_count_delta_pct),
   };
 }
 
@@ -155,7 +171,6 @@ async function buildBusinessSummary(weekStartStr, weekEndStr, options = {}) {
           new_sign: deltaValue(current.new_sign, compare.new_sign),
           renewal: deltaValue(current.renewal, compare.renewal),
           refund_count: deltaValue(current.refund_count, compare.refund_count),
-          refund_rate_pt: deltaRate(current.refund_rate, compare.refund_rate),
           complaints: deltaValue(current.complaints, compare.complaints),
         },
         trend_7d: trend.map(item => ({
@@ -168,10 +183,9 @@ async function buildBusinessSummary(weekStartStr, weekEndStr, options = {}) {
           complaints: Number(item.complaints) || 0,
         })),
         top_channels: currentCps?.top_channels || [],
+        day_over_day: normalizeCpsDayOverDay(currentCps),
         alerts: {
           alert_count: Number(currentCps?.alert_count) || 0,
-          refund_rate_breach: current.refund_rate > CPS_REFUND_RATE_THRESHOLD,
-          refund_threshold: CPS_REFUND_RATE_THRESHOLD,
         },
       };
     } catch (err) {
@@ -563,13 +577,6 @@ function generateWeekConclusion(kpiSummary, riskList, severeWarnings, updatedPro
     conclusions.push(`当前有${riskList.length}个风险项目需关注。`);
   }
 
-  const cps = businessSummary.cps;
-  if (cps?.enabled && cps.has_data && cps.current?.refund_rate > CPS_REFUND_RATE_THRESHOLD) {
-    const refundRate = (cps.current.refund_rate * 100).toFixed(2);
-    const breach = ((cps.current.refund_rate - CPS_REFUND_RATE_THRESHOLD) * 100).toFixed(2);
-    conclusions.push(`CPS 投流退款率 ${refundRate}%（阈值 5%），超出 ${breach} 个百分点，需专项复盘。`);
-  }
-
   const aso = businessSummary.aso;
   if (aso?.enabled && aso.has_data && Math.abs(aso.delta?.t3_keywords || 0) > 0) {
     const direction = aso.delta.t3_keywords > 0 ? '增加' : '减少';
@@ -622,12 +629,7 @@ function extractKeyChanges(kpiSummary, updatedProjects, riskList, timeProgress, 
 
   const cps = businessSummary.cps;
   if (cps?.enabled && cps.has_data) {
-    if (cps.current?.refund_rate > CPS_REFUND_RATE_THRESHOLD) {
-      changes.push({
-        type: 'risk',
-        text: `CPS 投流退款率 ${(cps.current.refund_rate * 100).toFixed(2)}%，超出 ${Math.round(CPS_REFUND_RATE_THRESHOLD * 100)}% 阈值`,
-      });
-    } else if (Math.abs(cps.delta?.actual_amount || 0) > 0) {
+    if (Math.abs(cps.delta?.actual_amount || 0) > 0) {
       changes.push({
         type: cps.delta.actual_amount >= 0 ? 'progress' : 'deviation',
         text: `CPS 投流实收较上周${cps.delta.actual_amount >= 0 ? '增加' : '减少'} ${Math.abs(cps.delta.actual_amount).toFixed(0)} 元`,

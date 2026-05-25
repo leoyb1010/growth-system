@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Row, Col, Card, DatePicker, Select, Spin, Empty, Space, Segmented, Tag, Tooltip } from 'antd';
-import { AlertOutlined, DollarOutlined, InfoCircleOutlined, TeamOutlined, WarningOutlined } from '@ant-design/icons';
+import { AlertOutlined, DollarOutlined, InfoCircleOutlined, RiseOutlined, TeamOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
@@ -37,7 +37,17 @@ const fmtMoney = (value) => {
   return number.toFixed(0);
 };
 
-const fmtRate = (value) => `${(Number(value || 0) * 100).toFixed(2)}%`;
+const fmtSignedMoney = (value) => {
+  const number = Number(value || 0);
+  const sign = number > 0 ? '+' : number < 0 ? '-' : '';
+  return `${sign}¥${fmtMoney(Math.abs(number))}`;
+};
+
+const fmtSignedCount = (value) => {
+  const number = Number(value || 0);
+  const sign = number > 0 ? '+' : '';
+  return `${sign}${number}`;
+};
 
 function CpsKpiCard({ label, value, suffix, sub, delta, color, icon, alert = false, sparkline }) {
   return (
@@ -64,34 +74,39 @@ function CpsKpiCard({ label, value, suffix, sub, delta, color, icon, alert = fal
   );
 }
 
-function RefundRateCard({ period, delta }) {
-  const threshold = 0.05;
-  const rate = Number(period.refund_rate || 0);
-  const refundCount = (Number(period.new_refund) || 0) + (Number(period.renewal_refund) || 0);
-  const isBreach = rate > threshold;
-  const pct = Math.min((rate / 0.1) * 100, 100);
-  const thresholdPct = Math.min((threshold / 0.1) * 100, 100);
+function DayOverDayCard({ data }) {
+  const amountDeltaPct = data?.actual_amount_delta_pct;
+  const currentDate = data?.current_date || '--';
+  const compareDate = data?.compare_date || '--';
+  const refundDelta = Number(data?.refund_count_delta) || 0;
+  const refundColor = refundDelta > 0 ? COLORS.error : refundDelta < 0 ? COLORS.success : 'var(--text-2)';
 
   return (
-    <div className="surface-card-secondary" style={{ padding: 20, height: '100%', borderColor: isBreach ? '#FECACA' : undefined }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+    <div className="surface-card-secondary" style={{ position: 'relative', overflow: 'hidden', padding: 20, height: '100%' }}>
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 58, height: 4, background: COLORS.cyan }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600, marginBottom: 8 }}>退款率</div>
+          <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600, marginBottom: 8 }}>较前一日</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 30, lineHeight: 1, fontWeight: 700, color: isBreach ? COLORS.error : COLORS.success }}>{fmtRate(rate)}</span>
-            <DeltaPill value={delta?.refund_rate_pt} suffix="pt" size="sm" />
+            <span style={{ fontSize: 30, lineHeight: 1, fontWeight: 700, color: 'var(--text-1)' }}>¥{fmtMoney(data?.actual_amount)}</span>
+            {amountDeltaPct == null ? (
+              <Tag style={{ margin: 0, fontSize: 11 }}>前日为0</Tag>
+            ) : (
+              <DeltaPill value={amountDeltaPct * 100} suffix="%" size="sm" />
+            )}
           </div>
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${isBreach ? COLORS.error : COLORS.success}14`, color: isBreach ? COLORS.error : COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <WarningOutlined />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${COLORS.cyan}14`, color: COLORS.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <RiseOutlined />
         </div>
       </div>
-      <div style={{ position: 'relative', height: 7, background: 'var(--bg-subtle)', borderRadius: 999, marginTop: 14 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: isBreach ? COLORS.error : COLORS.success, borderRadius: 999 }} />
-        <div style={{ position: 'absolute', top: -3, left: `${thresholdPct}%`, width: 2, height: 13, background: 'var(--text-2)' }} />
+      <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-3)' }}>
+        {currentDate} 对比 {compareDate}
       </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: isBreach ? '#991B1B' : 'var(--text-3)' }}>
-        退款 {refundCount} 笔 · 阈值 5%{isBreach ? ` · 超出 ${((rate - threshold) * 100).toFixed(2)}pt` : ''}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        <MiniStat label="实收变化" value={fmtSignedMoney(data?.actual_amount_delta)} color={(Number(data?.actual_amount_delta) || 0) >= 0 ? COLORS.success : COLORS.error} />
+        <MiniStat label="签约变化" value={`${fmtSignedCount(data?.actual_count_delta)}单`} color={(Number(data?.actual_count_delta) || 0) >= 0 ? COLORS.success : COLORS.error} />
+        <MiniStat label="退款变化" value={`${fmtSignedCount(refundDelta)}笔`} color={refundColor} />
       </div>
     </div>
   );
@@ -177,7 +192,6 @@ function CpsDashboardTab({ channelId }) {
   const quarterly = data?.quarterly || {};
   const daily = data?.daily || {};
   const trend = useMemo(() => data?.trend || [], [data]);
-  const refundDelta = data?.period && data?.trend ? undefined : undefined;
 
   const trendOption = useMemo(() => {
     if (!trend.length) return null;
@@ -223,7 +237,7 @@ function CpsDashboardTab({ channelId }) {
   if (!data && !loading) return <Empty description="暂无数据" />;
 
   const refundCount = (Number(period.new_refund) || 0) + (Number(period.renewal_refund) || 0);
-  const isRefundBreach = Number(period.refund_rate || 0) > 0.05;
+  const quarterlyRefundCount = (Number(quarterly.new_refund) || 0) + (Number(quarterly.renewal_refund) || 0);
 
   return (
     <Spin spinning={loading}>
@@ -251,7 +265,7 @@ function CpsDashboardTab({ channelId }) {
         共 {data?.total?.actual_count || 0} 单 · ¥{fmtMoney(data?.total?.actual_amount || 0)}
       </div>
 
-      <SectionHeader title="核心指标" subtitle="收入、签约、退款与预警" icon={<DollarOutlined style={{ color: COLORS.success }} />} />
+      <SectionHeader title="核心指标" subtitle="收入、签约、日环比与预警" icon={<DollarOutlined style={{ color: COLORS.success }} />} />
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} lg={6}>
           <CpsKpiCard label="实际收入" value={`¥${fmtMoney(period.actual_amount)}`} sub={`有效收入 ¥${fmtMoney(period.effective_amount)}`} color={COLORS.primary} icon={<DollarOutlined />} sparkline={trend.map(item => item.amount)} />
@@ -260,10 +274,10 @@ function CpsDashboardTab({ channelId }) {
           <CpsKpiCard label="实际签约" value={period.actual_count || 0} suffix="单" sub={`新签 ${period.new_sign || 0} / 续费 ${period.renewal || 0}`} color={COLORS.success} icon={<TeamOutlined />} sparkline={trend.map(item => item.count)} />
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <RefundRateCard period={period} delta={refundDelta} />
+          <DayOverDayCard data={data?.day_over_day} />
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <CpsKpiCard label="开放预警" value={data?.alert_count || 0} sub={`客诉 ${period.complaints || 0} 件 · 退款 ${refundCount} 笔`} color={COLORS.error} icon={<AlertOutlined />} alert={(data?.alert_count || 0) > 0 || isRefundBreach} />
+          <CpsKpiCard label="开放预警" value={data?.alert_count || 0} sub={`客诉 ${period.complaints || 0} 件 · 退款 ${refundCount} 笔`} color={COLORS.error} icon={<AlertOutlined />} alert={(data?.alert_count || 0) > 0} />
         </Col>
       </Row>
 
@@ -298,16 +312,16 @@ function CpsDashboardTab({ channelId }) {
                     <Col span={12}><MiniStat label="实际签约" value={yearly.actual_count || 0} /></Col>
                   </Row>
                 </div>
-              </Col>
-              <Col xs={24} sm={8}>
-                <div style={miniBox}>
-                  <div style={miniTitle}>当季 · Q{Math.ceil((new Date().getMonth() + 1) / 3)}</div>
-                  <Row gutter={8}>
-                    <Col span={12}><MiniStat label="实际收入" value={`¥${fmtMoney(quarterly.actual_amount)}`} color={COLORS.primary} /></Col>
-                    <Col span={12}><MiniStat label="退款率" value={fmtRate(quarterly.refund_rate)} color={quarterly.refund_rate > 0.05 ? COLORS.error : COLORS.success} /></Col>
-                  </Row>
-                </div>
-              </Col>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <div style={miniBox}>
+                    <div style={miniTitle}>当季 · Q{Math.ceil((new Date().getMonth() + 1) / 3)}</div>
+                    <Row gutter={8}>
+                      <Col span={12}><MiniStat label="实际收入" value={`¥${fmtMoney(quarterly.actual_amount)}`} color={COLORS.primary} /></Col>
+                      <Col span={12}><MiniStat label="退款" value={`${quarterlyRefundCount}笔`} color={quarterlyRefundCount > 0 ? COLORS.error : COLORS.success} /></Col>
+                    </Row>
+                  </div>
+                </Col>
               <Col xs={24} sm={8}>
                 <div style={miniBox}>
                   <div style={miniTitle}>昨日 · {dayjs().subtract(1, 'day').format('MM-DD')}</div>
