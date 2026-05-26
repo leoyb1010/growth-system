@@ -114,8 +114,8 @@ async function getProjects(req, res) {
       data.progress_status = data.status === '完成' ? 'ahead' : progressStatus;
       // 风险标记
       data.is_risk = data.status === '风险';
-      // 即将到期（7天内）
-      if (data.due_date) {
+      // 即将到期（7天内）- 已完成项目不计算，避免逾期天数持续叠加
+      if (data.due_date && data.status !== '完成') {
         const daysUntil = moment(data.due_date).diff(moment(), 'days');
         data.is_due_soon = daysUntil >= 0 && daysUntil <= 7;
         data.days_until_due = daysUntil;
