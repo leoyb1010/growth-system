@@ -67,6 +67,9 @@ export const cpsApi = {
     if (res.code === 0) cpsBus.emit('metrics:changed', res.data);
     return res;
   },
+  // AI 洞察
+  dailyInsight: (data) => api.post('/cps/ai/daily-insight', data),
+  periodAnalysis: (data) => api.post('/cps/ai/period-analysis', data),
   // 预警规则
   getAlertRules: () => api.get('/cps/alert-rules'),
   upsertAlertRule: (data) => api.post('/cps/alert-rules', data),

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Row, Col, Card, DatePicker, Select, Spin, Empty, Space, Tag } from 'antd';
-import { BarChartOutlined, DollarOutlined, RiseOutlined, TrophyOutlined } from '@ant-design/icons';
+import { Row, Col, Card, DatePicker, Select, Spin, Empty, Space, Tag, Button, Modal, message } from 'antd';
+import { BarChartOutlined, DollarOutlined, RiseOutlined, TrophyOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, BarChart } from 'echarts/charts';
@@ -89,6 +89,9 @@ function AsoDashboardTab() {
   const [products, setProducts] = useState([]);
   const [selProducts, setSelProducts] = useState(undefined);
   const [trendData, setTrendData] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInsight, setAiInsight] = useState(null);
+  const [aiVisible, setAiVisible] = useState(false);
 
   useEffect(() => {
     const loadProducts = () => asoApi.getProducts().then(res => { if (res.code === 0) setProducts(res.data || []); }).catch(() => {});
@@ -155,6 +158,28 @@ function AsoDashboardTab() {
     };
   }, [rangeTrend]);
 
+  const openAiInsight = async () => {
+    setAiLoading(true);
+    try {
+      const payload = {
+        date: selectedDate.format('YYYY-MM-DD'),
+        compare_date: selectedDate.subtract(1, 'day').format('YYYY-MM-DD'),
+      };
+      if (selProducts) payload.product_ids = selProducts;
+      const res = await asoApi.dailyInsight(payload);
+      if (res.code === 0) {
+        setAiInsight(res.data);
+        setAiVisible(true);
+      } else {
+        message.error(res.message || 'ASO AI 洞察失败');
+      }
+    } catch (err) {
+      message.error('ASO AI 洞察失败');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <Spin spinning={loading}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingBottom: 12, marginBottom: 16, borderBottom: '1px solid var(--border-soft)' }}>
@@ -163,6 +188,7 @@ function AsoDashboardTab() {
         <Select placeholder="产品" allowClear value={selProducts} onChange={setSelProducts} style={{ minWidth: 180 }}>
           {products.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
         </Select>
+        <Button size="small" icon={<RobotOutlined />} loading={aiLoading} onClick={openAiInsight}>AI ASO洞察</Button>
       </div>
 
       {noDataToday && !loading ? (
@@ -208,6 +234,14 @@ function AsoDashboardTab() {
           <KeywordChangeBlock changes={keywordChanges} />
         </>
       )}
+
+      <Modal title="ASO AI 洞察" open={aiVisible} onCancel={() => setAiVisible(false)} footer={<Button type="primary" onClick={() => setAiVisible(false)}>关闭</Button>} width={760}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{aiInsight?.headline || '暂无结论'}</div>
+        {aiInsight?.summary && <p style={{ color: 'var(--text-2)' }}>{aiInsight.summary}</p>}
+        {(aiInsight?.key_findings || []).length > 0 && <Card size="small" title="关键发现" style={{ marginBottom: 12 }}>{aiInsight.key_findings.map((f, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {f.metric || f.type}：{f.detail}</div>)}</Card>}
+        {(aiInsight?.keyword_focus || []).length > 0 && <Card size="small" title="关键词关注" style={{ marginBottom: 12 }}>{aiInsight.keyword_focus.map((k, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {k.keyword}：{k.suggestion}</div>)}</Card>}
+        {(aiInsight?.actions || []).length > 0 && <Card size="small" title="建议动作">{aiInsight.actions.map((a, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {a.owner || ''} {a.action}：{a.expected_effect || ''}</div>)}</Card>}
+      </Modal>
     </Spin>
   );
 }

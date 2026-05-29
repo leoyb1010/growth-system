@@ -26,6 +26,8 @@ const riskRegisterController = require('../controllers/riskRegisterController');
 const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
 const aiRoutes = require('../ai/routes/aiRoutes');
+const cpsAiController = require('../ai/controllers/cpsAiController');
+const asoAiController = require('../ai/controllers/asoAiController');
 const fileRoutes = require('./fileRoutes');
 const asoController = require('../controllers/asoController');
 const asoAdminController = require('../controllers/asoAdminController');
@@ -216,6 +218,10 @@ router.get('/cps/export', ...auth, requirePermission('cps.read'), applyDataScope
 router.get('/cps/alerts', ...auth, requirePermission('cps.read'), applyDataScope('cps_alert'), cpsController.getAlerts);
 router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), applyDataScope('cps_alert'), cpsController.ackAlert);
 	router.post('/cps/alerts/check', ...auth, requirePermission('cps.admin'), cpsController.checkAlertsNow);
+// CPS AI 洞察
+router.post('/cps/ai/daily-insight', ...auth, requirePermission('ai.use'), applyDataScope('cps_metric'), cpsAiController.dailyInsight);
+router.post('/cps/ai/period-analysis', ...auth, requirePermission('ai.use'), applyDataScope('cps_metric'), cpsAiController.periodAnalysis);
+
 // 渠道录入接口 (cps_channel_user 专属，只操作自己渠道)
 router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), cpsController.upsertMetric);
 // 渠道 Excel 导入 (cps_channel_user 专属，自动锁定自己渠道)
@@ -261,6 +267,8 @@ router.use('/files', fileRoutes);
 	router.get('/aso/baseline-metrics', ...auth, requirePermission('aso.read'), asoController.getBaselineMetrics);
 	router.post('/aso/baseline-metrics', ...auth, requirePermission('aso.write'), asoController.upsertBaselineMetric);
 	router.post('/aso/baseline-metrics/import', ...auth, requirePermission('aso.write'), asoUpload.single('file'), ensureExcelFile, asoController.importBaselineMetrics);
+		// ASO AI 洞察
+		router.post('/aso/ai/daily-insight', ...auth, requirePermission('ai.use'), asoAiController.dailyInsight);
 		// ASO daily import template download (XLSX)
 		router.get('/aso/template/daily-import', ...auth, requirePermission('aso.write'), async (req, res) => {
 		  const { xlsx } = require('../utils/safeExcel');

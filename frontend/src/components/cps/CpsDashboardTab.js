@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Row, Col, Card, DatePicker, Select, Spin, Empty, Space, Segmented, Tag, Tooltip } from 'antd';
-import { AlertOutlined, DollarOutlined, InfoCircleOutlined, RiseOutlined, TeamOutlined } from '@ant-design/icons';
+import { Row, Col, Card, DatePicker, Select, Spin, Empty, Space, Segmented, Tag, Tooltip, Button, Modal, message } from 'antd';
+import { AlertOutlined, DollarOutlined, InfoCircleOutlined, RiseOutlined, TeamOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
@@ -151,6 +151,9 @@ function CpsDashboardTab({ channelId }) {
   const [products, setProducts] = useState([]);
   const [selChannels, setSelChannels] = useState(channelId ? [channelId] : []);
   const [selProducts, setSelProducts] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInsight, setAiInsight] = useState(null);
+  const [aiVisible, setAiVisible] = useState(false);
 
   useEffect(() => {
     cpsApi.getChannels().then(res => { if (res.code === 0) setChannels(res.data || []); }).catch(() => {});
@@ -178,6 +181,30 @@ function CpsDashboardTab({ channelId }) {
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
   useEffect(() => { const off = cpsBus.on(() => { fetchDashboard(); }); return off; }, [fetchDashboard]);
+
+  const openAiInsight = async () => {
+    setAiLoading(true);
+    try {
+      const payload = {
+        start_date: range?.[0]?.format('YYYY-MM-DD'),
+        end_date: range?.[1]?.format('YYYY-MM-DD'),
+        granularity,
+      };
+      if (selChannels.length) payload.channel_ids = selChannels.join(',');
+      if (selProducts.length) payload.product_ids = selProducts.join(',');
+      const res = await cpsApi.periodAnalysis(payload);
+      if (res.code === 0) {
+        setAiInsight(res.data);
+        setAiVisible(true);
+      } else {
+        message.error(res.message || 'CPS AI 分析失败');
+      }
+    } catch (err) {
+      message.error('CPS AI 分析失败');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleQuickRange = (value) => {
     setActiveRange(value);
@@ -258,6 +285,7 @@ function CpsDashboardTab({ channelId }) {
         <Select mode="multiple" placeholder="产品(全部)" allowClear value={selProducts} onChange={setSelProducts} style={{ minWidth: 170 }} maxTagCount={2}>
           {products.map(product => <Select.Option key={product.id} value={product.id}>{product.name}</Select.Option>)}
         </Select>
+        <Button size="small" icon={<RobotOutlined />} loading={aiLoading} onClick={openAiInsight}>AI 经营分析</Button>
       </div>
 
       <div style={{ marginBottom: 12, color: 'var(--text-2)', fontSize: 13 }}>
@@ -335,6 +363,14 @@ function CpsDashboardTab({ channelId }) {
           </Card>
         </Col>
       </Row>
+
+      <Modal title="CPS AI 经营分析" open={aiVisible} onCancel={() => setAiVisible(false)} footer={<Button type="primary" onClick={() => setAiVisible(false)}>关闭</Button>} width={760}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{aiInsight?.headline || '暂无结论'}</div>
+        {aiInsight?.performance && <p style={{ color: 'var(--text-2)' }}>{aiInsight.performance}</p>}
+        {aiInsight?.summary && <p style={{ color: 'var(--text-2)' }}>{aiInsight.summary}</p>}
+        {(aiInsight?.risk_focus || aiInsight?.risks || []).length > 0 && <Card size="small" title="风险关注" style={{ marginBottom: 12 }}>{(aiInsight.risk_focus || aiInsight.risks || []).map((r, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {r.scope || r.level || ''} {r.risk || r.reason}：{r.suggestion}</div>)}</Card>}
+        {(aiInsight?.next_period_actions || aiInsight?.actions || []).length > 0 && <Card size="small" title="建议动作">{(aiInsight.next_period_actions || aiInsight.actions || []).map((a, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {a.owner || ''} {a.action} {a.priority ? `（${a.priority}）` : ''}</div>)}</Card>}
+      </Modal>
     </Spin>
   );
 }

@@ -80,6 +80,8 @@ export const asoApi = {
   getMetadataVersions: (params) => api.get('/aso/metadata-versions', { params }),
   createMetadataVersion: (data) => api.post('/aso/metadata-versions', data),
   updateMetadataVersion: (id, data) => api.put(`/aso/metadata-versions/${id}`, data),
+  // AI 洞察
+  dailyInsight: (data) => api.post('/aso/ai/daily-insight', data),
   // 产品基础指标
   getBaselineMetrics: (params) => api.get('/aso/baseline-metrics', { params }),
   upsertBaselineMetric: (data) => api.post('/aso/baseline-metrics', data),

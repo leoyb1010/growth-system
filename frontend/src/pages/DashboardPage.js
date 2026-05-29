@@ -240,6 +240,44 @@ function DashboardPage() {
     );
   };
 
+  const typeLabel = (type) => ({
+    project_risk: '风险',
+    project_progress: '进度',
+    kpi: '指标',
+    action_item: '待办',
+    closure: '闭环',
+  }[type] || '提醒');
+
+  const renderAiDigestCompact = (title = 'AI 提醒') => {
+    const items = (aiDigest?.items || []).slice(0, 4);
+    if (!aiDigest?.enabled) return null;
+    return (
+      <Card className="surface-card" bodyStyle={{ padding: '10px 14px' }} style={{ marginBottom: 16, border: '1px solid #E6EEFF', background: 'linear-gradient(180deg,#F8FBFF 0%,#FFFFFF 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: items.length ? 8 : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <RobotOutlined style={{ color: '#3B5AFB' }} />
+            <span style={{ fontWeight: 700, color: '#111827' }}>{title}</span>
+            {aiDigest.summary && <span style={{ color: '#6B7280', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{aiDigest.summary}</span>}
+          </div>
+          <Button type="link" size="small" loading={aiDigestLoading} onClick={fetchAiDigest}>刷新</Button>
+        </div>
+        {items.length === 0 ? <div style={{ fontSize: 12, color: '#9CA3AF' }}>暂无必须处理的提醒</div> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+            {items.map((item, idx) => (
+              <Tooltip key={idx} title={[item.description, item.suggested_action ? `建议：${item.suggested_action}` : ''].filter(Boolean).join('｜')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '6px 8px', borderRadius: 8, background: item.priority === 'high' || item.priority === 'urgent' ? '#FFF1F0' : '#F8FAFC' }}>
+                  <Tag color={item.priority === 'high' || item.priority === 'urgent' ? 'error' : 'blue'} style={{ margin: 0, fontSize: 11, lineHeight: '18px', padding: '0 5px' }}>{typeLabel(item.type)}</Tag>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                  {item.due_date && <span style={{ fontSize: 11, color: '#9CA3AF' }}>{item.due_date}</span>}
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+        )}
+      </Card>
+    );
+  };
+
   // ===== 角色化首页渲染 =====
   // 普通成员首页：自己的项目 + 快捷更新 + 个人待办
   if (isMember) {
@@ -286,29 +324,7 @@ function DashboardPage() {
           })()}
         </Row>
 
-        {/* 成员区：AI提醒 */}
-        {aiDigest?.enabled && (
-          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col span={24}>
-              <PanelCard
-                title={<span><RobotOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />我的 AI 提醒</span>}
-                subtitle={aiDigest.summary || '基于项目、KPI、待办和风险生成'}
-                extra={<Button type="link" size="small" loading={aiDigestLoading} onClick={fetchAiDigest}>刷新</Button>}
-              >
-                {(aiDigest.items || []).length === 0 ? <Empty description="暂无 AI 提醒" image={Empty.PRESENTED_IMAGE_SIMPLE} /> : (aiDigest.items || []).slice(0, 6).map((item, idx) => (
-                  <div key={idx} style={{ padding: '10px 12px', marginBottom: 8, background: item.priority === 'high' || item.priority === 'urgent' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <Tag color={item.priority === 'high' || item.priority === 'urgent' ? 'error' : 'processing'} style={{ margin: 0 }}>{item.type}</Tag>
-                      <span style={{ fontWeight: 600, color: '#111827' }}>{item.title}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#6B7280' }}>{item.description}</div>
-                    {item.suggested_action && <div style={{ fontSize: 12, color: '#3B5AFB', marginTop: 4 }}>建议：{item.suggested_action}</div>}
-                  </div>
-                ))}
-              </PanelCard>
-            </Col>
-          </Row>
-        )}
+        {renderAiDigestCompact('我的 AI 提醒')}
 
         {/* 成员区：我的项目列表 + 快捷更新 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -469,29 +485,7 @@ function DashboardPage() {
         ]}
       />
 
-      {/* ===== AI提醒（只读建议） ===== */}
-      {aiDigest?.enabled && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col span={24}>
-            <PanelCard
-              title={<span><RobotOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />AI 经营提醒</span>}
-              subtitle={aiDigest.summary || '基于项目、KPI、待办和风险生成'}
-              extra={<Button type="link" size="small" loading={aiDigestLoading} onClick={fetchAiDigest}>刷新</Button>}
-            >
-              {(aiDigest.items || []).length === 0 ? <Empty description="暂无 AI 提醒" image={Empty.PRESENTED_IMAGE_SIMPLE} /> : (aiDigest.items || []).slice(0, 6).map((item, idx) => (
-                <div key={idx} style={{ padding: '10px 12px', marginBottom: 8, background: item.priority === 'high' || item.priority === 'urgent' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Tag color={item.priority === 'high' || item.priority === 'urgent' ? 'error' : 'processing'} style={{ margin: 0 }}>{item.type}</Tag>
-                    <span style={{ fontWeight: 600, color: '#111827' }}>{item.title}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#6B7280' }}>{item.description}</div>
-                  {item.suggested_action && <div style={{ fontSize: 12, color: '#3B5AFB', marginTop: 4 }}>建议：{item.suggested_action}</div>}
-                </div>
-              ))}
-            </PanelCard>
-          </Col>
-        </Row>
-      )}
+      {renderAiDigestCompact('AI 经营提醒')}
 
       {/* ===== 区块1：主要指标（部门级 GMV + 利润） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
