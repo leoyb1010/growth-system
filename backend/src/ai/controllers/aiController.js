@@ -273,6 +273,47 @@ async function getBadgeSummary(req, res) {
   }
 }
 
+async function generateWeeklyOperatingBrief(req, res) {
+  try {
+    const { currentPage, currentObject } = req.body || {};
+    const currentUser = {
+      id: req.access?.userId,
+      role: req.access?.role,
+      deptId: req.access?.deptId,
+      dataScopeType: req.access?.dataScopeType,
+      dataScopeValue: req.access?.dataScopeValue,
+    };
+
+    const result = await orchestrator.handleWeeklyOperatingBrief({
+      currentPage: currentPage || 'weekly_reports',
+      currentObject: currentObject || {},
+      currentUser,
+    });
+    return success(res, result);
+  } catch (err) {
+    console.error('AI weekly-operating-brief 错误:', err);
+    return error(res, `AI 备会分析生成失败: ${err.message}`, 1, 500);
+  }
+}
+
+async function getPersonalDigest(req, res) {
+  try {
+    const currentUser = {
+      id: req.access?.userId,
+      role: req.access?.role,
+      deptId: req.access?.deptId,
+      dataScopeType: req.access?.dataScopeType,
+      dataScopeValue: req.access?.dataScopeValue,
+    };
+
+    const result = await orchestrator.handlePersonalDigest({ currentUser });
+    return success(res, result);
+  } catch (err) {
+    console.error('AI personal-digest 错误:', err);
+    return error(res, `AI 个人提醒生成失败: ${err.message}`, 1, 500);
+  }
+}
+
 /**
  * 流式自由问答（SSE）
  * POST /api/ai/chat-stream
@@ -583,7 +624,9 @@ module.exports = {
   analyze,
   chat,
   generateBriefing,
+  generateWeeklyOperatingBrief,
   getBadgeSummary,
+  getPersonalDigest,
   streamChat,
   executeAction,
   materializeActions,

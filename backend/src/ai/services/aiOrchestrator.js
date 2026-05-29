@@ -9,6 +9,7 @@ const aiClosureService = require('./aiClosureService');
 const aiWeeklyBriefService = require('./aiWeeklyBriefService');
 const aiMeetingService = require('./aiMeetingService');
 const aiProjectDiagnosisService = require('./aiProjectDiagnosisService');
+const aiPersonalDigestService = require('./aiPersonalDigestService');
 const aiContextService = require('./aiContextService');
 const llmProvider = require('./aiLLMProvider');
 const mockProvider = require('./aiMockProvider');
@@ -209,6 +210,17 @@ async function handleBadgeSummary(params) {
   };
 }
 
+async function handleWeeklyOperatingBrief(params) {
+  const { currentPage = 'weekly_reports', currentObject = {}, currentUser = {} } = params;
+  const context = await aiContextService.assembleContext({ currentPage, currentObject, currentUser });
+  return aiWeeklyBriefService.generateOperatingBrief(context);
+}
+
+async function handlePersonalDigest(params) {
+  const { currentUser = {} } = params;
+  return aiPersonalDigestService.generateForUser(currentUser);
+}
+
 // ===== 辅助方法 =====
 
 function handleStaleProjects(context) {
@@ -294,6 +306,8 @@ module.exports = {
   handleChat,
   handleBriefing,
   handleBadgeSummary,
+  handlePersonalDigest,
+  handleWeeklyOperatingBrief,
   VALID_MODES,
   VALID_PAGES
 };

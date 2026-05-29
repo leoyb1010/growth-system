@@ -39,6 +39,22 @@ export async function fetchAIBriefing({ type = 'brief', currentPage = 'dashboard
 }
 
 /**
+ * 获取我的 AI 提醒
+ */
+export async function fetchPersonalDigest() {
+  const res = await api.get('/ai/personal-digest', { timeout: AI_TIMEOUT });
+  return res;
+}
+
+/**
+ * 获取 AI 备会分析
+ */
+export async function fetchWeeklyOperatingBrief({ currentPage = 'weekly_reports', currentObject = {} } = {}) {
+  const res = await api.post('/ai/weekly-operating-brief', { currentPage, currentObject }, { timeout: AI_TIMEOUT });
+  return res;
+}
+
+/**
  * 获取角标数据
  */
 export async function fetchBadgeSummary({ currentPage = 'dashboard' } = {}) {

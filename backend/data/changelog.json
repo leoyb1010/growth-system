@@ -1,6 +1,18 @@
 {
-  "latestVersion": "1.17.5",
+  "latestVersion": "1.18.0",
   "releases": [
+    {
+      "version": "1.18.0",
+      "date": "2026-05-29",
+      "title": "AI旁路增强 · 个人提醒 · 项目诊断 · 备会分析",
+      "changes": [
+        { "type": "feat", "module": "AI个人提醒", "desc": "新增我的AI提醒，基于项目风险、进度滞后、KPI偏差、待办临期和闭环缺口生成内部提醒，默认不发送邮件" },
+        { "type": "feat", "module": "项目AI诊断", "desc": "项目诊断新增结构化输出：根因、建议动作、风险候选、周报素材和会议追问，写入业务对象仍需用户确认" },
+        { "type": "feat", "module": "AI备会分析", "desc": "新增独立AI经营分析/备会材料接口和前端弹窗，不覆盖正式自定义周报" },
+        { "type": "improve", "module": "AI基础层", "desc": "统一LLM文本/JSON调用包装，接入AI调用日志、短TTL缓存和JSON解析失败降级" },
+        { "type": "fix", "module": "CPS AI", "desc": "修复CPS AI控制器调用不存在的provider方法问题，统一走结构化AI调用" }
+      ]
+    },
     {
       "version": "1.17.5",
       "date": "2026-05-25",

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin, Grid } from 'antd';
 import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined, CopyOutlined } from '@ant-design/icons';
 import { api, getAccessToken, useAuth } from '../hooks/useAuth';
+import { fetchWeeklyOperatingBrief } from '../services/aiService';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import Sparkline from '../components/ui/Sparkline';
@@ -96,6 +97,9 @@ function WeeklyReportPage() {
   const [reports, setReports] = useState([]);
   const [currentReport, setCurrentReport] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [aiBriefLoading, setAiBriefLoading] = useState(false);
+  const [aiBrief, setAiBrief] = useState(null);
+  const [aiBriefVisible, setAiBriefVisible] = useState(false);
   const reportRef = useRef(null);
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false || (typeof window !== 'undefined' && window.innerWidth < 768);
@@ -163,6 +167,23 @@ function WeeklyReportPage() {
       message.error(typeof err === 'string' ? err : '生成周报失败，请稍后重试');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGenerateAiBrief = async () => {
+    setAiBriefLoading(true);
+    try {
+      const res = await fetchWeeklyOperatingBrief({ currentPage: 'weekly_reports' });
+      if (res.code === 0) {
+        setAiBrief(res.data);
+        setAiBriefVisible(true);
+      } else {
+        message.error(res.message || 'AI 备会分析生成失败');
+      }
+    } catch (err) {
+      message.error('AI 备会分析生成失败');
+    } finally {
+      setAiBriefLoading(false);
     }
   };
 
@@ -1950,6 +1971,7 @@ td.text-cell { white-space: pre-wrap; }
         title="周报与复盘"
         subtitle="结果输出页 · 周报内容自动生成，补充结论和复盘即可"
         extra={[
+          <Button key="ai_operating" icon={<RobotOutlined />} loading={aiBriefLoading} onClick={handleGenerateAiBrief}>AI 备会分析</Button>,
           <Button key="ai_brief" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.generateBriefing('brief', 'weekly_reports')}>AI 简报</Button>,
           <Button key="ai_agenda" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.runAction('generate_agenda', 'weekly_reports')}>AI 周会议程</Button>,
           <Button key="gen" type="primary" icon={<FileTextOutlined />} onClick={handleGenerate} loading={generating}>
@@ -1991,6 +2013,33 @@ td.text-cell { white-space: pre-wrap; }
           </PanelCard>
         </Tabs.TabPane>
       </Tabs>
+
+      <Modal
+        title="AI 备会分析"
+        open={aiBriefVisible}
+        onCancel={() => setAiBriefVisible(false)}
+        width={isMobile ? 'calc(100vw - 24px)' : 820}
+        footer={[
+          <Button key="copy" icon={<CopyOutlined />} onClick={() => { navigator.clipboard?.writeText(aiBrief?.copy_material || aiBrief?.summary || ''); message.success('已复制备会素材'); }}>复制素材</Button>,
+          <Button key="close" type="primary" onClick={() => setAiBriefVisible(false)}>关闭</Button>,
+        ]}
+      >
+        <div style={{ color: '#6B7280', marginBottom: 12 }}>这是经营分析/备会辅助材料，不会覆盖正式周报。</div>
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{aiBrief?.summary || '暂无摘要'}</div>
+          {aiBrief?.copy_material && <div style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>{aiBrief.copy_material}</div>}
+        </Card>
+        {(aiBrief?.sections || []).map(section => (
+          <Card key={section.title} size="small" title={section.title} style={{ marginBottom: 12 }}>
+            {(section.items || []).map((item, idx) => <div key={idx} style={{ marginBottom: 6 }}>- {item}</div>)}
+          </Card>
+        ))}
+        {(aiBrief?.decision_topics || []).length > 0 && (
+          <Card size="small" title="会上拍板" style={{ marginBottom: 12 }}>
+            {aiBrief.decision_topics.map((item, idx) => <div key={idx} style={{ marginBottom: 6 }}>- {item}</div>)}
+          </Card>
+        )}
+      </Modal>
 
       <Modal
         title={historyReport ? `周报：${historyReport.week_start} 至 ${historyReport.week_end}` : '周报详情'}

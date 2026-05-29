@@ -41,3 +41,26 @@ test('LLM provider records auth failures without leaking API keys', async () => 
     delete require.cache[require.resolve(providerPath)];
   }
 });
+
+test('LLM provider allows disabling response_format for JSON prompts', async () => {
+  const oldKey = process.env.AI_LLM_API_KEY;
+  const oldPost = axios.post;
+  let capturedBody = null;
+
+  axios.post = async (_url, body) => {
+    capturedBody = body;
+    return { data: { choices: [{ message: { content: '{"ok":true}' } }] } };
+  };
+
+  try {
+    const provider = reloadProviderWithEnv({ AI_LLM_API_KEY: 'secret-test-key' });
+    const result = await provider.chatJSON({ prompt: 'return json', responseFormat: false });
+    assert.deepEqual(result, { ok: true });
+    assert.equal(Object.prototype.hasOwnProperty.call(capturedBody, 'response_format'), false);
+  } finally {
+    axios.post = oldPost;
+    if (oldKey === undefined) delete process.env.AI_LLM_API_KEY;
+    else process.env.AI_LLM_API_KEY = oldKey;
+    delete require.cache[require.resolve(providerPath)];
+  }
+});

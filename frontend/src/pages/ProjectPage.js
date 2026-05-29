@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, InputNumber, Select, DatePicker, message, Tag, Progress, Drawer, Descriptions, Badge, Tabs, Tooltip, Checkbox, Dropdown, Grid, Calendar, Popconfirm, Switch, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined, EyeOutlined, UnorderedListOutlined, AppstoreOutlined, FormOutlined, MoreOutlined, ColumnWidthOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { api, useAuth } from '../hooks/useAuth';
+import { fetchAIAnalyze } from '../services/aiService';
 import { can } from '../permissions/ability';
 import moment from 'moment';
 import PageHeader from '../components/ui/PageHeader';
@@ -48,6 +49,9 @@ function ProjectPage() {
   const [logModalVisible, setLogModalVisible] = useState(false);
   const [selectedDateLogs, setSelectedDateLogs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [aiDiagnosisLoading, setAiDiagnosisLoading] = useState(false);
+  const [aiDiagnosis, setAiDiagnosis] = useState(null);
+  const [aiDiagnosisVisible, setAiDiagnosisVisible] = useState(false);
 
   const now = new Date();
   const currentQuarter = now.getMonth() < 3 ? 'Q1' : now.getMonth() < 6 ? 'Q2' : now.getMonth() < 9 ? 'Q3' : 'Q4';
@@ -156,6 +160,27 @@ function ProjectPage() {
       const res = await api.get(`/projects/${record.id}/update-logs`);
       if (res.code === 0) setUpdateLogs(res.data);
     } catch (err) { /* ignore */ }
+  };
+
+  const handleAiDiagnosis = async (record) => {
+    setAiDiagnosisLoading(true);
+    try {
+      const res = await fetchAIAnalyze({
+        actionKey: 'diagnose_project',
+        currentPage: 'project_detail',
+        currentObject: { projectId: record.id }
+      });
+      if (res.code === 0) {
+        setAiDiagnosis(res.data);
+        setAiDiagnosisVisible(true);
+      } else {
+        message.error(res.message || 'AI 诊断失败');
+      }
+    } catch (err) {
+      message.error('AI 诊断失败');
+    } finally {
+      setAiDiagnosisLoading(false);
+    }
   };
 
   // 进度条点击就地更新
@@ -591,8 +616,11 @@ function ProjectPage() {
         open={drawerVisible}
         onClose={() => { setDrawerVisible(false); setDetailRecord(null); }}
         width={560}
-        extra={isDeptManager && detailRecord ? (
-          <Button type="primary" icon={<EditOutlined />} onClick={() => { setDrawerVisible(false); handleEdit(detailRecord); }}>编辑</Button>
+        extra={detailRecord ? (
+          <Space>
+            <Button icon={<RobotOutlined />} loading={aiDiagnosisLoading} onClick={() => handleAiDiagnosis(detailRecord)}>AI 诊断</Button>
+            {isDeptManager && <Button type="primary" icon={<EditOutlined />} onClick={() => { setDrawerVisible(false); handleEdit(detailRecord); }}>编辑</Button>}
+          </Space>
         ) : null}
       >
         {detailRecord && (
@@ -690,6 +718,35 @@ function ProjectPage() {
           />
         )}
       </Drawer>
+
+      <Modal
+        title="项目 AI 诊断"
+        open={aiDiagnosisVisible}
+        onCancel={() => setAiDiagnosisVisible(false)}
+        footer={<Button type="primary" onClick={() => setAiDiagnosisVisible(false)}>关闭</Button>}
+        width={720}
+      >
+        <div style={{ color: '#6B7280', marginBottom: 12 }}>以下为只读建议，不会自动修改项目或创建待办。</div>
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>{aiDiagnosis?.headline || '暂无诊断'}</div>
+          {aiDiagnosis?.rawAnalysis?.diagnosis_summary && <div>{aiDiagnosis.rawAnalysis.diagnosis_summary}</div>}
+        </Card>
+        {(aiDiagnosis?.cards || []).map(card => (
+          <Card key={card.id || card.title} size="small" title={card.title} style={{ marginBottom: 12 }}>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{card.description}</div>
+            {(card.meta?.meeting_questions || []).length > 0 && <div style={{ marginTop: 8, color: '#3B5AFB' }}>追问：{card.meta.meeting_questions.join('；')}</div>}
+          </Card>
+        ))}
+        {(aiDiagnosis?.suggestedActions || []).length > 0 && (
+          <Card size="small" title="可确认生成的建议">
+            {aiDiagnosis.suggestedActions.map(action => (
+              <div key={action.key} style={{ marginBottom: 8 }}>
+                <Tag color="processing">需确认</Tag>{action.label}
+              </div>
+            ))}
+          </Card>
+        )}
+      </Modal>
 
       {/* 编辑弹窗 */}
       <Modal

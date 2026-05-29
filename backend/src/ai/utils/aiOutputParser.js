@@ -12,9 +12,14 @@
 function extractJSON(text) {
   if (!text || typeof text !== 'string') return null;
 
+  const normalized = text.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
   // 尝试1：整体就是 JSON
   try {
-    return JSON.parse(text.trim());
+    return JSON.parse(normalized);
   } catch (e) {
     // 继续尝试
   }
@@ -104,6 +109,11 @@ function parsePanelOutput(llmOutput, mode) {
   };
 }
 
+function parseStructuredJSON(llmOutput, fallback = null) {
+  const parsed = extractJSON(llmOutput);
+  return parsed && typeof parsed === 'object' ? parsed : fallback;
+}
+
 /**
  * 清理 LLM 输出中的残留格式标记
  * @param {string} text
@@ -121,6 +131,7 @@ function cleanLLMOutput(text) {
 
 module.exports = {
   extractJSON,
+  parseStructuredJSON,
   parseChatOutput,
   parsePanelOutput,
   cleanLLMOutput

@@ -4,6 +4,9 @@
  */
 
 const axios = require('axios');
+const crypto = require('crypto');
+const { logAICall } = require('../../services/aiCallLogService');
+const { parseStructuredJSON } = require('../utils/aiOutputParser');
 
 const LLM_CONFIG = {
   provider: process.env.AI_LLM_PROVIDER || 'deepseek',
@@ -118,6 +121,10 @@ async function call(systemPrompt, userPrompt, options = {}) {
     temperature: options.temperature !== undefined ? options.temperature : LLM_CONFIG.temperature,
   };
 
+  if (options.responseFormat) {
+    requestBody.response_format = options.responseFormat;
+  }
+
   const url = `${LLM_CONFIG.baseUrl}/v1/chat/completions`;
 
   try {
@@ -126,7 +133,7 @@ async function call(systemPrompt, userPrompt, options = {}) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
       },
-      timeout: 30000, // 30s timeout (chat model is fast)
+      timeout: options.timeout || 30000,
     });
 
     const choice = response.data?.choices?.[0];
@@ -143,6 +150,79 @@ async function call(systemPrompt, userPrompt, options = {}) {
     }
     throw toLLMError(err, 'LLM 请求失败');
   }
+}
+
+function createRequestHash(taskType, systemPrompt, userPrompt) {
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ taskType, systemPrompt, userPrompt }))
+    .digest('hex');
+}
+
+async function callWithLog(systemPrompt, userPrompt, options = {}) {
+  const startedAt = Date.now();
+  const taskType = options.taskType || 'general';
+  const requestHash = options.requestHash || createRequestHash(taskType, systemPrompt, userPrompt);
+
+  try {
+    const content = await call(systemPrompt, userPrompt, options);
+    await logAICall({
+      userId: options.userId,
+      taskType,
+      provider: LLM_CONFIG.provider,
+      success: true,
+      latencyMs: Date.now() - startedAt,
+      requestHash,
+    });
+    return content;
+  } catch (err) {
+    await logAICall({
+      userId: options.userId,
+      taskType,
+      provider: LLM_CONFIG.provider,
+      success: false,
+      latencyMs: Date.now() - startedAt,
+      errorMessage: err.message,
+      requestHash,
+    });
+    throw err;
+  }
+}
+
+async function chatText({ systemPrompt = '', prompt = '', userPrompt = '', user = null, taskType = 'chat', ...options }) {
+  return callWithLog(systemPrompt, userPrompt || prompt, {
+    ...options,
+    taskType,
+    userId: user?.id || options.userId,
+  });
+}
+
+async function chatJSON({ systemPrompt = '', prompt = '', userPrompt = '', user = null, taskType = 'structured_json', fallback = null, ...options }) {
+  const jsonSystemPrompt = [
+    systemPrompt,
+    '只输出合法 JSON，不要 Markdown，不要解释，不要使用代码块。'
+  ].filter(Boolean).join('\n');
+
+  const requestOptions = { ...options };
+  if (requestOptions.responseFormat !== false) {
+    requestOptions.responseFormat = requestOptions.responseFormat || { type: 'json_object' };
+  }
+
+  const output = await callWithLog(jsonSystemPrompt, userPrompt || prompt, {
+    ...requestOptions,
+    taskType,
+    userId: user?.id || options.userId,
+    temperature: options.temperature !== undefined ? options.temperature : 0.2,
+  });
+
+  return parseStructuredJSON(output, fallback);
+}
+
+async function chat({ systemPrompt = '', prompt = '', userPrompt = '', user = null, taskType = 'chat', json = true, fallback = null, ...options }) {
+  if (json) {
+    return chatJSON({ systemPrompt, prompt, userPrompt, user, taskType, fallback, ...options });
+  }
+  return chatText({ systemPrompt, prompt, userPrompt, user, taskType, ...options });
 }
 
 /**
@@ -230,6 +310,10 @@ module.exports = {
   isAvailable,
   getStatus,
   call,
+  callWithLog,
+  chatText,
+  chatJSON,
+  chat,
   callStream,
   LLM_CONFIG
 };

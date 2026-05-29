@@ -372,6 +372,57 @@ const AiResultCache = sequelize.define('AiResultCache', {
   createdAt: 'created_at'
 });
 
+const AiUserDigest = sequelize.define('AiUserDigest', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  digest_date: { type: DataTypes.DATEONLY, allowNull: false },
+  summary: { type: DataTypes.TEXT, allowNull: true },
+  risk_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  action_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  kpi_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'draft' },
+  generated_by: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'rule' }
+}, {
+  tableName: 'ai_user_digests',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at'
+});
+
+const AiUserDigestItem = sequelize.define('AiUserDigestItem', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  digest_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: AiUserDigest, key: 'id' } },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  type: { type: DataTypes.STRING(50), allowNull: false },
+  title: { type: DataTypes.STRING(200), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  priority: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'medium' },
+  source_type: { type: DataTypes.STRING(50), allowNull: true },
+  source_id: { type: DataTypes.INTEGER, allowNull: true },
+  suggested_action: { type: DataTypes.TEXT, allowNull: true },
+  due_date: { type: DataTypes.DATEONLY, allowNull: true },
+  is_read: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+}, {
+  tableName: 'ai_user_digest_items',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at'
+});
+
+const AiFeedback = sequelize.define('AiFeedback', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  target_type: { type: DataTypes.STRING(50), allowNull: false },
+  target_id: { type: DataTypes.INTEGER, allowNull: true },
+  rating: { type: DataTypes.STRING(20), allowNull: false },
+  comment: { type: DataTypes.TEXT, allowNull: true }
+}, {
+  tableName: 'ai_feedback',
+  timestamps: true,
+  updatedAt: false,
+  createdAt: 'created_at'
+});
+
 // Refresh Token 表
 const RefreshToken = sequelize.define('RefreshToken', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -708,6 +759,11 @@ User.hasMany(RiskRegister, { foreignKey: 'owner_id', as: 'OwnedRisks' });
 RiskRegister.belongsTo(User, { foreignKey: 'owner_id', as: 'Owner' });
 
 AiCallLog.belongsTo(User, { foreignKey: 'user_id' });
+AiUserDigest.belongsTo(User, { foreignKey: 'user_id' });
+AiUserDigest.hasMany(AiUserDigestItem, { foreignKey: 'digest_id', as: 'items' });
+AiUserDigestItem.belongsTo(AiUserDigest, { foreignKey: 'digest_id' });
+AiUserDigestItem.belongsTo(User, { foreignKey: 'user_id' });
+AiFeedback.belongsTo(User, { foreignKey: 'user_id' });
 RefreshToken.belongsTo(User, { foreignKey: 'user_id' });
 
 module.exports = {
@@ -727,6 +783,9 @@ module.exports = {
   RiskRegister,
   AiCallLog,
   AiResultCache,
+  AiUserDigest,
+  AiUserDigestItem,
+  AiFeedback,
   RefreshToken,
   CpsChannel,
   CpsProduct,

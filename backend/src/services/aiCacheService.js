@@ -2,11 +2,10 @@ const crypto = require('crypto');
 const { AiResultCache } = require('../models');
 
 function createCacheKey(taskType, payload) {
-  const hash = crypto
+  return crypto
     .createHash('sha256')
     .update(JSON.stringify({ taskType, payload }))
     .digest('hex');
-  return `${taskType}:${hash}`;
 }
 
 async function getCached(cacheKey) {
@@ -37,6 +36,8 @@ async function setCached(cacheKey, taskType, result, ttlSeconds) {
 
 const TASK_CACHE_TTL = {
   weekly_brief: 300,
+  weekly_operating_brief: 300,
+  personal_digest: 300,
   risk_analysis: 180,
   dashboard_insight: 300,
   project_diagnosis: 120,

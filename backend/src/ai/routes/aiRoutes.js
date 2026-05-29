@@ -29,6 +29,12 @@ router.post('/chat', ...auth, aiPermission, validateAiRequest('chat'), aiControl
 // POST /api/ai/briefing - 生成简报
 router.post('/briefing', ...auth, aiPermission, validateAiRequest('briefing'), aiController.generateBriefing);
 
+// POST /api/ai/weekly-operating-brief - 独立 AI 备会分析，不覆盖正式周报
+router.post('/weekly-operating-brief', ...auth, aiPermission, aiController.generateWeeklyOperatingBrief);
+
+// GET /api/ai/personal-digest - 我的 AI 提醒（内部展示，不发邮件）
+router.get('/personal-digest', ...auth, aiPermission, aiController.getPersonalDigest);
+
 // GET /api/ai/badge-summary - 角标数据（轻量接口，无需严格校验）
 router.get('/badge-summary', ...auth, aiPermission, aiController.getBadgeSummary);
 

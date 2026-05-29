@@ -11,6 +11,7 @@ import PanelCard from '../components/ui/PanelCard';
 import { getStatusStyle, getProgressColor } from '../utils/constants';
 import useAIAssistant from '../hooks/useAIAssistant';
 import useAIContext from '../hooks/useAIContext';
+import { fetchPersonalDigest } from '../services/aiService';
 import useCountUp from '../hooks/useCountUp';
 
 function DashboardPage() {
@@ -19,6 +20,8 @@ function DashboardPage() {
   const [viewMode, setViewMode] = useState('quarter');
   const [staleProjects, setStaleProjects] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [aiDigest, setAiDigest] = useState(null);
+  const [aiDigestLoading, setAiDigestLoading] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const role = user?.role || 'dept_staff';
@@ -34,6 +37,7 @@ function DashboardPage() {
   useEffect(() => {
     fetchDashboard();
     fetchStaleProjects();
+    fetchAiDigest();
   }, [viewMode]);
 
   const fetchDashboard = async () => {
@@ -58,6 +62,18 @@ function DashboardPage() {
       const res = await api.get('/projects/stale', { params: { days: 7 } });
       if (res.code === 0) setStaleProjects(res.data);
     } catch (err) { /* 静默 */ }
+  };
+
+  const fetchAiDigest = async () => {
+    setAiDigestLoading(true);
+    try {
+      const res = await fetchPersonalDigest();
+      if (res.code === 0) setAiDigest(res.data);
+    } catch (err) {
+      setAiDigest(null);
+    } finally {
+      setAiDigestLoading(false);
+    }
   };
 
   // 打开今日更新 Drawer 并加载数据
@@ -270,6 +286,30 @@ function DashboardPage() {
           })()}
         </Row>
 
+        {/* 成员区：AI提醒 */}
+        {aiDigest?.enabled && (
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col span={24}>
+              <PanelCard
+                title={<span><RobotOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />我的 AI 提醒</span>}
+                subtitle={aiDigest.summary || '基于项目、KPI、待办和风险生成'}
+                extra={<Button type="link" size="small" loading={aiDigestLoading} onClick={fetchAiDigest}>刷新</Button>}
+              >
+                {(aiDigest.items || []).length === 0 ? <Empty description="暂无 AI 提醒" image={Empty.PRESENTED_IMAGE_SIMPLE} /> : (aiDigest.items || []).slice(0, 6).map((item, idx) => (
+                  <div key={idx} style={{ padding: '10px 12px', marginBottom: 8, background: item.priority === 'high' || item.priority === 'urgent' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Tag color={item.priority === 'high' || item.priority === 'urgent' ? 'error' : 'processing'} style={{ margin: 0 }}>{item.type}</Tag>
+                      <span style={{ fontWeight: 600, color: '#111827' }}>{item.title}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6B7280' }}>{item.description}</div>
+                    {item.suggested_action && <div style={{ fontSize: 12, color: '#3B5AFB', marginTop: 4 }}>建议：{item.suggested_action}</div>}
+                  </div>
+                ))}
+              </PanelCard>
+            </Col>
+          </Row>
+        )}
+
         {/* 成员区：我的项目列表 + 快捷更新 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} lg={14}>
@@ -428,6 +468,30 @@ function DashboardPage() {
           can(role, 'weekly_report.generate') && <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>生成周报</Button>,
         ]}
       />
+
+      {/* ===== AI提醒（只读建议） ===== */}
+      {aiDigest?.enabled && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col span={24}>
+            <PanelCard
+              title={<span><RobotOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />AI 经营提醒</span>}
+              subtitle={aiDigest.summary || '基于项目、KPI、待办和风险生成'}
+              extra={<Button type="link" size="small" loading={aiDigestLoading} onClick={fetchAiDigest}>刷新</Button>}
+            >
+              {(aiDigest.items || []).length === 0 ? <Empty description="暂无 AI 提醒" image={Empty.PRESENTED_IMAGE_SIMPLE} /> : (aiDigest.items || []).slice(0, 6).map((item, idx) => (
+                <div key={idx} style={{ padding: '10px 12px', marginBottom: 8, background: item.priority === 'high' || item.priority === 'urgent' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Tag color={item.priority === 'high' || item.priority === 'urgent' ? 'error' : 'processing'} style={{ margin: 0 }}>{item.type}</Tag>
+                    <span style={{ fontWeight: 600, color: '#111827' }}>{item.title}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6B7280' }}>{item.description}</div>
+                  {item.suggested_action && <div style={{ fontSize: 12, color: '#3B5AFB', marginTop: 4 }}>建议：{item.suggested_action}</div>}
+                </div>
+              ))}
+            </PanelCard>
+          </Col>
+        </Row>
+      )}
 
       {/* ===== 区块1：主要指标（部门级 GMV + 利润） ===== */}
       <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
