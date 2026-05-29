@@ -118,7 +118,7 @@ async function generateOperatingBrief(context) {
       user: context.currentUser,
       taskType: 'weekly_operating_brief',
       fallback: null,
-      maxTokens: 2200,
+      maxTokens: 4000,
     });
 
     const result = {

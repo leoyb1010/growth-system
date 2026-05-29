@@ -3,6 +3,10 @@ const { success, error } = require('../../utils/response');
 const asoAiContextBuilder = require('../services/asoAiContextBuilder');
 const asoAiPromptBuilder = require('../services/asoAiPromptBuilder');
 const aiLLMProvider = require('../services/aiLLMProvider');
+const aiCache = require('../../services/aiCacheService');
+
+// ASO AI 结果缓存 TTL（秒）：同日期/产品维度的洞察在窗口内秒回
+const ASO_AI_TTL = 300;
 
 function fallbackInsight(ctx) {
   const current = ctx.current || {};
@@ -36,17 +40,34 @@ function fallbackInsight(ctx) {
 
 async function dailyInsight(req, res) {
   try {
+    const date = req.body?.date || dayjs().format('YYYY-MM-DD');
+    const cacheKey = aiCache.createCacheKey('aso_daily_insight', {
+      date,
+      compare_date: req.body?.compare_date || null,
+      product_ids: req.body?.product_ids || null,
+    });
+    const cached = await aiCache.getCached(cacheKey);
+    if (cached) return success(res, { ...cached, cached: true });
+
     const ctx = await asoAiContextBuilder.buildDailyContext({
-      date: req.body?.date || dayjs().format('YYYY-MM-DD'),
+      date,
       compare_date: req.body?.compare_date,
       product_ids: req.body?.product_ids,
     });
 
-    if (!aiLLMProvider.isAvailable()) return success(res, fallbackInsight(ctx));
+    const fallback = fallbackInsight(ctx);
+    if (!aiLLMProvider.isAvailable()) return success(res, fallback);
 
-    const prompt = asoAiPromptBuilder.buildDailyInsightPrompt(ctx);
-    const result = await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'aso_daily_insight', fallback: fallbackInsight(ctx), responseFormat: false });
-    return success(res, result || fallbackInsight(ctx));
+    try {
+      const prompt = asoAiPromptBuilder.buildDailyInsightPrompt(ctx);
+      const result = await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'aso_daily_insight', fallback, responseFormat: false, maxTokens: 3000 });
+      if (result && !result.isMock) aiCache.setCached(cacheKey, 'aso_daily_insight', result, ASO_AI_TTL).catch(() => {});
+      return success(res, result || fallback);
+    } catch (llmErr) {
+      // LLM 临时不可用：降级为规则分析，绝不把错误抛给前端
+      console.error('ASO dailyInsight LLM 降级:', llmErr.message);
+      return success(res, { ...fallback, degraded: true });
+    }
   } catch (err) {
     console.error('ASO dailyInsight error:', err);
     return error(res, err.message || 'AI ASO洞察失败');

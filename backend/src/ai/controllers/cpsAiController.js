@@ -3,6 +3,28 @@ const { success, error } = require('../../utils/response');
 const cpsAiContextBuilder = require('../services/cpsAiContextBuilder');
 const cpsPromptBuilder = require('../services/cpsAiPromptBuilder');
 const aiLLMProvider = require('../services/aiLLMProvider');
+const aiCache = require('../../services/aiCacheService');
+
+// CPS AI 结果缓存 TTL（秒）：同一日期/筛选维度的分析在窗口内秒回，避免重复 10s+ 的 LLM 调用
+const CPS_AI_TTL = 300;
+
+/**
+ * 解析生效的 CPS 筛选条件，并强制套用数据范围（与 cpsController.getDashboard 一致）。
+ * cps_channel 账号只能分析自己绑定的渠道，忽略前端传入的 channel_ids，避免越权看到其它渠道数据。
+ */
+function resolveCpsScope(req) {
+  const body = req.body || {};
+  const filters = {
+    channel_ids: body.channel_ids || null,
+    product_ids: body.product_ids || null,
+  };
+  if (req.dataScope?.type === 'cps_channel' && req.dataScope.value) {
+    filters.channel_ids = String(req.dataScope.value);
+  }
+  // scopeTag 纳入缓存 key，确保不同数据范围的用户绝不命中彼此的缓存
+  const scopeTag = req.dataScope?.type === 'cps_channel' ? `ch:${req.dataScope.value}` : (req.dataScope?.type || 'all');
+  return { filters, scopeTag };
+}
 
 function fallbackPeriodAnalysis(ctx) {
   const s = ctx.executive_signals || {};
@@ -25,12 +47,24 @@ function fallbackPeriodAnalysis(ctx) {
 async function dailyInsight(req, res) {
   try {
     const statDate = req.body?.stat_date || dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-    const ctx = await cpsAiContextBuilder.buildDailyContext(statDate, req.body || {});
-    const prompt = cpsPromptBuilder.buildDailyInsightPrompt(ctx);
-    const result = aiLLMProvider.isAvailable()
-      ? await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'cps_daily_insight', responseFormat: false, fallback: fallbackPeriodAnalysis(ctx) })
-      : fallbackPeriodAnalysis(ctx);
-    return success(res, result);
+    const { filters, scopeTag } = resolveCpsScope(req);
+    const cacheKey = aiCache.createCacheKey('cps_daily_insight', { statDate, ...filters, scopeTag });
+    const cached = await aiCache.getCached(cacheKey);
+    if (cached) return success(res, { ...cached, cached: true });
+
+    const ctx = await cpsAiContextBuilder.buildDailyContext(statDate, { ...req.body, ...filters });
+    const fallback = fallbackPeriodAnalysis(ctx);
+    if (!aiLLMProvider.isAvailable()) return success(res, fallback);
+    try {
+      const prompt = cpsPromptBuilder.buildDailyInsightPrompt(ctx);
+      const result = await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'cps_daily_insight', responseFormat: false, fallback, maxTokens: 4000 });
+      if (result && !result.isMock) aiCache.setCached(cacheKey, 'cps_daily_insight', result, CPS_AI_TTL).catch(() => {});
+      return success(res, result || fallback);
+    } catch (llmErr) {
+      // LLM 临时不可用：降级为规则分析，绝不把错误抛给前端
+      console.error('CPS dailyInsight LLM 降级:', llmErr.message);
+      return success(res, { ...fallback, degraded: true });
+    }
   } catch (err) {
     console.error('CPS dailyInsight error:', err);
     return error(res, err.message || 'AI 日洞察失败');
@@ -39,12 +73,30 @@ async function dailyInsight(req, res) {
 
 async function periodAnalysis(req, res) {
   try {
-    const ctx = await cpsAiContextBuilder.buildPeriodContext(req.body || {});
-    const prompt = cpsPromptBuilder.buildPeriodAnalysisPrompt(ctx);
-    const result = aiLLMProvider.isAvailable()
-      ? await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'cps_period_analysis', responseFormat: false, fallback: fallbackPeriodAnalysis(ctx), maxTokens: 2200 })
-      : fallbackPeriodAnalysis(ctx);
-    return success(res, result);
+    const body = req.body || {};
+    const { filters, scopeTag } = resolveCpsScope(req);
+    const cacheKey = aiCache.createCacheKey('cps_period_analysis', {
+      start_date: body.start_date || null,
+      end_date: body.end_date || null,
+      granularity: body.granularity || null,
+      ...filters,
+      scopeTag,
+    });
+    const cached = await aiCache.getCached(cacheKey);
+    if (cached) return success(res, { ...cached, cached: true });
+
+    const ctx = await cpsAiContextBuilder.buildPeriodContext({ ...body, ...filters });
+    const fallback = fallbackPeriodAnalysis(ctx);
+    if (!aiLLMProvider.isAvailable()) return success(res, fallback);
+    try {
+      const prompt = cpsPromptBuilder.buildPeriodAnalysisPrompt(ctx);
+      const result = await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'cps_period_analysis', responseFormat: false, fallback, maxTokens: 4000 });
+      if (result && !result.isMock) aiCache.setCached(cacheKey, 'cps_period_analysis', result, CPS_AI_TTL).catch(() => {});
+      return success(res, result || fallback);
+    } catch (llmErr) {
+      console.error('CPS periodAnalysis LLM 降级:', llmErr.message);
+      return success(res, { ...fallback, degraded: true });
+    }
   } catch (err) {
     console.error('CPS periodAnalysis error:', err);
     return error(res, err.message || 'AI 周期分析失败');

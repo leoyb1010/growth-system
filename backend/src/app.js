@@ -1,3 +1,7 @@
+// 从 backend/.env 加载环境变量（置于最顶部，确保 config/database、aiLLMProvider 等在 require 时即可读到）
+// override:true 让 backend/.env 成为唯一配置真源，避免 pm2 在首次启动时烤死的旧变量（如失效的 API Key）与 .env 漂移
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env'), override: true });
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

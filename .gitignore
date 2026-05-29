@@ -41,3 +41,8 @@ backups/
 # User data (uploads/exports)
 backend/uploads/exports/*
 .workbuddy/
+
+# 诊断导出（含真实业务数据样本/库结构，禁止入库）
+ai-diagnosis-export/
+growth-system-diagnosis/
+growth-system-diagnosis*.tar.gz

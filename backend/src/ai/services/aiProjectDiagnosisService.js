@@ -75,7 +75,7 @@ async function diagnose(context) {
       user: context.currentUser,
       taskType: 'project_diagnosis',
       fallback: null,
-      maxTokens: 900,
+      maxTokens: 2500,
     });
 
     const result = formatAIResponse({

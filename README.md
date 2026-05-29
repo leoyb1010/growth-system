@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-v1.18.0-2673FF?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-v1.18.1-2673FF?style=flat-square">
   <img alt="React" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white">
   <img alt="Ant Design" src="https://img.shields.io/badge/Ant%20Design-5-0170FE?style=flat-square&logo=antdesign&logoColor=white">
@@ -460,6 +460,28 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v1.18.1 — 2026-05-29 · AI 修复：推理模型 token 预算 · 全链路降级 · CPS/ASO 缓存
+
+> 核心改动：修复升级到推理型模型 `deepseek-v4-flash` 后 AI（尤其 CPS）失效与卡顿问题，确保所有 AI 能力真实生效并优雅降级。
+
+**AI 失效根因修复（推理模型 token 预算不足 → 结构化 JSON 被截断为空 → 回退规则结果）**
+- 推理型模型会先消耗 `reasoning_content` token，原预算（默认 800 / CPS 2200 / 诊断·提醒 900）会导致结构化输出在 `finish_reason=length` 处被截断、JSON 解析失败。
+- 调整 token 预算：默认 `AI_LLM_MAX_TOKENS` 800→2048；CPS 周期分析/日洞察→4000、备会分析→4000、项目诊断/个人提醒→2500、ASO 日洞察→3000。
+- 端到端验证：仪表盘四模式、自由问答、项目诊断、备会分析、个人提醒、CPS 周期/日洞察、ASO 日洞察全部真实生效（`isMock=false`）。
+
+**全链路降级加固**
+- CPS / ASO AI 控制器在 LLM 调用失败时优雅降级为规则分析，不再把错误抛给前端，与仪表盘各 service 行为统一。
+
+**性能优化（CPS / ASO 页面响应）**
+- CPS / ASO AI 接入结果缓存（TTL 5 分钟，按日期/筛选维度命名），重复分析秒回，避免重复 10s+ 的推理调用。
+- 实测数据接口本身 4–21ms（数据量小、索引完善）；页面"卡顿"主因是按需 AI 推理调用耗时，已由缓存与降级显著缓解。
+
+**配置健壮性**
+- 后端启动加载 `backend/.env`（`dotenv override`），消除 pm2 首次启动烤死的旧环境变量与 `.env` 漂移（曾导致运行进程使用与 `.env` 不一致的 API Key、缺失 token 配置）。
+
+**前端修复**
+- 修复 `ProjectPage` 使用 `<Space>` 组件但未从 antd 导入，导致项目页运行时报错（`Space is not defined`）。
 
 ### v1.18.0 — 2026-05-29 · AI 旁路增强 · 个人提醒 · 项目诊断 · 备会分析
 

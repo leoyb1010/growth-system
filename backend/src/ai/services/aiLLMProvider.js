@@ -13,7 +13,8 @@ const LLM_CONFIG = {
   apiKey: process.env.AI_LLM_API_KEY || '',
   model: process.env.AI_LLM_MODEL || 'deepseek-v4-flash',
   baseUrl: (process.env.AI_LLM_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
-  maxTokens: parseInt(process.env.AI_LLM_MAX_TOKENS) || 800,
+  // v4-flash 等推理模型会先消耗 reasoning_content token，800 对结构化 JSON 易截断导致 content 为空，默认放宽到 2048
+  maxTokens: parseInt(process.env.AI_LLM_MAX_TOKENS) || 2048,
   temperature: parseFloat(process.env.AI_LLM_TEMPERATURE) || 0.5,
 };
 

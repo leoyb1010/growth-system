@@ -154,7 +154,7 @@ ${JSON.stringify(ruleItems)}`,
       user: currentUser,
       taskType: 'personal_digest',
       fallback: null,
-      maxTokens: 900,
+      maxTokens: 2500,
     });
   } catch (err) {
     console.error('AI 个人提醒润色失败:', err.message);
