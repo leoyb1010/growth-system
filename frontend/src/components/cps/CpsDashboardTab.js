@@ -368,8 +368,12 @@ function CpsDashboardTab({ channelId }) {
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{aiInsight?.headline || '暂无结论'}</div>
         {aiInsight?.performance && <p style={{ color: 'var(--text-2)' }}>{aiInsight.performance}</p>}
         {aiInsight?.summary && <p style={{ color: 'var(--text-2)' }}>{aiInsight.summary}</p>}
-        {(aiInsight?.risk_focus || aiInsight?.risks || []).length > 0 && <Card size="small" title="风险关注" style={{ marginBottom: 12 }}>{(aiInsight.risk_focus || aiInsight.risks || []).map((r, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {r.scope || r.level || ''} {r.risk || r.reason}：{r.suggestion}</div>)}</Card>}
-        {(aiInsight?.next_period_actions || aiInsight?.actions || []).length > 0 && <Card size="small" title="建议动作">{(aiInsight.next_period_actions || aiInsight.actions || []).map((a, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {a.owner || ''} {a.action} {a.priority ? `（${a.priority}）` : ''}</div>)}</Card>}
+        {(aiInsight?.diagnosis || []).length > 0 && <Card size="small" title="诊断依据" style={{ marginBottom: 12 }}>{aiInsight.diagnosis.map((d, idx) => <div key={idx} style={{ marginBottom: 8 }}>- <b>{d.topic}</b>：{d.finding}（{d.evidence}）{d.impact ? ` → ${d.impact}` : ''}</div>)}</Card>}
+        {(aiInsight?.channel_ranking || []).length > 0 && <Card size="small" title="渠道判断" style={{ marginBottom: 12 }}>{aiInsight.channel_ranking.map((c, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {c.channel}：{c.conclusion}，{c.reason}。{c.action}</div>)}</Card>}
+        {(aiInsight?.product_ranking || []).length > 0 && <Card size="small" title="产品判断" style={{ marginBottom: 12 }}>{aiInsight.product_ranking.map((p, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {p.product}：{p.conclusion}，{p.reason}。{p.action}</div>)}</Card>}
+        {(aiInsight?.risk_focus || aiInsight?.risks || []).length > 0 && <Card size="small" title="风险关注" style={{ marginBottom: 12 }}>{(aiInsight.risk_focus || aiInsight.risks || []).map((r, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {r.scope || r.level || ''} {r.risk || r.reason}：{r.evidence ? `${r.evidence}，` : ''}{r.suggestion}</div>)}</Card>}
+        {(aiInsight?.next_period_actions || aiInsight?.actions || []).length > 0 && <Card size="small" title="建议动作" style={{ marginBottom: 12 }}>{(aiInsight.next_period_actions || aiInsight.actions || []).map((a, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {a.owner || ''} {a.action} {a.priority ? `（${a.priority}）` : ''}{a.check_metric ? `｜复盘指标：${a.check_metric}` : ''}</div>)}</Card>}
+        {(aiInsight?.meeting_questions || []).length > 0 && <Card size="small" title="会上追问">{aiInsight.meeting_questions.map((q, idx) => <div key={idx} style={{ marginBottom: 8 }}>- {q}</div>)}</Card>}
       </Modal>
     </Spin>
   );
