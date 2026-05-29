@@ -13,7 +13,7 @@ const llmProvider = require('./aiLLMProvider');
 const { createCacheKey, getCached, setCached, TASK_CACHE_TTL } = require('../../services/aiCacheService');
 
 function isEnabled() {
-  return process.env.AI_SIDE_CAR_ENABLED === 'true' && process.env.AI_PERSONAL_DIGEST_ENABLED === 'true';
+  return process.env.AI_SIDE_CAR_ENABLED !== 'false' && process.env.AI_PERSONAL_DIGEST_ENABLED !== 'false';
 }
 
 async function generateForUser(currentUser) {

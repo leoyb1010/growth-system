@@ -67,7 +67,7 @@ async function generate(context, type = 'brief') {
 }
 
 async function generateOperatingBrief(context) {
-  if (process.env.AI_SIDE_CAR_ENABLED !== 'true' || process.env.AI_WEEKLY_OPERATING_BRIEF_ENABLED !== 'true') {
+  if (process.env.AI_SIDE_CAR_ENABLED === 'false' || process.env.AI_WEEKLY_OPERATING_BRIEF_ENABLED === 'false') {
     return {
       enabled: false,
       title: 'AI 备会分析未开启',

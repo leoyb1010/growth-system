@@ -473,7 +473,7 @@ docker-compose up -d --build
 - 前端新增轻入口：Dashboard AI 提醒、Project AI 诊断、WeeklyReport AI 备会分析。
 
 **安全与稳定**
-- 新增 feature flags：`AI_SIDE_CAR_ENABLED`、`AI_PERSONAL_DIGEST_ENABLED`、`AI_WEEKLY_OPERATING_BRIEF_ENABLED`、`AI_EMAIL_ENABLED`。
+- 新增 feature flags：`AI_SIDE_CAR_ENABLED`、`AI_PERSONAL_DIGEST_ENABLED`、`AI_WEEKLY_OPERATING_BRIEF_ENABLED`、`AI_EMAIL_ENABLED`；旁路 AI 默认开启，邮件仍默认关闭。
 - AI 建议默认只读展示；action/risk 写入继续要求用户确认。
 - 修复 CPS AI 控制器调用不存在的 provider 方法问题。
 
