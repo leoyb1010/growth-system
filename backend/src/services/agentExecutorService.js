@@ -3,7 +3,7 @@ const { Project, ProjectUpdateLog, ActionItem, RiskRegister, AgentOperationEffec
 const { logAudit } = require('./auditLogService');
 const { isArchived } = require('./archiveCheckService');
 
-const PROJECT_FIELDS = ['progress_pct', 'status', 'weekly_progress', 'next_week_focus', 'risk_desc', 'next_action', 'block_reason'];
+const PROJECT_FIELDS = ['weekly_progress', 'risk_desc', 'next_action', 'block_reason'];
 
 function operatorFromUser(user) {
   return { id: user.id, name: user.name || user.username };
@@ -32,8 +32,11 @@ function filterProjectPayload(payload, project) {
   PROJECT_FIELDS.forEach(f => {
     if (payload[f] !== undefined && payload[f] !== null) updateData[f] = payload[f];
   });
-  if (updateData.progress_pct !== undefined) {
-    updateData.progress_pct = Math.max(0, Math.min(100, Number(updateData.progress_pct) || 0));
+  if (payload.progress_pct !== undefined) {
+    updateData.progress_pct = Math.max(0, Math.min(100, Number(payload.progress_pct) || 0));
+  }
+  if (payload.status !== undefined) {
+    updateData.status = payload.status;
   }
   if (updateData.weekly_progress) {
     updateData.weekly_progress = appendTodayProgress(project.weekly_progress || '', updateData.weekly_progress);

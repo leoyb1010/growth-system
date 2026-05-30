@@ -155,6 +155,7 @@ function AppLayout() {
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     { key: '/cps', icon: <DollarOutlined />, label: '连包投流' },
     { key: '/aso', icon: <AppleOutlined />, label: 'ASO优化' },
+    { key: '/agent-admin', icon: <ApiOutlined />, label: 'Agent输入' },
   ].filter(item => canSeeMenu(role, item.key, cpsRole, asoRole));
 
   // ========== 系统管理菜单（仅 super_admin）==========
@@ -163,7 +164,6 @@ function AppLayout() {
     { key: 'system-group', label: '系统管理', type: 'group', children: [
       { key: '/departments', icon: <BankOutlined />, label: '部门管理' },
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
-      ...(can(role, 'agent.admin', cpsRole, asoRole) ? [{ key: '/agent-admin', icon: <ApiOutlined />, label: 'Agent输入' }] : []),
       { key: '/audit-logs', icon: <HistoryOutlined />, label: '审计日志' },
       { key: '/archives', icon: <InboxOutlined />, label: '归档管理' },
     ]}

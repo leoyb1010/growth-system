@@ -39,6 +39,11 @@ function publicDraft(draft) {
   };
 }
 
+function isSensitiveOperation(operationType, payload = {}) {
+  if (operationType !== 'project.quick_update') return false;
+  return payload.progress_pct !== undefined || payload.status !== undefined;
+}
+
 async function startBind(req, res) {
   try {
     if (!isAgentEnabled()) return error(res, 'Agent 输入能力未开启', 1, 404);
@@ -46,7 +51,8 @@ async function startBind(req, res) {
     success(res, {
       code,
       expires_in_minutes: expiresInMinutes,
-      usage: `在 Agent Skill/CLI 中输入：绑定 ${req.protocol}://${req.get('host')} ${code}`,
+      usage: `在 Agent Skill/CLI 中输入：绑定 ${code}`,
+      advanced_usage: `如果 Skill 未预置系统地址，输入：绑定 ${req.protocol}://${req.get('host')} ${code}`,
     }, '绑定码已生成');
   } catch (err) {
     error(res, err.message || '生成绑定码失败', 1, 500);
@@ -108,7 +114,7 @@ async function inbound(req, res) {
   let request;
   try {
     if (!isAgentEnabled()) return error(res, 'Agent 输入能力未开启', 1, 404);
-    const { provider = 'manual', external_user_id, external_username, message_id, text, agent_token, selected_project_id } = req.body;
+    const { provider = 'manual', external_user_id, external_username, message_id, text, agent_token, selected_project_id, execute_confirmed = false } = req.body;
     if (!external_user_id || !text) return error(res, '缺少 external_user_id 或 text', 1, 400);
 
     request = await AgentRequest.create({
@@ -173,8 +179,27 @@ async function inbound(req, res) {
       payload: parsed.payload,
       preview: buildPreview(operationType, targetProject, parsed.payload),
     });
+
+    if (execute_confirmed === true && !isSensitiveOperation(operationType, parsed.payload)) {
+      const result = await executeDraft(draft, user);
+      await request.update({ status: 'executed' });
+      return success(res, {
+        status: 'executed',
+        draft: publicDraft(await AgentOperationDraft.findByPk(draft.id)),
+        result,
+      }, '已根据对话确认直接写入');
+    }
+
     await request.update({ status: 'pending_confirm' });
-    return success(res, { status: 'pending_confirm', draft: publicDraft(draft), confirm_code: draft.confirm_code }, '已生成待确认操作');
+    return success(res, {
+      status: 'pending_confirm',
+      draft: publicDraft(draft),
+      confirm_code: draft.confirm_code,
+      sensitive: isSensitiveOperation(operationType, parsed.payload),
+      message: isSensitiveOperation(operationType, parsed.payload)
+        ? '该输入包含进度或状态修改，需要二次确认'
+        : '已生成待确认操作；如果用户已在对话内确认，可在下次请求带 execute_confirmed=true 直接执行非敏感写入',
+    }, '已生成待确认操作');
   } catch (err) {
     if (request) await request.update({ status: 'failed', error_message: err.message }).catch(() => {});
     return error(res, err.message || 'Agent 输入处理失败', 1, 500);
