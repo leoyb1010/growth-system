@@ -258,6 +258,104 @@ const ProjectUpdateLog = sequelize.define('ProjectUpdateLog', {
   timestamps: false
 });
 
+// Agent 身份绑定表（外部 Agent 用户 -> 系统用户）
+const AgentIdentity = sequelize.define('AgentIdentity', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  provider: { type: DataTypes.STRING(50), allowNull: false },
+  external_user_id: { type: DataTypes.STRING(100), allowNull: false },
+  external_username: { type: DataTypes.STRING(100), allowNull: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' },
+  bind_token_hash: { type: DataTypes.STRING(128), allowNull: true },
+  agent_token_hash: { type: DataTypes.STRING(128), allowNull: true },
+  last_used_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'agent_identities',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at',
+  indexes: [
+    { unique: true, fields: ['provider', 'external_user_id'] },
+    { fields: ['user_id'] }
+  ]
+});
+
+// Agent 输入请求日志
+const AgentRequest = sequelize.define('AgentRequest', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  provider: { type: DataTypes.STRING(50), allowNull: false },
+  external_user_id: { type: DataTypes.STRING(100), allowNull: true },
+  external_username: { type: DataTypes.STRING(100), allowNull: true },
+  message_id: { type: DataTypes.STRING(100), allowNull: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: true, references: { model: User, key: 'id' } },
+  raw_text: { type: DataTypes.TEXT, allowNull: false },
+  parsed_intent: { type: DataTypes.STRING(50), allowNull: true },
+  parsed_payload: { type: DataTypes.JSONB, allowNull: true },
+  match_result: { type: DataTypes.JSONB, allowNull: true },
+  status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: 'received' },
+  error_message: { type: DataTypes.TEXT, allowNull: true },
+  ip: { type: DataTypes.STRING(80), allowNull: true },
+  user_agent: { type: DataTypes.STRING(500), allowNull: true },
+}, {
+  tableName: 'agent_requests',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at',
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['status'] },
+    { fields: ['provider', 'external_user_id'] }
+  ]
+});
+
+// Agent 操作草稿（确认后才执行）
+const AgentOperationDraft = sequelize.define('AgentOperationDraft', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  request_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: AgentRequest, key: 'id' } },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  operation_type: { type: DataTypes.STRING(50), allowNull: false },
+  target_type: { type: DataTypes.STRING(50), allowNull: true },
+  target_id: { type: DataTypes.INTEGER, allowNull: true },
+  payload: { type: DataTypes.JSONB, allowNull: false },
+  preview_text: { type: DataTypes.TEXT, allowNull: false },
+  confirm_code: { type: DataTypes.STRING(20), allowNull: false },
+  status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: 'pending' },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+  executed_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'agent_operation_drafts',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at',
+  indexes: [
+    { fields: ['request_id'] },
+    { fields: ['user_id'] },
+    { fields: ['status'] }
+  ]
+});
+
+// Agent 执行影响记录（用于服务器端撤销）
+const AgentOperationEffect = sequelize.define('AgentOperationEffect', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  draft_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: AgentOperationDraft, key: 'id' } },
+  table_name: { type: DataTypes.STRING(50), allowNull: false },
+  record_id: { type: DataTypes.INTEGER, allowNull: false },
+  action: { type: DataTypes.STRING(20), allowNull: false },
+  old_values: { type: DataTypes.JSONB, allowNull: true },
+  new_values: { type: DataTypes.JSONB, allowNull: true },
+  reverted_at: { type: DataTypes.DATE, allowNull: true },
+  reverted_by: { type: DataTypes.INTEGER, allowNull: true },
+}, {
+  tableName: 'agent_operation_effects',
+  timestamps: true,
+  updatedAt: 'updated_at',
+  createdAt: 'created_at',
+  indexes: [
+    { fields: ['draft_id'] },
+    { fields: ['table_name', 'record_id'] }
+  ]
+});
+
 // 建立关联关系
 Department.hasMany(User, { foreignKey: 'dept_id' });
 User.belongsTo(Department, { foreignKey: 'dept_id' });
@@ -765,6 +863,14 @@ AiUserDigestItem.belongsTo(AiUserDigest, { foreignKey: 'digest_id' });
 AiUserDigestItem.belongsTo(User, { foreignKey: 'user_id' });
 AiFeedback.belongsTo(User, { foreignKey: 'user_id' });
 RefreshToken.belongsTo(User, { foreignKey: 'user_id' });
+AgentIdentity.belongsTo(User, { foreignKey: 'user_id' });
+User.hasMany(AgentIdentity, { foreignKey: 'user_id', as: 'AgentIdentities' });
+AgentRequest.belongsTo(User, { foreignKey: 'user_id' });
+AgentRequest.hasMany(AgentOperationDraft, { foreignKey: 'request_id', as: 'Drafts' });
+AgentOperationDraft.belongsTo(AgentRequest, { foreignKey: 'request_id' });
+AgentOperationDraft.belongsTo(User, { foreignKey: 'user_id' });
+AgentOperationDraft.hasMany(AgentOperationEffect, { foreignKey: 'draft_id', as: 'Effects' });
+AgentOperationEffect.belongsTo(AgentOperationDraft, { foreignKey: 'draft_id' });
 
 module.exports = {
   sequelize,
@@ -803,5 +909,9 @@ module.exports = {
   AsoProductBaselineMetric,
   AsoMetadataVersion,
   AsoSnapshot,
-  AsoImportLog
+  AsoImportLog,
+  AgentIdentity,
+  AgentRequest,
+  AgentOperationDraft,
+  AgentOperationEffect
 };

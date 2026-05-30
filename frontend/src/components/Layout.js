@@ -28,6 +28,7 @@ import {
   AlertOutlined,
   DollarOutlined,
   AppleOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../hooks/useAuth';
@@ -162,6 +163,7 @@ function AppLayout() {
     { key: 'system-group', label: '系统管理', type: 'group', children: [
       { key: '/departments', icon: <BankOutlined />, label: '部门管理' },
       { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+      ...(can(role, 'agent.admin', cpsRole, asoRole) ? [{ key: '/agent-admin', icon: <ApiOutlined />, label: 'Agent输入' }] : []),
       { key: '/audit-logs', icon: <HistoryOutlined />, label: '审计日志' },
       { key: '/archives', icon: <InboxOutlined />, label: '归档管理' },
     ]}

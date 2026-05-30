@@ -363,6 +363,18 @@ growth-system/
 - `GET /api/ai/personal-digest` — 我的 AI 提醒（内部展示，不发邮件）[v1.18.0]
 - `GET /api/ai/badge-summary` — 角标摘要
 
+### Agent 输入助手
+- `POST /api/agent/bind/start` — 登录用户生成 Agent 绑定码
+- `POST /api/agent/bind/complete` — 外部 Skill/CLI 完成绑定并获取 agent_token
+- `POST /api/agent/inbound` — 外部 Agent 提交自然语言业务输入
+- `POST /api/agent/drafts/:id/confirm` — 用户确认草稿并执行
+- `GET /api/agent/requests` — 查看 Agent 输入日志
+- `GET /api/agent/drafts` — 查看 Agent 操作草稿与执行影响
+- `POST /api/agent/drafts/:id/revert` — 撤销错误 Agent 输入影响
+- `POST /api/agent/identities/:id/disable` — 禁用外部 Agent 绑定
+
+> Agent 输入助手只处理业务数据输入：项目进展、行动项、风险记录和查询日志。它不能修改代码、push GitHub、触发部署、修改权限或删除业务主数据。详见 `agent-skill/README.md`。
+
 ### 文件下载（鉴权）
 - `GET /api/files/exports/:filename` — 下载导出文件（需 export.data 权限）
 - `GET /api/files/weekly-reports/:filename` — 下载周报文件（需 weekly_report.read 权限）
@@ -412,7 +424,11 @@ growth-system/
 | audit_logs | 审计日志（今日变更流数据源） |
 | quarter_archives | 季度归档 |
 
-| ai_call_logs | AI 调用日志 |
+| agent_identities | Agent 外部身份绑定 |
+| agent_requests | Agent 自然语言输入日志 |
+| agent_operation_drafts | Agent 待确认/已执行操作草稿 |
+| agent_operation_effects | Agent 执行影响与回退快照 |
+
 | ai_result_cache | AI 结果缓存 |
 | ai_user_digests | AI 个人提醒摘要 [v1.18.0] |
 | ai_user_digest_items | AI 个人提醒明细 [v1.18.0] |

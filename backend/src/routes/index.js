@@ -26,6 +26,7 @@ const riskRegisterController = require('../controllers/riskRegisterController');
 const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
 const aiRoutes = require('../ai/routes/aiRoutes');
+const agentRoutes = require('./agentRoutes');
 const cpsAiController = require('../ai/controllers/cpsAiController');
 const asoAiController = require('../ai/controllers/asoAiController');
 const fileRoutes = require('./fileRoutes');
@@ -113,6 +114,9 @@ router.get('/kpis/dashboard', ...auth, requirePermission('kpi.read'), applyDataS
 router.post('/kpis', ...auth, requirePermission('kpi.create'), applyDataScope('kpi'), kpiController.createKpi);
 router.put('/kpis/:id', ...auth, requirePermission('kpi.update'), applyDataScope('kpi'), kpiController.updateKpi);
 router.delete('/kpis/:id', ...auth, requirePermission('kpi.delete'), kpiController.deleteKpi);
+
+// ==================== Agent 输入助手 ====================
+router.use('/agent', agentRoutes);
 
 // ==================== B表：重点工作 ====================
 router.get('/projects', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjects);

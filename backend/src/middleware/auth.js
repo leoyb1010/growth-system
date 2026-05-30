@@ -16,7 +16,7 @@ const ROLE_PERMISSIONS = {
     'user.read', 'user.create', 'user.update', 'user.disable', 'user.reset_password',
     'department.read', 'department.create', 'department.update', 'department.delete',
     'audit.read', 'archive.read', 'archive.create', 'archive.delete',
-    'import.excel', 'export.data', 'search.use', 'ai.use',
+    'import.excel', 'export.data', 'search.use', 'ai.use', 'agent.use', 'agent.admin',
     'cps.read', 'cps.write', 'cps.admin', 'cps.channel_upload', 'cps.channel_read_own',
     'aso.read', 'aso.write', 'aso.admin',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
@@ -25,15 +25,15 @@ const ROLE_PERMISSIONS = {
   supervisor: [
     'dashboard.read', 'kpi.read', 'project.read', 'performance.read', 'monthly_task.read',
     'achievement.read', 'weekly_report.read', 'department.read', 'audit.read', 'archive.read',
-    'export.data', 'search.use', 'ai.use', 'cps.read', 'aso.read', 'action_item.read', 'risk_register.read',
+    'export.data', 'search.use', 'ai.use', 'agent.use', 'cps.read', 'aso.read', 'action_item.read', 'risk_register.read',
     'user.read'
   ],
-  cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use' ],
-  cps_ops: [ 'cps.read', 'cps.write', 'ai.use' ],
-  cps_channel_user: [ 'cps.read', 'cps.channel_upload', 'cps.channel_read_own' ],
-  aso_admin: [ 'aso.read', 'aso.write', 'aso.admin', 'ai.use' ],
-  aso_ops: [ 'aso.read', 'aso.write', 'ai.use' ],
-  aso_viewer: [ 'aso.read', 'ai.use' ],
+  cps_admin: [ 'cps.read', 'cps.write', 'cps.admin', 'ai.use', 'agent.use' ],
+  cps_ops: [ 'cps.read', 'cps.write', 'ai.use', 'agent.use' ],
+  cps_channel_user: [ 'cps.read', 'cps.channel_upload', 'cps.channel_read_own', 'agent.use' ],
+  aso_admin: [ 'aso.read', 'aso.write', 'aso.admin', 'ai.use', 'agent.use' ],
+  aso_ops: [ 'aso.read', 'aso.write', 'ai.use', 'agent.use' ],
+  aso_viewer: [ 'aso.read', 'ai.use', 'agent.use' ],
   department_manager: [
     'dashboard.read', 'kpi.read', 'kpi.create', 'kpi.update', 'kpi.delete',
     'project.read', 'project.create', 'project.update', 'project.delete', 'project.quick_update',
@@ -42,7 +42,7 @@ const ROLE_PERMISSIONS = {
     'achievement.read', 'achievement.create', 'achievement.update', 'achievement.delete',
     'weekly_report.read', 'weekly_report.generate', 'weekly_report.update',
     'department.read',
-    'export.data', 'search.use', 'ai.use',
+    'export.data', 'search.use', 'ai.use', 'agent.use',
     'action_item.read', 'action_item.create', 'action_item.update', 'action_item.delete',
     'risk_register.read', 'risk_register.create', 'risk_register.update'
   ],
@@ -54,7 +54,7 @@ const ROLE_PERMISSIONS = {
     'achievement.read', 'achievement.create', 'achievement.update',
     'weekly_report.read',
     'department.read',
-    'export.data', 'search.use', 'ai.use',
+    'export.data', 'search.use', 'ai.use', 'agent.use',
     'action_item.read', 'action_item.create', 'action_item.update',
     'risk_register.read'
   ]

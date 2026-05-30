@@ -1,0 +1,31 @@
+{
+  "name": "growth-system-business-input",
+  "displayName": "Growth System 业务输入助手",
+  "description": "通过自然语言提交自己权限内的项目进展、行动项和风险记录。不会改代码、部署或修改权限。",
+  "version": "0.1.0",
+  "permissions": [
+    "network:https"
+  ],
+  "setup": {
+    "type": "bind_code",
+    "instructions": "在 Growth System 的 Agent 输入助手页面生成绑定码，然后输入：绑定 <系统地址> <绑定码>"
+  },
+  "endpoints": {
+    "bind": "/api/agent/bind/complete",
+    "inbound": "/api/agent/inbound"
+  },
+  "supportedIntents": [
+    "project.quick_update",
+    "action_item.create",
+    "risk_register.create",
+    "query"
+  ],
+  "safety": {
+    "noCodeChanges": true,
+    "noDeploy": true,
+    "noPermissionChanges": true,
+    "requiresUserBinding": true,
+    "writesRequireConfirmation": true,
+    "serverSideRollback": true
+  }
+}

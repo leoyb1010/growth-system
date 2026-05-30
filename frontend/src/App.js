@@ -28,6 +28,7 @@ const ActionItemsPage = React.lazy(() => import('./pages/ActionItemsPage'));
 const RiskRegisterPage = React.lazy(() => import('./pages/RiskRegisterPage'));
 const CpsPage = React.lazy(() => import('./pages/CpsPage'));
 const AsoPage = React.lazy(() => import('./pages/AsoPage'));
+const AgentAdminPage = React.lazy(() => import('./pages/AgentAdminPage'));
 
 // 页面加载 Spinner
 const PageLoading = () => (
@@ -89,6 +90,7 @@ function App() {
             <Route path="risks" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><RiskRegisterPage /></Suspense></ErrorBoundary>} />
             <Route path="cps/*" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><CpsPage /></Suspense></ErrorBoundary>} />
             <Route path="aso/*" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><AsoPage /></Suspense></ErrorBoundary>} />
+            <Route path="agent-admin" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><AgentAdminPage /></Suspense></ErrorBoundary>} />
           </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
