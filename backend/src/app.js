@@ -139,16 +139,35 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// 前端静态文件托管（生产模式：后端直接 serve 前端 build 产物）
+// 前端静态文件托管（Vite 构建产物）
 // 注意：此逻辑与根目录 proxy-server.js 重复。TODO：统一静态文件服务位置，消除双写。
 const frontendBuildPath = path.join(__dirname, '../../frontend/build');
 
-// /build/assets/* — Vite 带 content hash 的文件，可长缓存（Cloudflare 边缘缓存 + 浏览器强缓存）
-app.use('/build/assets', (req, res, next) => {
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  next();
-});
-app.use('/build/assets', express.static(path.join(frontendBuildPath, 'assets'), { immutable: true, maxAge: '365d' }));
+// /assets/* — Vite 带 content hash 的文件（如 index-_NPr1ogI.js），可长缓存 1 年
+// CF 边缘缓存 + 浏览器强缓存 = 静态资源秒开
+app.use('/assets', express.static(path.join(frontendBuildPath, 'assets'), {
+  immutable: true,
+  maxAge: '365d',
+  setHeaders: (res, filePath) => {
+    // .map 文件（source map）：不缓存，避免暴露源码
+    if (filePath.endsWith('.map')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
+// /icons, /favicon.ico, /manifest.webmanifest 等其他前端静态资源，短缓存 1 小时
+// 注意：index.html 由下方专用路由处理（no-cache），这里排除它
+app.use(express.static(frontendBuildPath, {
+  maxAge: '1h',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // index.html 不缓存，确保每次都获取最新的 JS hash
 app.get('/', (req, res) => {
@@ -162,14 +181,6 @@ app.get('/', (req, res) => {
     res.status(404).send('Frontend not built');
   }
 });
-// /static 路径（旧版遗留，非 hash 资源）：no-cache 防版本不一致
-app.use('/static', (req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  next();
-});
-app.use(express.static(frontendBuildPath));
 // SPA 回退：所有非 API、非静态文件的 GET 请求返回 index.html
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/weekly-reports/')) {

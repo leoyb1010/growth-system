@@ -1,6 +1,19 @@
 {
-  "latestVersion": "1.18.1",
+  "latestVersion": "1.19.0",
   "releases": [
+    {
+      "version": "1.19.0",
+      "date": "2026-05-31",
+      "title": "Agent 业务输入网关 · AI Agent 对接 · 静态资源缓存提速",
+      "changes": [
+        { "type": "feat", "module": "Agent 网关", "desc": "新增 Agent 业务输入网关：外部 AI Agent 可通过标准化 API 查询和写入业务数据，支持意图识别、数据解析、执行确认和回滚" },
+        { "type": "feat", "module": "Agent 管理", "desc": "新增 Agent 管理页面（/agent），支持查看 Agent 调用记录、审批执行和权限控制" },
+        { "type": "feat", "module": "Agent 认证", "desc": "Agent 调用走独立认证链路，支持 Bearer Token + 身份校验，与用户登录态解耦" },
+        { "type": "feat", "module": "Agent 技能包", "desc": "新增 agent-skill/ 目录，提供 Agent 技能描述文件（growth-agent-skill.json）和接入文档" },
+        { "type": "improve", "module": "静态资源", "desc": "Vite /assets 静态文件长缓存（365d + immutable），index.html no-cache，页面加载提速 3-4x" },
+        { "type": "fix", "module": "CDN 缓存", "desc": "修复 CRA→Vite 迁移后 /static 路径不存在导致所有 JS 请求返回 index.html 的致命问题" }
+      ]
+    },
     {
       "version": "1.18.1",
       "date": "2026-05-29",

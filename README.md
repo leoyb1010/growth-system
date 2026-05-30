@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-v1.18.1-2673FF?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-v1.19.0-2673FF?style=flat-square">
   <img alt="React" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white">
   <img alt="Ant Design" src="https://img.shields.io/badge/Ant%20Design-5-0170FE?style=flat-square&logo=antdesign&logoColor=white">
@@ -476,6 +476,33 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v1.19.0 — 2026-05-31 · Agent 业务输入网关 · AI Agent 对接 · 静态资源缓存提速
+
+> 核心改动：新增 Agent 业务输入网关，外部 AI Agent 可通过标准化 API 查询和写入业务数据；Vite 静态资源长缓存，页面加载提速 3-4x。
+
+**Agent 业务输入网关（全新模块）**
+- 新增 `agentController.js` + `agentRoutes.js`：Agent 专用 API 端点，支持意图识别、数据解析、执行确认和回滚
+- 新增 `agentExecutorService.js`：Agent 请求执行引擎，支持业务数据查询和写入
+- 新增 `agentIdentityService.js`：Agent 身份校验与认证，独立于用户登录态
+- 新增 `agentIntentService.js`：Agent 意图识别，解析自然语言请求到业务操作
+- 新增 `agentResolverService.js`：Agent 数据解析，将意图映射到具体业务字段
+- 新增 `agentRollbackService.js`：Agent 操作回滚，支持误操作恢复
+
+**Agent 管理页面**
+- 前端新增 `/agent` 页面（AgentAdminPage），查看调用记录、审批执行
+- 权限控制：`agent.read` / `agent.write` / `agent.admin` 三级权限
+- 侧边栏新增 Agent 入口（RobotOutlined 图标）
+
+**Agent 技能包**
+- 新增 `agent-skill/` 目录，含技能描述文件 `growth-agent-skill.json` 和接入文档
+- 外部 AI Agent 可通过技能描述文件了解系统能力和接口规范
+
+**静态资源缓存提速**
+- Vite `/assets` 静态文件长缓存（365d + immutable），content-hash 文件名天然支持强缓存
+- `index.html` 设置 no-cache，确保每次获取最新 JS hash
+- 修复 CRA→Vite 迁移后 `/static` 路径不存在导致 JS 请求返回 index.html 的致命问题
+- `proxy-server.js` 同步更新缓存策略
 
 ### v1.18.1 — 2026-05-29 · AI 修复：推理模型 token 预算 · 全链路降级 · CPS/ASO 缓存
 
@@ -1476,6 +1503,8 @@ docker-compose up -d --build
 - [x] v1.17.4 周报默认周期修复 + 周一复盘上周进展
 - [x] v1.17.5 CPS看板日环比升级 + 退款率展示下线
 - [x] v1.18.0 AI 旁路增强（个人提醒 + 项目结构化诊断 + AI 备会分析 + 统一 JSON 调用与日志缓存）
+- [x] v1.18.1 AI 修复（推理模型 token 预算 + 全链路降级 + CPS/ASO 缓存 + 配置健壮性）
+- [x] v1.19.0 Agent 业务输入网关（AI Agent 对接 + 意图识别 + 执行回滚 + 静态资源缓存提速）
 
 ## Security & Quality Review (2026-05-21)
 
