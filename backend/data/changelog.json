@@ -1,6 +1,19 @@
 {
-  "latestVersion": "1.18.0",
+  "latestVersion": "1.18.1",
   "releases": [
+    {
+      "version": "1.18.1",
+      "date": "2026-05-29",
+      "title": "AI修复 · 推理模型token预算 · 全链路降级 · CPS越权修复 · 缓存提速",
+      "changes": [
+        { "type": "fix", "module": "AI基础层", "desc": "修复升级到推理型模型deepseek-v4-flash后结构化输出被token预算截断导致AI失效：默认max_tokens提至2048，CPS分析/备会提至4000，项目诊断/个人提醒提至2500，ASO提至3000" },
+        { "type": "fix", "module": "CPS/ASO AI", "desc": "LLM调用失败时优雅降级为规则分析，不再把错误抛给前端" },
+        { "type": "fix", "module": "CPS AI安全", "desc": "修复CPS AI接口忽略数据范围的越权问题，渠道账号现强制只分析本渠道数据" },
+        { "type": "improve", "module": "CPS/ASO AI", "desc": "AI分析结果接入5分钟缓存，重复分析由约25秒降至毫秒级返回" },
+        { "type": "fix", "module": "项目管理", "desc": "修复项目页因Space组件未导入导致的运行时报错" },
+        { "type": "improve", "module": "配置健壮性", "desc": "后端启动加载backend/.env，消除pm2环境变量与.env漂移导致的Key/配置不一致" }
+      ]
+    },
     {
       "version": "1.18.0",
       "date": "2026-05-29",
