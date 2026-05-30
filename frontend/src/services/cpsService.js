@@ -67,9 +67,9 @@ export const cpsApi = {
     if (res.code === 0) cpsBus.emit('metrics:changed', res.data);
     return res;
   },
-  // AI 洞察
-  dailyInsight: (data) => api.post('/cps/ai/daily-insight', data),
-  periodAnalysis: (data) => api.post('/cps/ai/period-analysis', data),
+  // AI 洞察（推理模型单次约 15-25s，需放宽超时，避免默认 10s 误判失败）
+  dailyInsight: (data) => api.post('/cps/ai/daily-insight', data, { timeout: 60000 }),
+  periodAnalysis: (data) => api.post('/cps/ai/period-analysis', data, { timeout: 60000 }),
   // 预警规则
   getAlertRules: () => api.get('/cps/alert-rules'),
   upsertAlertRule: (data) => api.post('/cps/alert-rules', data),

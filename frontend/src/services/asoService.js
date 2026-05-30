@@ -80,8 +80,8 @@ export const asoApi = {
   getMetadataVersions: (params) => api.get('/aso/metadata-versions', { params }),
   createMetadataVersion: (data) => api.post('/aso/metadata-versions', data),
   updateMetadataVersion: (id, data) => api.put(`/aso/metadata-versions/${id}`, data),
-  // AI 洞察
-  dailyInsight: (data) => api.post('/aso/ai/daily-insight', data),
+  // AI 洞察（推理模型单次约 15-25s，需放宽超时，避免默认 10s 误判失败）
+  dailyInsight: (data) => api.post('/aso/ai/daily-insight', data, { timeout: 60000 }),
   // 产品基础指标
   getBaselineMetrics: (params) => api.get('/aso/baseline-metrics', { params }),
   upsertBaselineMetric: (data) => api.post('/aso/baseline-metrics', data),
