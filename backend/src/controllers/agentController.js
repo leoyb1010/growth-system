@@ -117,6 +117,32 @@ async function inbound(req, res) {
     const { provider = 'manual', external_user_id, external_username, message_id, text, agent_token, selected_project_id, execute_confirmed = false } = req.body;
     if (!external_user_id || !text) return error(res, '缺少 external_user_id 或 text', 1, 400);
 
+    // 幂等保护：同一外部消息（provider + external_user_id + message_id）若已被处理过，
+    // 直接返回上次结果，避免外部 agent 重复投递（重试/网络抖动）导致重复建草稿或重复写入。
+    // 仅在 message_id 存在时启用；只对"已产生持久结果"的状态去重，rejected/failed/received 允许重试。
+    if (message_id) {
+      const prior = await AgentRequest.findOne({
+        where: {
+          provider,
+          external_user_id: String(external_user_id),
+          message_id: String(message_id),
+          status: { [Op.in]: ['parsed', 'needs_clarification', 'ambiguous', 'pending_confirm', 'executed'] },
+        },
+        include: [{ model: AgentOperationDraft, as: 'Drafts' }],
+        order: [['created_at', 'DESC']],
+      });
+      if (prior) {
+        const priorDrafts = prior.Drafts || [];
+        const priorDraft = priorDrafts.length ? priorDrafts[priorDrafts.length - 1] : null;
+        return success(res, {
+          status: prior.status,
+          duplicate: true,
+          draft: priorDraft ? publicDraft(priorDraft) : null,
+          message: '该消息此前已处理，已幂等返回，未重复写入',
+        }, '幂等命中：消息已处理');
+      }
+    }
+
     request = await AgentRequest.create({
       provider,
       external_user_id: String(external_user_id),

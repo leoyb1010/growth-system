@@ -39,7 +39,7 @@ const asoUpload = multer({ dest: path.join(__dirname, '../../uploads/temp/aso/')
 const router = express.Router();
 
 // 接收精细化限流器
-module.exports = function({ loginLimiter, registerLimiter, aiLimiter, aiStreamLimiter, importLimiter } = {}) {
+module.exports = function({ loginLimiter, registerLimiter, aiLimiter, aiStreamLimiter, importLimiter, agentPublicLimiter } = {}) {
 
 // 文件上传配置
 const upload = multer({
@@ -116,6 +116,11 @@ router.put('/kpis/:id', ...auth, requirePermission('kpi.update'), applyDataScope
 router.delete('/kpis/:id', ...auth, requirePermission('kpi.delete'), kpiController.deleteKpi);
 
 // ==================== Agent 输入助手 ====================
+// 公开端点（无需登录）需额外限流：防绑定码暴力枚举 + 匿名刷库
+if (agentPublicLimiter) {
+  router.use('/agent/inbound', agentPublicLimiter);
+  router.use('/agent/bind/complete', agentPublicLimiter);
+}
 router.use('/agent', agentRoutes);
 
 // ==================== B表：重点工作 ====================

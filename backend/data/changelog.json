@@ -1,6 +1,16 @@
 {
-  "latestVersion": "1.19.0",
+  "latestVersion": "1.19.1",
   "releases": [
+    {
+      "version": "1.19.1",
+      "date": "2026-05-31",
+      "title": "首屏提速（HTTP 压缩）· Agent 网关安全加固",
+      "changes": [
+        { "type": "improve", "module": "首屏性能", "desc": "后端启用 gzip 响应压缩，前端入口包传输体积由 1.24MB 降至约 397KB（约 3.1x），首屏 JS 下载提速约 3 倍；缺依赖时优雅降级不阻断启动" },
+        { "type": "fix", "module": "Agent 安全", "desc": "Agent 公开端点（inbound / bind-complete）补齐专用限流（15 次/分钟/IP），防 6 位绑定码暴力枚举与匿名刷库" },
+        { "type": "fix", "module": "Agent 幂等", "desc": "Agent inbound 新增 message_id 幂等保护，重复投递直接幂等返回上次结果，避免重复建草稿或重复写入" }
+      ]
+    },
     {
       "version": "1.19.0",
       "date": "2026-05-31",

@@ -19,6 +19,18 @@ const { dbWriteGuard, dbReadOnlyGuard, checkDbWritable, periodicCheck } = requir
 const app = express();
 const PORT = process.env.PORT || 58931;
 
+// HTTP 响应压缩（gzip/br）：前端入口包 ~1.24MB → ~390KB，首屏下载提速约 3 倍。
+// 用 try/require 优雅降级：若服务器尚未 `npm install compression`，不阻断启动，仅跳过压缩。
+let compression = null;
+try {
+  compression = require('compression');
+} catch (e) {
+  console.warn('[perf] compression 未安装，跳过响应压缩（请在 backend 下执行 npm install）');
+}
+if (compression) {
+  app.use(compression());
+}
+
 // 安全中间件
 app.use(helmet({
   hsts: {
@@ -91,6 +103,15 @@ const importLimiter = rateLimit({
   message: { code: 429, data: null, message: '导入操作过于频繁，请稍后再试' }
 });
 
+// 限流 - Agent 公开端点（/agent/inbound、/agent/bind/complete）：
+// 这两个端点无需登录即可调用。bind/complete 的 6 位绑定码若不限流可被暴力枚举（账号接管风险），
+// inbound 在校验身份前即写入 AgentRequest 行，未限流时可被匿名刷库（存储放大/DoS）。
+const agentPublicLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1分钟
+  max: 15, // 每IP每分钟最多15次（绑定/入站本就低频）
+  message: { code: 429, data: null, message: 'Agent 请求过于频繁，请稍后再试' }
+});
+
 // CORS（同源模式无需跨域，仅开发环境需要）
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:3000', 'http://localhost:3456'],
@@ -114,7 +135,8 @@ app.use('/api', routes({
   registerLimiter,
   aiLimiter,
   aiStreamLimiter,
-  importLimiter
+  importLimiter,
+  agentPublicLimiter
 }));
 
 // 健康检查（含 DB 写入状态）

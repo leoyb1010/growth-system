@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-v1.19.0-2673FF?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-v1.19.1-2673FF?style=flat-square">
   <img alt="React" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white">
   <img alt="Ant Design" src="https://img.shields.io/badge/Ant%20Design-5-0170FE?style=flat-square&logo=antdesign&logoColor=white">
@@ -476,6 +476,18 @@ docker-compose up -d --build
    - 如需服务端生成，可配置 puppeteer（已包含在依赖中）
 
 ## 版本更新日志
+
+### v1.19.1 — 2026-05-31 · 首屏提速（HTTP 压缩）· Agent 网关安全加固
+
+> 核心改动：后端启用 gzip 响应压缩，前端入口包传输体积 1.24MB → 397KB（约 3.1x），首屏内容更快出现；Agent 公开端点补齐限流与幂等，消除暴力枚举、匿名刷库与重复写入风险。
+
+**首屏性能**
+- `backend/src/app.js` 新增 `compression` 响应压缩中间件（置于所有中间件最前）：前端入口包 `index-*.js` 由 1.24MB 降至约 397KB（gzip），首屏 JS 下载提速约 3 倍
+- 优雅降级：若服务器尚未 `npm install compression`，服务照常启动并仅跳过压缩，不会因缺依赖而崩溃（部署时记得在 `backend/` 执行一次 `npm install`）
+
+**Agent 网关安全加固**
+- 新增 `agentPublicLimiter`（15 次/分钟/IP），精确挂载到无需登录的 `/api/agent/inbound` 与 `/api/agent/bind/complete`：防 6 位绑定码暴力枚举（账号接管）与匿名刷库（存储放大/DoS），不影响已登录的 Agent 管理接口
+- `agentController.inbound` 新增 `message_id` 幂等保护：同一外部消息重复投递（重试/网络抖动）直接幂等返回上次结果，避免重复建草稿或重复写入
 
 ### v1.19.0 — 2026-05-31 · Agent 业务输入网关 · AI Agent 对接 · 静态资源缓存提速
 
