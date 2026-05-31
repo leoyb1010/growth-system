@@ -150,15 +150,21 @@ async function fetchPageData(page, object, user) {
     case 'project_detail':
       // 项目详情需要单项目完整日志
       if (object.projectId) {
-        data.updateLogs = await ProjectUpdateLog.findAll({
-          where: { project_id: object.projectId },
-          order: [['update_date', 'DESC']],
-          limit: 30,
-          raw: true
-        });
-        // 单项目详情
+        // 越权防护：object.projectId 来自请求体，必须先确认它在当前用户的
+        // 数据范围内（data.projects 已按 scope 过滤），否则会把其他部门的
+        // 项目更新日志喂给 LLM，造成 IDOR 数据泄露。
         const detail = data.projects.find(p => p.id === parseInt(object.projectId));
-        if (detail) data.projectDetail = detail;
+        if (detail) {
+          data.projectDetail = detail;
+          data.updateLogs = await ProjectUpdateLog.findAll({
+            where: { project_id: object.projectId },
+            order: [['update_date', 'DESC']],
+            limit: 30,
+            raw: true
+          });
+        } else {
+          data.updateLogs = [];
+        }
       }
       break;
 

@@ -42,7 +42,7 @@ export const asoApi = {
     }
     return res;
   },
-  exportDailyMetrics: (params) => api.get('/aso/export/daily-metrics', { params }),
+  exportDailyMetrics: (params) => api.get('/aso/export/daily-metrics', { params, responseType: 'blob' }),
   importKeywords: async (formData) => {
     const res = await api.post('/aso/admin/keywords/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     if (res.code === 0) asoBus.emit('products:changed', res.data);

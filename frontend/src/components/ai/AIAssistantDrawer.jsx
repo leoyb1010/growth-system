@@ -118,13 +118,21 @@ export default function AIAssistantDrawer({
   const [actionResults, setActionResults] = useState([]);
   const { streamChat, content: streamContent, isStreaming, error: streamError } = useAIStream();
   const chatEndRef = useRef(null);
+  const pushedStreamRef = useRef(false);
 
-  // 流式完成后，把 SSE 内容推入 chatHistory
+  // 流式完成后，把 SSE 内容推入 chatHistory（每次流仅推一次）
+  // 用 ref 守卫，避免补齐依赖后 currentPage/currentObject 变化导致重复推送，
+  // 同时修复原先 onChat/currentPage/currentObject 的陈旧闭包问题。
   useEffect(() => {
-    if (!isStreaming && streamContent) {
+    if (isStreaming) {
+      pushedStreamRef.current = false;
+      return;
+    }
+    if (streamContent && !pushedStreamRef.current) {
+      pushedStreamRef.current = true;
       onChat?.(null, currentPage, currentObject, false, streamContent);
     }
-  }, [isStreaming, streamContent]);
+  }, [isStreaming, streamContent, onChat, currentPage, currentObject]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -167,8 +175,10 @@ export default function AIAssistantDrawer({
         if (result.type === 'navigate') {
           message.success(`正在跳转: ${result.path}`);
           // 延迟跳转让用户看到反馈
+          // 使用 react-router 的 navigate；本应用是 BrowserRouter，
+          // 直接改 window.location.hash 不会触发路由跳转。
           setTimeout(() => {
-            window.location.hash = result.path;
+            navigate(result.path);
           }, 500);
         } else {
           message.success(`操作「${action.label}」已执行`);
