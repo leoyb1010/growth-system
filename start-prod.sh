@@ -19,7 +19,9 @@ fi
 # 生产环境变量（.env 未覆盖时使用）
 export NODE_ENV=${NODE_ENV:-production}
 export DB_DIALECT=${DB_DIALECT:-sqlite}
-export PORT=${PORT:-3001}
+# 默认端口必须与 Cloudflare 隧道(~/.cloudflared/config.yml)及 proxy-server.js/vite 代理一致 = 58931
+# 历史默认值 3001 与隧道不符，会导致 .env 未显式设置 PORT 时线上失联
+export PORT=${PORT:-58931}
 
 # JWT_SECRET: 生产环境必须显式设置
 if [ -z "$JWT_SECRET" ] || [ "$JWT_SECRET" = "growth-secret-key-2026" ]; then
