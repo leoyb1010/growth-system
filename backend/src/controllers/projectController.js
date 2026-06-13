@@ -1,4 +1,4 @@
-const { Project, Department, ProjectUpdateLog, MonthlyTask, Achievement } = require('../models');
+const { Project, Department, ProjectUpdateLog, MonthlyTask, Achievement, ActionItem, RiskRegister } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
@@ -535,6 +535,57 @@ async function getProjectUpdateLogs(req, res) {
 }
 
 /**
+ * 项目 360 视图：一个项目 + 其关联的动作项 / 风险 / 季度成果 / 月度任务 / 更新日志。
+ * 用于「从项目一眼看到它的全部关联」，打通跨模块数据关联。
+ * 鉴权与 getProjectUpdateLogs 完全一致（deptFilter + canModifyProject），不放大可见范围。
+ * GET /api/projects/:id/relations
+ */
+async function getProjectRelations(req, res) {
+  try {
+    const { id } = req.params;
+    const project = await Project.findByPk(id, {
+      include: [{ model: Department, attributes: ['id', 'name'] }],
+    });
+    if (!project) return error(res, '项目不存在');
+
+    if (req.deptFilter && req.deptFilter !== project.dept_id) {
+      return error(res, '无权查看其他部门数据', 403, 403);
+    }
+    if (!canModifyProject(project, req)) {
+      return error(res, '无权查看此项目', 403, 403);
+    }
+
+    const [actionItems, risks, achievements, monthlyTasks, updateLogs] = await Promise.all([
+      // ActionItem 通过 source_type='project' + source_id 关联项目（无 project_id 列）
+      ActionItem.findAll({ where: { source_type: 'project', source_id: id }, order: [['created_at', 'DESC']] }),
+      RiskRegister.findAll({ where: { project_id: id }, order: [['created_at', 'DESC']] }),
+      Achievement.findAll({ where: { project_id: id }, order: [['created_at', 'DESC']] }),
+      MonthlyTask.findAll({ where: { project_id: id }, order: [['month', 'DESC']] }),
+      ProjectUpdateLog.findAll({ where: { project_id: id }, order: [['update_date', 'DESC'], ['created_at', 'DESC']], limit: 50 }),
+    ]);
+
+    success(res, {
+      project,
+      action_items: actionItems,
+      risks,
+      achievements,
+      monthly_tasks: monthlyTasks,
+      update_logs: updateLogs,
+      counts: {
+        action_items: actionItems.length,
+        risks: risks.length,
+        achievements: achievements.length,
+        monthly_tasks: monthlyTasks.length,
+        update_logs: updateLogs.length,
+      },
+    });
+  } catch (err) {
+    console.error('获取项目关联视图失败:', err);
+    error(res, '获取项目关联视图失败', 1, 500);
+  }
+}
+
+/**
  * 共享辅助：将项目进展同步到月度任务和季度成果
  * @param {Object} project - 项目实例
  * @param {Object} opts - { sync_to_monthly, sync_to_achievement, syncSource, updaterId }
@@ -613,4 +664,4 @@ async function syncProjectData(project, opts = {}) {
   }
 }
 
-module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats, getStaleProjects, quickUpdateProject, getProjectUpdateLogs };
+module.exports = { getProjects, createProject, updateProject, deleteProject, getProjectStats, getStaleProjects, quickUpdateProject, getProjectUpdateLogs, getProjectRelations };

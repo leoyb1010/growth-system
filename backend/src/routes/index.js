@@ -132,6 +132,7 @@ router.post('/projects', ...auth, requirePermission('project.create'), applyData
 router.put('/projects/:id', ...auth, requirePermission('project.update'), applyDataScope('project'), projectController.updateProject);
 router.put('/projects/:id/quick-update', ...auth, requirePermission('project.quick_update'), applyDataScope('project'), projectController.quickUpdateProject);
 router.get('/projects/:id/update-logs', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjectUpdateLogs);
+router.get('/projects/:id/relations', ...auth, requirePermission('project.read'), applyDataScope('project'), projectController.getProjectRelations);
 router.delete('/projects/:id', ...auth, requirePermission('project.delete'), projectController.deleteProject);
 
 // ==================== C表：业务线业绩 ====================
