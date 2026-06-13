@@ -44,6 +44,19 @@ struct KpiCards: Decodable {
     @FlexibleInt var due_this_week_count: Int
     let total_gmv_status: String?
     let total_profit_status: String?
+    let dept_cards: [DeptCard]?
+}
+
+struct DeptCard: Decodable, Identifiable {
+    let dept_id: Int
+    let dept_name: String
+    @FlexibleDouble var gmv_rate: Double
+    @FlexibleDouble var gmv_target: Double
+    @FlexibleDouble var gmv_actual: Double
+    @FlexibleDouble var profit_rate: Double
+    @FlexibleDouble var profit_target: Double
+    @FlexibleDouble var profit_actual: Double
+    var id: Int { dept_id }
 }
 
 struct StatusCount: Decodable, Identifiable {

@@ -22,6 +22,33 @@ enum API {
     static func dashboard(mode: String = "quarter") async throws -> DashboardData {
         try await APIClient.shared.request("/dashboard", query: ["mode": mode], as: DashboardData.self)
     }
+    static func badge() async throws -> BadgeSummary {
+        try await APIClient.shared.request("/ai/badge-summary", as: BadgeSummary.self)
+    }
+
+    // MARK: 指标 KPI / 业绩
+    static func kpis() async throws -> [KpiItem] {
+        try await APIClient.shared.request("/kpis", as: [KpiItem].self)
+    }
+    static func performances() async throws -> [PerformanceItem] {
+        try await APIClient.shared.request("/performances", as: [PerformanceItem].self)
+    }
+
+    // MARK: 业务 ASO / CPS
+    static func asoDashboard() async throws -> AsoDashboard {
+        try await APIClient.shared.request("/aso/dashboard", as: AsoDashboard.self)
+    }
+    static func cpsDashboard() async throws -> CpsDashboard {
+        try await APIClient.shared.request("/cps/dashboard", as: CpsDashboard.self)
+    }
+
+    // MARK: 月度 / 成果
+    static func monthlyTasks() async throws -> [MonthlyTaskItem] {
+        try await APIClient.shared.request("/monthly-tasks", as: ListWrap<MonthlyTaskItem>.self).items
+    }
+    static func achievements() async throws -> [AchievementFull] {
+        try await APIClient.shared.request("/achievements", as: [AchievementFull].self)
+    }
 
     // MARK: Projects
     static func projects(quarter: String? = nil) async throws -> [Project] {
