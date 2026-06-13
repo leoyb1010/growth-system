@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Card, Table, Tag, message, Tabs, Empty, Modal, Space, Row, Col, Input, Tooltip, Progress, Spin, Grid } from 'antd';
-import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined, CopyOutlined } from '@ant-design/icons';
+import { FileTextOutlined, EyeOutlined, EyeInvisibleOutlined, FileImageOutlined, FileWordOutlined, FileMarkdownOutlined, EditOutlined, SaveOutlined, CloseOutlined, TrophyOutlined, WarningOutlined, ScheduleOutlined, BarChartOutlined, DollarOutlined, RobotOutlined, CopyOutlined, PictureOutlined } from '@ant-design/icons';
 import { api, getAccessToken, useAuth } from '../hooks/useAuth';
 import { fetchWeeklyOperatingBrief } from '../services/aiService';
+import ReportImagesDrawer from '../components/ReportImagesDrawer';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import Sparkline from '../components/ui/Sparkline';
@@ -111,6 +112,7 @@ function WeeklyReportPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [imagesDrawerOpen, setImagesDrawerOpen] = useState(false);
 
   // 表格单元格样式
   const cellStyle = { whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
@@ -1958,6 +1960,9 @@ td.text-cell { white-space: pre-wrap; }
 
   const ExportButtons = () => (
     <>
+      {currentReport?.id && (
+        <Button icon={<PictureOutlined />} onClick={() => setImagesDrawerOpen(true)}>配图</Button>
+      )}
       <Button icon={<CopyOutlined />} onClick={() => handleCopyMeetingDoc()}>复制会议文档</Button>
       <Button icon={<FileImageOutlined />} onClick={handleExportPng}>PNG</Button>
       <Button icon={<FileWordOutlined />} onClick={() => handleExportDoc()}>Word</Button>
@@ -2058,6 +2063,13 @@ td.text-cell { white-space: pre-wrap; }
           {renderReportContent(historyReport?.content || historyReport, true)}
         </div>
       </Modal>
+
+      <ReportImagesDrawer
+        open={imagesDrawerOpen}
+        onClose={() => setImagesDrawerOpen(false)}
+        reportId={currentReport?.id}
+        projects={(getContent()?.project_progress) || []}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ const monthlyTaskController = require('../controllers/monthlyTaskController');
 const achievementController = require('../controllers/achievementController');
 const dashboardController = require('../controllers/dashboardController');
 const weeklyReportController = require('../controllers/weeklyReportController');
+const reportAssetController = require('../controllers/reportAssetController');
 const importController = require('../controllers/importController');
 const exportController = require('../controllers/exportController');
 const archiveController = require('../controllers/archiveController');
@@ -167,6 +168,13 @@ router.put('/weekly-reports/:id/content', ...auth, requirePermission('weekly_rep
 router.put('/weekly-reports/:id/html', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportHtml);
 router.get('/weekly-reports/:id/png', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), weeklyReportController.exportReportPng);
 router.put('/weekly-reports/:id/files', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), weeklyReportController.saveReportFiles);
+
+// 周报附件/插图（按项目插图）。读用 weekly_report.read，增删改用 weekly_report.update。
+router.get('/weekly-reports/:id/assets', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), reportAssetController.listAssets);
+router.get('/weekly-reports/:id/assets/:assetId/raw', ...auth, requirePermission('weekly_report.read'), applyDataScope('weekly_report'), reportAssetController.getAssetRaw);
+router.post('/weekly-reports/:id/assets', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), reportAssetController.uploadAsset);
+router.put('/weekly-reports/:id/assets/:assetId', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), reportAssetController.updateAsset);
+router.delete('/weekly-reports/:id/assets/:assetId', ...auth, requirePermission('weekly_report.update'), applyDataScope('weekly_report'), reportAssetController.deleteAsset);
 
 // ==================== 导入导出 ====================
 router.post('/import/excel', importLimiter || [], ...auth, requirePermission('import.excel'), applyDataScope('import'), upload.single('file'), ensureExcelFile, importController.importExcel);

@@ -210,6 +210,36 @@ const WeeklyReport = sequelize.define('WeeklyReport', {
   timestamps: false
 });
 
+// 周报附件/插图表
+// 设计：图片字节以 base64 存 data_base64（TEXT），随 sqlite 一起被 backup.sh 备份，
+// 无需额外的文件级备份，也天然受数据范围隔离。适合周报这种低频、单图体积可控的场景。
+// 通过 (report_id, project_id) 关联到「某份周报里的某个项目」，section 区分用途。
+const ReportAsset = sequelize.define('ReportAsset', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  report_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: WeeklyReport, key: 'id' } },
+  project_id: { type: DataTypes.INTEGER, allowNull: true }, // 关联到周报内某项目（按 project.id）；为空表示整报级附图
+  section: { type: DataTypes.STRING(30), allowNull: false, defaultValue: 'project' }, // project / cover / risk / achievement
+  filename: { type: DataTypes.STRING(255), allowNull: true }, // 原始文件名（展示用）
+  mime_type: { type: DataTypes.STRING(60), allowNull: false, defaultValue: 'image/png' },
+  byte_size: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  width: { type: DataTypes.INTEGER, allowNull: true },
+  height: { type: DataTypes.INTEGER, allowNull: true },
+  caption: { type: DataTypes.STRING(200), allowNull: true }, // 图注
+  sort_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  include_in_export: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }, // 是否进导出（PNG/docx）
+  data_base64: { type: DataTypes.TEXT, allowNull: false }, // 图片内容（base64，不含 data: 前缀）
+  created_by: { type: DataTypes.INTEGER, allowNull: true },
+  dept_id: { type: DataTypes.INTEGER, allowNull: true }, // 冗余存上传者部门，便于数据范围过滤
+  created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+}, {
+  tableName: 'report_assets',
+  timestamps: false,
+  indexes: [
+    { fields: ['report_id'] },
+    { fields: ['report_id', 'project_id'] }
+  ]
+});
+
 // 审计日志表
 const AuditLog = sequelize.define('AuditLog', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -872,6 +902,10 @@ AgentOperationDraft.belongsTo(User, { foreignKey: 'user_id' });
 AgentOperationDraft.hasMany(AgentOperationEffect, { foreignKey: 'draft_id', as: 'Effects' });
 AgentOperationEffect.belongsTo(AgentOperationDraft, { foreignKey: 'draft_id' });
 
+// 周报附件
+WeeklyReport.hasMany(ReportAsset, { foreignKey: 'report_id', as: 'Assets' });
+ReportAsset.belongsTo(WeeklyReport, { foreignKey: 'report_id' });
+
 module.exports = {
   sequelize,
   Department,
@@ -882,6 +916,7 @@ module.exports = {
   MonthlyTask,
   Achievement,
   WeeklyReport,
+  ReportAsset,
   AuditLog,
   QuarterArchive,
   ProjectUpdateLog,

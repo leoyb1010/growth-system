@@ -41,29 +41,34 @@ async function getBrowser() {
  * @param {Object} content - 周报 content_json 数据
  * @returns {Promise<Buffer>} PNG 图片 Buffer
  */
-async function generateReportPng(content) {
+async function generateReportPng(content, assets = null) {
   const browser = await getBrowser();
   const page = await browser.newPage();
 
   try {
-    const html = buildReportHtml(content);
+    const html = buildReportHtml(content, assets);
     await page.setJavaScriptEnabled(false);
     await page.setRequestInterception(true);
     page.on('request', request => {
+      // 只放行主文档；插图走 data:base64（内联，非网络请求），不受此影响
       if (request.resourceType() === 'document') return request.continue();
       return request.abort();
     });
+    // 先设视口（含 2x 高清），再 setContent，避免布局基于默认 800x600 计算后再变化
+    await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
     // 等待字体渲染完成
     await page.evaluate(() => document.fonts.ready);
+    // 等待内联图片解码完成，避免截图时图片半渲染
+    await page.evaluate(async () => {
+      const imgs = Array.from(document.images || []);
+      await Promise.all(imgs.map(img => (img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; }))));
+    });
     // 额外等 200ms 确保布局稳定
     await new Promise(r => setTimeout(r, 200));
 
-    // 设置视口宽度 1200px，高度自适应
-    await page.setViewport({ width: 1200, height: 800 });
-
-    // 截图参数
+    // 截图参数（fullPage 高度自适应；deviceScaleFactor=2 → 输出 2400px 宽高清图，贴 PPT/文档更清晰）
     const screenshot = await page.screenshot({
       type: 'png',
       fullPage: true,
@@ -78,7 +83,7 @@ async function generateReportPng(content) {
 /**
  * 构建周报专用 HTML（纯内联 CSS，排版完全可控）
  */
-function buildReportHtml(content) {
+function buildReportHtml(content, assets = null) {
   const {
     kpi_summary, project_progress, risk_and_warnings,
     next_week_key_work, next_week_focus, new_achievements,
@@ -86,6 +91,10 @@ function buildReportHtml(content) {
     week_start, week_end, generated_at,
     business_summary, aso_summary, cps_summary
   } = content;
+
+  // 插图：{ byProject: { [projectId]: [{dataUrl, caption}] }, cover: [...] }
+  const assetByProject = (assets && assets.byProject) || {};
+  const coverAssets = (assets && assets.cover) || [];
 
   const keyWorkItems = Array.isArray(next_week_key_work) ? next_week_key_work : (Array.isArray(next_week_focus?.upcoming_projects) ? next_week_focus.upcoming_projects : []);
   const riskCount = (Array.isArray(risk_and_warnings?.risk_projects) ? risk_and_warnings.risk_projects.length : 0) + (Array.isArray(risk_and_warnings?.severe_warnings) ? risk_and_warnings.severe_warnings.length : 0);
@@ -139,13 +148,26 @@ function buildReportHtml(content) {
     }
     return result;
   }
-  function buildMergedRows(items, textFn) {
+  // 渲染某项目的插图（追加在「本周进展」单元格内，紧跟该项目，排版稳定不破坏表格）
+  function projectImagesHtml(projectId) {
+    const imgs = (projectId != null && assetByProject[String(projectId)]) || [];
+    if (!imgs.length) return '';
+    const cells = imgs.map(a =>
+      `<figure style="margin:8px 6px 0 0;display:inline-block;vertical-align:top">` +
+      `<img src="${a.dataUrl}" style="max-width:240px;max-height:180px;border:1px solid #E5E7EB;border-radius:6px;display:block"/>` +
+      (a.caption ? `<figcaption style="font-size:11px;color:#6B7280;margin-top:3px;max-width:240px">${escapeHtml(a.caption)}</figcaption>` : '') +
+      `</figure>`
+    ).join('');
+    return `<div style="margin-top:8px">${cells}</div>`;
+  }
+  function buildMergedRows(items, textFn, withImages = false) {
     const rows = addRowSpanInfo(items);
     return rows.map(p => {
       const rowStyle = p.status === '风险' ? ' style="background:#FEF2F2"' : '';
       const deptCell = p.deptRowSpan > 0 ? `<td rowspan="${p.deptRowSpan}" style="width:80px;white-space:nowrap">${escapeHtml(p.dept_name || '-')}</td>` : '';
       const statusHtml = p.status === '风险' ? '<span class="risk-tag">风险</span>' : escapeHtml(p.status || '-');
-      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${escapeHtml(p.name || '-')}</td><td class="text-cell">${textFn(p)}</td><td style="width:60px;text-align:center">${escapeHtml(p.progress_pct ?? 0)}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
+      const imgsHtml = withImages ? projectImagesHtml(p.id) : '';
+      return `<tr${rowStyle}>${deptCell}<td style="width:180px">${escapeHtml(p.name || '-')}</td><td class="text-cell">${textFn(p)}${imgsHtml}</td><td style="width:60px;text-align:center">${escapeHtml(p.progress_pct ?? 0)}%</td><td style="width:70px;text-align:center">${statusHtml}</td></tr>`;
     }).join('');
   }
 
@@ -235,7 +257,7 @@ function buildReportHtml(content) {
     progressHtml = `<table>
       <colgroup><col style="width:80px"/><col style="width:180px"/><col/><col style="width:60px"/><col style="width:70px"/></colgroup>
       <thead><tr><th>部门</th><th>项目名称</th><th>本周进展</th><th>进度</th><th>状态</th></tr></thead>
-      <tbody>${buildMergedRows(visibleProjects, p => textToHtml(p.weekly_progress))}</tbody></table>`;
+      <tbody>${buildMergedRows(visibleProjects, p => textToHtml(p.weekly_progress), true)}</tbody></table>`;
   } else {
     progressHtml = `<p class="no-data">本周无更新项目</p>`;
   }
@@ -343,8 +365,20 @@ function buildReportHtml(content) {
     businessHtml += `</div></div>`;
   }
 
+  // 封面/整报级配图画廊
+  let coverHtml = '';
+  if (coverAssets.length) {
+    const cells = coverAssets.map(a =>
+      `<figure style="margin:0;display:inline-block;vertical-align:top">` +
+      `<img src="${a.dataUrl}" style="max-width:340px;max-height:240px;border:1px solid #E5E7EB;border-radius:8px;display:block"/>` +
+      (a.caption ? `<figcaption style="font-size:12px;color:#6B7280;margin-top:4px;max-width:340px">${escapeHtml(a.caption)}</figcaption>` : '') +
+      `</figure>`
+    ).join('');
+    coverHtml = `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:22px">${cells}</div>`;
+  }
+
   return `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src 'self' data:"><title>增长组业务周报</title><style>${baseStyle}</style></head>
+  <html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src 'self' data:"><title>增长组业务周报</title><style>${baseStyle}</style></head>
   <body>
   <h1>增长组业务周报</h1>
   <div class="date">📅 ${escapeHtml(week_start || '')} 至 ${escapeHtml(week_end || '')}</div>
@@ -353,6 +387,8 @@ function buildReportHtml(content) {
     <div class="conclusion-title">本周核心结论 · KEY TAKEAWAYS <span class="auto-tag">自动生成+可补充</span></div>
     ${textToHtml(fullConclusion)}
   </div>` : ''}
+
+  ${coverHtml}
 
   ${changesHtml}
 
@@ -398,4 +434,4 @@ async function closeBrowser() {
   }
 }
 
-module.exports = { generateReportPng, closeBrowser };
+module.exports = { generateReportPng, closeBrowser, buildReportHtml };

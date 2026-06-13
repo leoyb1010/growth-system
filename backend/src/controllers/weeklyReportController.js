@@ -338,7 +338,16 @@ async function exportReportPng(req, res) {
       content = filtered.content;
     }
 
-    const pngBuffer = await generateReportPng(content);
+    // 取该周报「要进导出」的插图，按项目分组注入渲染
+    let assets = null;
+    try {
+      const { getExportableAssetsGrouped } = require('./reportAssetController');
+      assets = await getExportableAssetsGrouped(report.id);
+    } catch (assetErr) {
+      console.warn('加载周报插图失败（降级为无图导出）:', assetErr.message);
+    }
+
+    const pngBuffer = await generateReportPng(content, assets);
 
     // 质检：空图检测
     if (!pngBuffer || pngBuffer.length < 5000) {
