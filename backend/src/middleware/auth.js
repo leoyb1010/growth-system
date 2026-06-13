@@ -2,6 +2,7 @@ const { verifyToken } = require('../utils/jwt');
 const { error } = require('../utils/response');
 const { User, Department, Role, Permission, RolePermission } = require('../models');
 const { Op } = require('sequelize');
+const { buildScopeWhere } = require('../utils/scopeWhere');
 
 // ==================== 权限定义 ====================
 // 角色权限映射（当 RBAC 表不存在时使用硬编码降级）
@@ -268,50 +269,16 @@ function applyDataScope(resourceType) {
     }
 
     const { dataScopeType, dataScopeValue, deptId, userId } = req.access;
-    const scopeWhere = {};
+    const scope = { type: dataScopeType, value: dataScopeValue, deptId, userId };
 
-    switch (dataScopeType) {
-      case 'all':
-        // 不加任何过滤
-        break;
-      case 'department':
-        scopeWhere.dept_id = deptId;
-        break;
-      case 'self':
-        scopeWhere.dept_id = deptId;
-        if (['project'].includes(resourceType)) {
-          scopeWhere[Op.or] = [
-            { owner_user_id: userId },
-            { creator_id: userId }
-          ];
-        }
-        if (['action_item'].includes(resourceType)) {
-          scopeWhere[Op.or] = [
-            { owner_id: userId },
-            { created_by: userId }
-          ];
-        }
-        if (['risk_register'].includes(resourceType)) {
-          scopeWhere[Op.or] = [
-            { owner_id: userId },
-            { created_by: userId }
-          ];
-        }
-        break;
-      default:
-        // 未知 data scope 类型，拒绝访问以确保安全
-        return error(res, '数据范围配置异常，请联系管理员', 403, 403);
-      case 'cps_channel': {
-        if (!dataScopeValue) {
-          return error(res, '当前账号未绑定CPS渠道，禁止访问渠道数据', 403, 403);
-        }
-        if (['cps', 'cps_metric', 'cps_alert'].includes(resourceType)) {
-          scopeWhere.channel_id = dataScopeValue;
-        } else {
-          scopeWhere.dept_id = deptId;
-        }
-        break;
-      }
+    // 统一从单一事实源 buildScopeWhere 构造 where：
+    // auth / ai / export 全路径复用同一逻辑，杜绝某条路径漏过滤造成越权。
+    // 行为与旧 switch 完全一致；未知范围 / 未绑定渠道一律抛错 → 此处转 403 安全拒绝。
+    let scopeWhere;
+    try {
+      scopeWhere = buildScopeWhere(resourceType, scope);
+    } catch (err) {
+      return error(res, err.message || '数据范围配置异常，请联系管理员', 403, 403);
     }
 
     req.dataScope = {

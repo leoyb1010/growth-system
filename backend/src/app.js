@@ -356,6 +356,18 @@ async function startServer() {
       console.warn('[DB] 写入自检警告（非致命）:', dbWriteErr.message);
     }
 
+    // 数据库迁移：在 sync 之前执行。
+    // sequelize.sync({force:false}) 只创建缺失的「表」，不会给已有表「加列」；
+    // 因此「给已有表加列 / 加索引」这类变更必须由迁移 runner 幂等补上。
+    // 迁移只增不改不删、可重放；失败即抛错中止启动，交由部署护栏回滚。
+    try {
+      const { runMigrations } = require('./migrations/run');
+      await runMigrations(sequelize);
+    } catch (migErr) {
+      console.error('❌❌❌ 致命错误：数据库迁移失败，中止启动以保护数据:', migErr.message);
+      throw migErr;
+    }
+
     // 同步模型：始终以 force:false 运行，确保新增表被创建且不影响已有表
     // SQLite: force:false 只创建不存在的表
     // PostgreSQL: 生产环境 force:false（不修改已有表结构），开发环境 alter:true（自动添加新列）

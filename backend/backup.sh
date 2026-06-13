@@ -87,4 +87,19 @@ case "${MODE}" in
     find "${BACKUP_DIR}" -name "growth_system_manual_*.sqlite" -mtime +30 -delete 2>/dev/null
     echo "[${TIMESTAMP}] 已清理30天前的manual备份"
     ;;
+  predeploy)
+    # 部署前快照：按「份数」保留最近 N 份（默认 20），保证连续部署也有回滚点，
+    # 不按天数清理，避免高频部署当天把回滚点删光。
+    KEEP="${PREDEPLOY_KEEP:-20}"
+    ls -1t "${BACKUP_DIR}"/growth_system_predeploy_*.sqlite 2>/dev/null \
+      | tail -n +$((KEEP + 1)) \
+      | while IFS= read -r old; do rm -f "${old}"; done
+    echo "[${TIMESTAMP}] 已保留最近 ${KEEP} 份 predeploy 备份"
+    ;;
+  *)
+    echo "[${TIMESTAMP}] 未知模式 '${MODE}'，跳过清理（仅生成备份）" >&2
+    ;;
 esac
+
+# 输出本次备份文件路径到 stdout 末行，便于部署脚本捕获用于回滚
+echo "BACKUP_PATH=${BACKUP_FILE}"

@@ -54,7 +54,14 @@ async function assembleContext(options) {
 }
 
 /**
- * 构建数据范围过滤条件
+ * 构建数据范围过滤条件（AI 上下文专用，故意 fail-closed 到部门范围）
+ *
+ * 注意：这与 utils/scopeWhere.js 的规范实现行为不同，是有意为之的防御性副本：
+ *  - 规范版对「未知范围 / 未绑定渠道」抛错（请求级 403），适用于 API 入口鉴权；
+ *  - 本版用于 AI 上下文组装，任何异常范围一律收敛为「只看本部门」并由上层 try/catch
+ *    降级为空上下文，绝不放大可见范围、也绝不抛出导致 AI 接口 500。
+ *  - AI 上下文只覆盖核心模块（project/kpi/performance），不涉及 cps_channel。
+ * 两份实现的「all/department/self」分支语义保持一致；修改任一处需同步评估另一处。
  */
 function buildScopeWhere(user, resourceType = 'project') {
   const where = {};

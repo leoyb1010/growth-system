@@ -5,44 +5,145 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 串行化部署：连续 push 不会叠加执行，后到的排队，避免半部署状态互相踩踏。
+# 不取消进行中的部署（cancel-in-progress:false），保证已开始的部署能跑完护栏。
+concurrency:
+  group: deploy-growth-system
+  cancel-in-progress: false
+
+env:
+  APP_DIR: /Users/leo/WorkBuddy/20260421163042/growth-system
+  PM2: /Users/leo/.npm-global/bin/pm2
+  PM2_APP: growth-system
+  HEALTH_URL: http://localhost:58931/api/changelog
+
 jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      # ------------------------------------------------------------------
+      # 1) 记录回滚点：当前已上线的 commit SHA。后续任何环节失败都能回到这里。
+      # ------------------------------------------------------------------
+      - name: Record rollback point
+        id: rollback
+        run: |
+          cd "$APP_DIR"
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
+          PREV_SHA=$(git rev-parse HEAD)
+          echo "prev_sha=$PREV_SHA" >> "$GITHUB_OUTPUT"
+          echo "🔖 回滚点（部署前 commit）: $PREV_SHA"
+
+      # ------------------------------------------------------------------
+      # 2) 部署前数据库快照：远端是累积已久的真实库，先备份再动任何东西。
+      #    备份内部会做 integrity_check + 恢复校验，失败则整体中止（不动线上）。
+      # ------------------------------------------------------------------
+      - name: Pre-deploy DB backup
+        run: |
+          cd "$APP_DIR"
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
+          if [ -f backend/growth_system.sqlite ]; then
+            bash backend/backup.sh predeploy
+          else
+            echo "ℹ️ 未发现 sqlite 文件（可能为 Postgres 或全新环境），跳过文件级快照"
+          fi
+
+      # ------------------------------------------------------------------
+      # 3) 拉取新代码
+      # ------------------------------------------------------------------
       - name: Pull latest code
         run: |
-          cd /Users/leo/WorkBuddy/20260421163042/growth-system
-          # 清除代理环境变量（ClashX 代理会导致 git/npm 连接 github.com 不稳定）
+          cd "$APP_DIR"
           unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' pull origin main
 
+      # ------------------------------------------------------------------
+      # 4) 安装依赖 + 构建前端
+      #    关键：构建发生在「重启服务之前」。若构建失败，下面的步骤不会执行，
+      #    线上旧服务（仍在 PM2 中运行）完全不受影响。
+      # ------------------------------------------------------------------
       - name: Install backend dependencies
         run: |
-          cd /Users/leo/WorkBuddy/20260421163042/growth-system
+          cd "$APP_DIR"
           unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           npm install --prefix backend
 
       - name: Install frontend dependencies & build
         run: |
-          cd /Users/leo/WorkBuddy/20260421163042/growth-system/frontend
+          cd "$APP_DIR/frontend"
           unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
           npm install
           npm run build
 
-      - name: Deploy backend (PM2 delete + start)
+      # ------------------------------------------------------------------
+      # 5) 运行数据库迁移（只增不改不删、幂等、可重放）。
+      #    放在重启之前：迁移失败 → 中止部署，线上旧服务不受影响。
+      # ------------------------------------------------------------------
+      - name: Run DB migrations
         run: |
-          cd /Users/leo/WorkBuddy/20260421163042/growth-system
-          # 配置（含 API Key / JWT_SECRET）统一从 backend/.env 读取，不再在仓库内硬编码密钥
-          # app.js 顶部也会 dotenv 加载 backend/.env 作为双保险
+          cd "$APP_DIR"
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
+          set -a; . backend/.env; set +a
+          export NODE_ENV="${NODE_ENV:-production}"
+          export DB_DIALECT="${DB_DIALECT:-sqlite}"
+          npm run db:migrate --prefix backend
+
+      # ------------------------------------------------------------------
+      # 6) 重启后端（仅在前面全部成功后才走到这里）
+      # ------------------------------------------------------------------
+      - name: Restart backend (PM2)
+        run: |
+          cd "$APP_DIR"
           set -a; . backend/.env; set +a
           export NODE_ENV="${NODE_ENV:-production}"
           export DB_DIALECT="${DB_DIALECT:-sqlite}"
           if [ -z "$JWT_SECRET" ]; then echo "❌ backend/.env 缺少 JWT_SECRET，中止部署"; exit 1; fi
-          /Users/leo/.npm-global/bin/pm2 delete growth-system 2>/dev/null || true
-          /Users/leo/.npm-global/bin/pm2 start backend/src/app.js --name growth-system --update-env
+          "$PM2" delete "$PM2_APP" 2>/dev/null || true
+          "$PM2" start backend/src/app.js --name "$PM2_APP" --update-env
 
-      - name: Verify deployment
+      # ------------------------------------------------------------------
+      # 7) 健康检查；失败 → 自动回滚代码到部署前 commit 并重启。
+      #    DB 不自动回滚：迁移是 additive，回退代码即可恢复；DB 快照作为人工兜底
+      #    （自动还原会丢失部署后产生的真实写入，风险更高）。
+      # ------------------------------------------------------------------
+      - name: Health check (with auto-rollback)
         run: |
-          sleep 3
-          curl -sf --noproxy '*' http://localhost:58931/api/changelog | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Deployed: V{d[\"data\"][\"latestVersion\"]}')" || echo "WARNING: Health check failed"
-          /Users/leo/.npm-global/bin/pm2 save
+          cd "$APP_DIR"
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
+
+          OK=0
+          for i in 1 2 3 4 5 6; do
+            sleep 3
+            if curl -sf --noproxy '*' "$HEALTH_URL" \
+                 | python3 -c "import sys,json; d=json.load(sys.stdin); print('Deployed: V'+str(d['data']['latestVersion']))" 2>/dev/null; then
+              OK=1; break
+            fi
+            echo "⏳ 健康检查第 $i 次未通过，重试中…"
+          done
+
+          if [ "$OK" = "1" ]; then
+            echo "✅ 健康检查通过，部署成功"
+            "$PM2" save
+            exit 0
+          fi
+
+          echo "❌ 健康检查失败，触发自动回滚到 ${{ steps.rollback.outputs.prev_sha }}"
+          git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' \
+              reset --hard "${{ steps.rollback.outputs.prev_sha }}"
+
+          # 回滚后重建前端 + 重启（回滚目标是已验证过的旧版本，理应能起来）
+          ( cd frontend && npm install && npm run build ) || echo "⚠️ 回滚构建告警"
+          set -a; . backend/.env; set +a
+          export NODE_ENV="${NODE_ENV:-production}"
+          export DB_DIALECT="${DB_DIALECT:-sqlite}"
+          "$PM2" delete "$PM2_APP" 2>/dev/null || true
+          "$PM2" start backend/src/app.js --name "$PM2_APP" --update-env
+          "$PM2" save
+
+          sleep 5
+          if curl -sf --noproxy '*' "$HEALTH_URL" >/dev/null 2>&1; then
+            echo "↩️ 已回滚到上一个可用版本，线上恢复正常。"
+          else
+            echo "🚨 回滚后仍不健康，需要人工介入。最近一次 predeploy 备份位于 backend/backups/。"
+          fi
+          # 让本次工作流标红，提醒「这次部署被回滚了」
+          exit 1
