@@ -51,10 +51,19 @@ struct FloatingAIOverlay: View {
         Button { vm.open = true } label: {
             ZStack(alignment: .topTrailing) {
                 ZStack {
-                    Circle().fill(Theme.heroGradient)
-                        .frame(width: 58, height: 58)
-                        .shadow(color: Theme.primary.opacity(0.45), radius: 14, x: 0, y: 6)
-                    Image(systemName: "sparkles").font(.system(size: 24, weight: .semibold)).foregroundStyle(.white)
+                    // 用品牌 logo 作为悬浮按钮：圆形裁切 + 蓝色发光描边，边缘干净
+                    Image("AILogo")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 60, height: 60)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().strokeBorder(
+                                LinearGradient(colors: [Theme.primaryLight, Theme.primary], startPoint: .top, endPoint: .bottom),
+                                lineWidth: 2)
+                        )
+                        .shadow(color: Theme.primary.opacity(0.55), radius: 14, x: 0, y: 5)
+                        .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
                 }
                 if vm.badge > 0 {
                     Text("\(min(vm.badge,99))")

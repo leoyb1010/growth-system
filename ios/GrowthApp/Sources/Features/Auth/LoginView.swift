@@ -14,9 +14,13 @@ struct LoginView: View {
                 .ignoresSafeArea()
             VStack(spacing: 24) {
                 Spacer()
-                VStack(spacing: 8) {
-                    Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                        .font(.system(size: 56)).foregroundStyle(.white)
+                VStack(spacing: 12) {
+                    Image("AILogo")
+                        .resizable().scaledToFill()
+                        .frame(width: 96, height: 96)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 2))
+                        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
                     Text("增长系统").font(.largeTitle).bold().foregroundStyle(.white)
                     Text("团队业务工作台").font(.subheadline).foregroundStyle(.white.opacity(0.85))
                 }
