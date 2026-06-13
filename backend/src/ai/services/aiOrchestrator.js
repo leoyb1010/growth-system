@@ -198,15 +198,35 @@ async function handleBadgeSummary(params) {
 
   const context = await aiContextService.assembleContext({ currentPage, currentObject, currentUser });
 
-  const highRiskCount = (context.derivedSignals.projectSignals || []).filter(s => s.riskLevel === 'high').length;
-  const unclosedCount = (context.derivedSignals.closureGaps || []).length;
-  const staleCount = (context.derivedSignals.projectSignals || []).filter(s => s.staleDays >= 3).length;
+  const projectSignals = context.derivedSignals.projectSignals || [];
+  const closureGaps = context.derivedSignals.closureGaps || [];
+
+  // 角标只代表「真正紧急、需要立即处理」的项目，避免红点永远清不掉、用户看不懂。
+  // 紧急 = 已逾期 / 距截止≤3天 / 状态=风险或阻塞 / 7天以上未更新。
+  // 不再把"进度略落后于时间进度"这种正常的季中状态计入角标（那是改不掉的常态）。
+  const URGENT = new Set(['overdue', 'due_soon', 'status_risk', 'stale_high']);
+  const urgentCount = projectSignals.filter(s =>
+    (s.riskSources || []).some(src => URGENT.has(src.type))
+  ).length;
+
+  // 高优先级闭环缺口（风险状态无说明 / 需决策无决策人），中低 severity 软提示不计入角标。
+  const highSeverityGaps = closureGaps.filter(g =>
+    Array.isArray(g.gaps) && g.gaps.some(x => x.severity === 'high')
+  ).length;
+
+  // 兼容旧字段（前端/web 仍可能读取）
+  const highRiskCount = projectSignals.filter(s => s.riskLevel === 'high').length;
+  const unclosedCount = closureGaps.length;
+  const staleCount = projectSignals.filter(s => s.staleDays >= 3 && s.staleDays < 999).length;
 
   return {
     highRiskCount,
     unclosedCount,
+    highSeverityGaps,
+    urgentCount,
     staleCount,
-    totalBadge: highRiskCount + unclosedCount
+    // 角标 = 紧急项目 + 高优先级缺口。一切就绪时归零，可清。
+    totalBadge: urgentCount + highSeverityGaps
   };
 }
 
