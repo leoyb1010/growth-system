@@ -97,6 +97,9 @@ async function login(req, res) {
 
     success(res, {
       token,
+      // 原生 App（无浏览器 Cookie）需要在 body 拿到 refresh_token 存 Keychain。
+      // Web 端只读 data.token，忽略此字段，行为完全不受影响。
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -260,8 +263,9 @@ async function register(req, res) {
  */
 async function refreshToken(req, res) {
   try {
-    const { refreshToken: legacyBodyToken } = req.body || {};
-    const token = getCookie(req, REFRESH_COOKIE_NAME) || legacyBodyToken;
+    const body = req.body || {};
+    // 来源优先级：Cookie（Web）> body.refresh_token（App，snake）> body.refreshToken（旧兼容，camel）
+    const token = getCookie(req, REFRESH_COOKIE_NAME) || body.refresh_token || body.refreshToken;
     if (!token) return error(res, '缺少 refreshToken', 1, 400);
 
     const result = await verifyAndRotateRefreshToken(token);
@@ -272,7 +276,9 @@ async function refreshToken(req, res) {
     setRefreshTokenCookie(res, newRefreshToken);
 
     success(res, {
-      token: accessToken
+      token: accessToken,
+      // 轮转后的新 refresh_token 回传给 App（Web 端走 Cookie，忽略此字段）
+      refresh_token: newRefreshToken
     }, 'Token 刷新成功');
   } catch (err) {
     console.error('刷新 Token 失败:', err);
