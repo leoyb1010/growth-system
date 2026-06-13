@@ -75,8 +75,13 @@ async function getAssetRaw(req, res) {
     const asset = await ReportAsset.findOne({ where: { id: req.params.assetId, report_id: report.id } });
     if (!asset) return error(res, '附件不存在', 404, 404);
     const buf = Buffer.from(asset.data_base64, 'base64');
+    // mime 已在上传时白名单校验（仅 png/jpeg/webp/gif，无 svg/html），
+    // 这里再加 nosniff + 强制图片类型，杜绝浏览器把附件当 HTML 嗅探执行（XSS 防御）。
+    const safeMime = ALLOWED_MIME.has(asset.mime_type) ? asset.mime_type : 'image/png';
     res.set({
-      'Content-Type': asset.mime_type || 'image/png',
+      'Content-Type': safeMime,
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': 'inline',
       'Content-Length': buf.length,
       'Cache-Control': 'private, max-age=86400',
     });
