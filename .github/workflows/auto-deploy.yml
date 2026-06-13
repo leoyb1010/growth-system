@@ -49,12 +49,29 @@ jobs:
 
       # ------------------------------------------------------------------
       # 3) 拉取新代码
-      # ------------------------------------------------------------------
+      #    自托管 runner 与 github.com 连接偶发不稳定（HTTP2 framing 等），
+      #    故对 fetch 做指数退避重试；并用 fetch + reset --hard origin/main 取代 pull，
+      #    既稳健于「本地与远端历史分叉」（旧 pull 会 fatal: divergent branches），
+      #    又保证 runner 工作区与 origin/main 严格一致。
+      #    注意：reset --hard 只清掉 runner 工作区的临时改动，不碰数据库（DB 在 backend/ 下
+      #    且 .gitignore 已忽略），生产数据安全。
       - name: Pull latest code
         run: |
           cd "$APP_DIR"
           unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy
-          git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' pull origin main
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if git -c credential.helper='store --file /Users/leo/.git-credentials-growth-system' fetch origin main; then
+              ok=1; break
+            fi
+            echo "⏳ 第 $attempt 次 fetch 失败（疑似网络抖动），$((attempt*5))s 后重试…"
+            sleep $((attempt * 5))
+          done
+          if [ "$ok" != "1" ]; then
+            echo "❌ 多次 fetch 仍失败，中止部署（线上旧服务不受影响）"; exit 1
+          fi
+          git reset --hard origin/main
+          echo "✅ 工作区已对齐 origin/main: $(git rev-parse HEAD)"
 
       # ------------------------------------------------------------------
       # 4) 安装依赖 + 构建前端
