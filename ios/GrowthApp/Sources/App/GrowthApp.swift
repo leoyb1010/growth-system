@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct GrowthSystemApp: App {
     @StateObject private var session = SessionManager()
+    @AppStorage("appearance") private var appearance = "system"
 
     var body: some Scene {
         WindowGroup {
@@ -10,7 +11,12 @@ struct GrowthSystemApp: App {
                 .environmentObject(session)
                 .task { await session.bootstrap() }
                 .tint(Theme.primary)
+                .preferredColorScheme(colorScheme)
         }
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch appearance { case "light": return .light; case "dark": return .dark; default: return nil }
     }
 }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 100 分视觉设计系统：高级配色、渐变、深度、字阶、间距。
 enum Theme {
@@ -14,16 +15,16 @@ enum Theme {
     static let teal    = Color(hex: 0x06B6D4)
     static let pink    = Color(hex: 0xEC4899)
 
-    // 文字
-    static let textPrimary = Color(hex: 0x0F172A)
-    static let textSecondary = Color(hex: 0x64748B)
-    static let textTertiary = Color(hex: 0x94A3B8)
+    // 文字（深浅自适应：避免暗色模式下字色与背景冲突）
+    static let textPrimary = adaptive(light: 0x0F172A, dark: 0xF1F5F9)
+    static let textSecondary = adaptive(light: 0x64748B, dark: 0x94A3B8)
+    static let textTertiary = adaptive(light: 0x94A3B8, dark: 0x64748B)
 
-    // 背景与边框
-    static let border = Color(hex: 0xEEF1F6)
-    static let bgLayout = Color(hex: 0xF6F8FC)
-    static let bgCard = Color.white
-    static let bgElevated = Color(hex: 0xFBFCFE)
+    // 背景与边框（自适应）
+    static let border = adaptive(light: 0xEEF1F6, dark: 0x2A3140)
+    static let bgLayout = adaptive(light: 0xF6F8FC, dark: 0x0B0F17)
+    static let bgCard = adaptive(light: 0xFFFFFF, dark: 0x161B26)
+    static let bgElevated = adaptive(light: 0xFBFCFE, dark: 0x1C2330)
 
     static let radius: CGFloat = 18
     static let radiusSmall: CGFloat = 12
@@ -78,9 +79,22 @@ enum Theme {
         return danger
     }
 
-    // 卡片阴影
-    static let cardShadow = Color(hex: 0x1E293B).opacity(0.06)
-    static let cardShadowStrong = Color(hex: 0x1E293B).opacity(0.10)
+    // 卡片阴影（暗色模式下阴影更深一点以保留层次）
+    static let cardShadow = adaptive(light: 0x1E293B, dark: 0x000000, lightAlpha: 0.06, darkAlpha: 0.35)
+    static let cardShadowStrong = adaptive(light: 0x1E293B, dark: 0x000000, lightAlpha: 0.10, darkAlpha: 0.45)
+
+    /// 生成随系统深浅模式切换的自适应颜色
+    static func adaptive(light: UInt, dark: UInt, lightAlpha: Double = 1, darkAlpha: Double = 1) -> Color {
+        Color(uiColor: UIColor { trait in
+            let hex = trait.userInterfaceStyle == .dark ? dark : light
+            let a = trait.userInterfaceStyle == .dark ? darkAlpha : lightAlpha
+            return UIColor(
+                red: CGFloat((hex >> 16) & 0xff) / 255,
+                green: CGFloat((hex >> 8) & 0xff) / 255,
+                blue: CGFloat(hex & 0xff) / 255,
+                alpha: a)
+        })
+    }
 }
 
 extension Color {

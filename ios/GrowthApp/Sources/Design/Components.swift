@@ -199,6 +199,17 @@ struct EmptyHint: View {
     }
 }
 
+// 点按缩放反馈（高级感）
+struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+extension View { func pressable() -> some View { buttonStyle(PressableStyle()) } }
+
 // 顶部分段控件
 struct Segmented: View {
     let items: [String]

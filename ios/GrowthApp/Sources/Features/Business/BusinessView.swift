@@ -124,7 +124,7 @@ struct BusinessView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         SectionTitle(text: "实收金额趋势")
                         Chart(trend) { p in
-                            BarMark(x: .value("日期", p.stat_date ?? ""), y: .value("实收", p.actual_amount))
+                            BarMark(x: .value("日期", p.date ?? ""), y: .value("实收", p.amount))
                                 .foregroundStyle(Theme.heroGradient).cornerRadius(3)
                         }.frame(height: 150).chartXAxis(.hidden)
                     }

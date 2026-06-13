@@ -5,6 +5,8 @@ import SwiftUI
 struct BadgeSummary: Decodable {
     let highRiskCount: Int?
     let unclosedCount: Int?
+    let highSeverityGaps: Int?
+    let urgentCount: Int?
     let staleCount: Int?
     let totalBadge: Int?
 }

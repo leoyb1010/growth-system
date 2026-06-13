@@ -45,7 +45,7 @@ struct ProjectsView: View {
                         ForEach(vm.sorted) { p in
                             NavigationLink { ProjectDetailView(projectId: p.id) } label: {
                                 CardView { ProjectRow(project: p) }
-                            }.buttonStyle(.plain)
+                            }.pressable()
                         }
                         if vm.sorted.isEmpty { EmptyHint(icon: "folder", text: "没有匹配的项目") }
                         Color.clear.frame(height: 80)

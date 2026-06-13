@@ -94,6 +94,25 @@ enum API {
         _ = try await APIClient.shared.send("/weekly-reports/\(reportId)/assets/\(assetId)", method: "DELETE")
     }
 
+    // MARK: 管理（admin）
+    static func users() async throws -> [ManagedUser] {
+        try await APIClient.shared.request("/users", as: ListWrap<ManagedUser>.self).items
+    }
+    static func departments() async throws -> [DeptFull] {
+        try await APIClient.shared.request("/departments", as: [DeptFull].self)
+    }
+    static func auditLogs() async throws -> [AuditLogItem] {
+        try await APIClient.shared.request("/audit-logs", as: ListWrap<AuditLogItem>.self).items
+    }
+    static func toggleUser(_ id: Int, enable: Bool) async throws {
+        _ = try await APIClient.shared.send("/users/\(id)/\(enable ? "enable" : "disable")", method: "POST")
+    }
+    static func resetUserPassword(_ id: Int) async throws -> String? {
+        struct R: Decodable { let new_password: String? }
+        let r: R = try await APIClient.shared.request("/users/\(id)/reset-password", method: "POST", body: EmptyBody(), as: R.self)
+        return r.new_password
+    }
+
     // MARK: Action items / Risk
     static func actionItems() async throws -> [ActionItem] {
         try await APIClient.shared.request("/action-items", as: ListWrap<ActionItem>.self).items

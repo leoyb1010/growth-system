@@ -50,7 +50,7 @@ struct DashboardView: View {
             .navigationTitle(session.user?.isAdmin == true ? "经营驾驶舱" : "我的工作台")
             .refreshable { await vm.load() }
             .task { if vm.data == nil { await vm.load() } }
-            .sheet(item: $detail) { DashDetailSheet(kind: $0) }
+            .sheet(item: $detail) { DashDetailSheet(kind: $0, quarter: vm.data?.effective_quarter) }
         }
     }
 
@@ -71,19 +71,19 @@ struct DashboardView: View {
             HStack(spacing: 12) {
                 Button { detail = .risks } label: {
                     StatTile(label: "风险项目", value: "\(c.risk_project_count)", sub: c.risk_project_count > 0 ? "点击查看" : "一切正常", color: c.risk_project_count > 0 ? Theme.danger : Theme.success, icon: "exclamationmark.triangle.fill")
-                }.buttonStyle(.plain)
+                }.pressable()
                 Button { detail = .dueSoon } label: {
                     StatTile(label: "本周待收口", value: "\(c.due_this_week_count)", sub: "点击查看", color: Theme.warning, icon: "clock.fill")
-                }.buttonStyle(.plain)
+                }.pressable()
             }
         }
     }
 
     private func badgeStrip(_ b: BadgeSummary) -> some View {
         HStack(spacing: 10) {
-            badgePill("高风险", b.highRiskCount ?? 0, Theme.danger, "flame.fill")
-            badgePill("待收口", b.unclosedCount ?? 0, Theme.warning, "tray.fill")
-            badgePill("久未更新", b.staleCount ?? 0, Theme.textSecondary, "moon.zzz.fill")
+            Button { detail = .risks } label: { badgePill("高风险", b.highRiskCount ?? 0, Theme.danger, "flame.fill") }.buttonStyle(.plain)
+            Button { detail = .dueSoon } label: { badgePill("待收口", b.urgentCount ?? b.unclosedCount ?? 0, Theme.warning, "tray.fill") }.buttonStyle(.plain)
+            Button { detail = .stale } label: { badgePill("久未更新", b.staleCount ?? 0, Theme.textSecondary, "moon.zzz.fill") }.buttonStyle(.plain)
         }
     }
     private func badgePill(_ label: String, _ n: Int, _ color: Color, _ icon: String) -> some View {
@@ -199,21 +199,22 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - 详情 Sheet（驾驶舱钻取）
+// MARK: - 详情 Sheet（驾驶舱钻取，与计数同口径，保证数量=内容）
 
 enum DashDetail: Identifiable {
-    case risks, dueSoon, allProjects
-    var id: Int { switch self { case .risks: return 0; case .dueSoon: return 1; case .allProjects: return 2 } }
+    case risks, dueSoon, stale, allProjects
+    var id: Int { switch self { case .risks: return 0; case .dueSoon: return 1; case .stale: return 2; case .allProjects: return 3 } }
+    var filterKind: ProjectFilterKind {
+        switch self { case .risks: return .risk; case .dueSoon: return .dueSoon; case .stale: return .stale; case .allProjects: return .all }
+    }
 }
 
 struct DashDetailSheet: View {
     let kind: DashDetail
+    var quarter: String? = nil
     var body: some View {
         NavigationStack {
-            switch kind {
-            case .risks: RiskListView()
-            case .dueSoon, .allProjects: ProjectsListEmbed()
-            }
+            FilteredProjectsView(kind: kind.filterKind, quarter: quarter)
         }.presentationDetents([.large, .medium]).presentationDragIndicator(.visible)
     }
 }

@@ -103,14 +103,17 @@ struct CpsDoD: Decodable {
     }
 }
 struct CpsTrendPoint: Decodable, Identifiable {
-    let stat_date: String?
-    @FlexibleDouble var actual_amount: Double
-    var id: String { stat_date ?? UUID().uuidString }
-    enum CodingKeys: String, CodingKey { case stat_date, actual_amount }
+    // 后端 CPS trend 字段为 date / amount（不是 stat_date / actual_amount）
+    let date: String?
+    @FlexibleDouble var amount: Double
+    @FlexibleInt var count: Int
+    var id: String { date ?? UUID().uuidString }
+    enum CodingKeys: String, CodingKey { case date, amount, count }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        stat_date = try? c.decode(String.self, forKey: .stat_date)
-        _actual_amount = (try? c.decode(FlexibleDouble.self, forKey: .actual_amount)) ?? .init(wrappedValue: 0)
+        date = try? c.decode(String.self, forKey: .date)
+        _amount = (try? c.decode(FlexibleDouble.self, forKey: .amount)) ?? .init(wrappedValue: 0)
+        _count = (try? c.decode(FlexibleInt.self, forKey: .count)) ?? .init(wrappedValue: 0)
     }
 }
 struct CpsChannelRank: Decodable, Identifiable {
