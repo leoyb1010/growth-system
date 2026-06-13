@@ -1,0 +1,13 @@
+# 由 xcodegen 从 project.yml 生成，不入库（用 `xcodegen generate` 重建）
+GrowthApp.xcodeproj/
+
+# Xcode 用户态 / 构建产物
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+.DS_Store
+
+# SPM
+.swiftpm/
+Package.resolved

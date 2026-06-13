@@ -1,0 +1,38 @@
+name: GrowthApp
+options:
+  bundleIdPrefix: com.growthsystem
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  GrowthApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: GrowthApp/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.growthsystem.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_CFBundleDisplayName: "增长系统"
+        INFOPLIST_KEY_NSCameraUsageDescription: "用于为周报项目拍摄配图"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "用于为周报项目选择配图"
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "用于解锁应用并保护登录凭证"
+    info:
+      path: GrowthApp/Info.plist
+      properties:
+        # ATS：默认强制 HTTPS。线上走 Cloudflare（HTTPS），无需任何例外。
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
