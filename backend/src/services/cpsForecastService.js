@@ -239,7 +239,8 @@ function projectDay(k, dateStr, model, scenario) {
   // 新签：基准 = 截尾日均 + 阻尼趋势；阻尼累积 (1-φ^k)/(1-φ) 会饱和，防止爆炸。
   // 趋势贡献再封顶 ±35% 日均，避免把 7-14 天短期斜率过度外推成长期幻觉。
   const damped = (1 - DAMP ** k) / (1 - DAMP);
-  const trendCap = 0.35 * model.newsign_daily;
+  // 用绝对值,保证 clamp 上下界正确(防新签日均为负时 [-cap,cap] 反转)
+  const trendCap = Math.abs(0.35 * model.newsign_daily);
   const trendAdj = clamp(model.newsign_slope * damped, -trendCap, trendCap);
   let newsignBase = Math.max(0, model.newsign_daily + trendAdj);
 

@@ -85,7 +85,7 @@ function CpsForecastTab({ channelId }) {
   const [decay, setDecay] = useState(0);              // 续费衰减 %/月
 
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // 初始即加载态，避免首屏闪"暂无数据"
   const [aiInsight, setAiInsight] = useState(null);
   const [aiVisible, setAiVisible] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
