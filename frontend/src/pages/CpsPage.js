@@ -1,11 +1,12 @@
 import React from 'react';
 import { Tabs } from 'antd';
-import { BarChartOutlined, AlertOutlined, SettingOutlined, EditOutlined, TableOutlined } from '@ant-design/icons';
+import { BarChartOutlined, AlertOutlined, SettingOutlined, EditOutlined, TableOutlined, AimOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { can, isCpsChannelUser } from '../permissions/ability';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
 import CpsDashboardTab from '../components/cps/CpsDashboardTab';
+import CpsForecastTab from '../components/cps/CpsForecastTab';
 import CpsMetricsTab from '../components/cps/CpsMetricsTab';
 import CpsAlertsTab from '../components/cps/CpsAlertsTab';
 import CpsAdminTab from '../components/cps/CpsAdminTab';
@@ -35,6 +36,7 @@ function CpsPage() {
   // 管理员/运营：完整视图
   const tabItems = [
     { key: 'dashboard', label: <span><BarChartOutlined /> 看板</span>, children: <CpsDashboardTab channelId={channelId} /> },
+    { key: 'forecast', label: <span><AimOutlined /> 预测</span>, children: <CpsForecastTab channelId={channelId} /> },
     { key: 'metrics', label: '明细数据', children: <CpsMetricsTab channelId={channelId} /> },
     { key: 'alerts', label: <span><AlertOutlined /> 预警</span>, children: <CpsAlertsTab /> },
   ];
