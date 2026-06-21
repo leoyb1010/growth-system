@@ -43,6 +43,15 @@ function addDays(value, days) {
 function daysBetween(start, end) {
   return Math.round((parseDate(end) - parseDate(start)) / MS_DAY);
 }
+// 方言安全：DB 取出的 stat_date 在 sqlite 是 'YYYY-MM-DD' 字符串，在 Postgres 可能是 Date 对象。
+// 统一归一为 'YYYY-MM-DD'（Date 用本地日历位，与看板 normalizeStatDate 口径一致，避免时区错位）。
+function normalizeDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, '0'), String(value.getDate()).padStart(2, '0')].join('-');
+  }
+  return String(value).slice(0, 10);
+}
 function quarterOf(month0) {
   return Math.floor(month0 / 3); // 0..3
 }
@@ -134,7 +143,7 @@ async function loadDailySeries(filters, windowStart, asOf) {
     const newsign_net = newGross - deduction * newShare;
     const renewal_net = renewGross - deduction * (1 - newShare);
     return {
-      date: String(r.stat_date).slice(0, 10),
+      date: normalizeDate(r.stat_date),
       actual_amount: actual,
       newsign_net,
       renewal_net,
@@ -283,7 +292,7 @@ async function getForecast(params = {}) {
     attributes: [[fn('MAX', col('stat_date')), 'd']],
     raw: true,
   });
-  const asOf = params.as_of ? String(params.as_of).slice(0, 10) : (latestRow?.d ? String(latestRow.d).slice(0, 10) : yesterday);
+  const asOf = params.as_of ? String(params.as_of).slice(0, 10) : (normalizeDate(latestRow?.d) || yesterday);
 
   const windowStart = addDays(asOf, -LOOKBACK_DAYS + 1);
   const series = await loadDailySeries(filters, windowStart, asOf);
