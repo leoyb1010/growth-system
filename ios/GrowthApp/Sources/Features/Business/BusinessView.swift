@@ -91,6 +91,34 @@ struct BusinessView: View {
     // MARK: CPS
     private var cpsContent: some View {
         VStack(spacing: 14) {
+            NavigationLink(destination: ForecastView()) {
+                CardView(padding: 14) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "chart.line.uptrend.xyaxis").font(.title3).foregroundStyle(Theme.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("经营预测").font(.subheadline.weight(.bold)).foregroundStyle(Theme.textPrimary)
+                            Text("季度 / 半年 / 年度预测 + 新签情景模拟").font(.caption2).foregroundStyle(Theme.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }.buttonStyle(.plain)
+            if session.user?.cps_channel_id != nil || session.user?.role == "cps_channel_user" {
+                NavigationLink(destination: ChannelEntryView()) {
+                    CardView(padding: 14) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "square.and.pencil").font(.title3).foregroundStyle(Theme.success)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("渠道日报录入").font(.subheadline.weight(.bold)).foregroundStyle(Theme.textPrimary)
+                                Text("手机端直接上报今日签约数据").font(.caption2).foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+                }.buttonStyle(.plain)
+            }
             if let t = vm.cps?.total {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     StatTile(label: "实收金额", value: "¥\(Fmt.money(t.actual_amount))", color: Theme.success, icon: "creditcard")

@@ -26,6 +26,7 @@ const actionItemController = require('../controllers/actionItemController');
 const riskRegisterController = require('../controllers/riskRegisterController');
 const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
+const pushController = require('../controllers/pushController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const agentRoutes = require('./agentRoutes');
 const cpsAiController = require('../ai/controllers/cpsAiController');
@@ -225,6 +226,7 @@ router.post('/cps/alert-rules', ...auth, requirePermission('cps.admin'), cpsAdmi
 router.delete('/cps/alert-rules/:id', ...auth, requirePermission('cps.admin'), cpsAdminController.deleteAlertRule);
 // 看板 & 明细 (cps.read + 数据范围)
 router.get('/cps/dashboard', ...auth, requirePermission('cps.read'), applyDataScope('cps'), cpsController.getDashboard);
+router.get('/cps/forecast', ...auth, requirePermission('cps.read'), applyDataScope('cps'), cpsController.getForecast);
 router.get('/cps/metrics', ...auth, requirePermission('cps.read'), applyDataScope('cps_metric'), cpsController.getMetrics);
 router.post('/cps/metrics', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsController.upsertMetric);
 router.put('/cps/metrics/:id', ...auth, requirePermission('cps.write'), applyDataScope('cps_metric'), cpsController.updateMetric);
@@ -239,6 +241,12 @@ router.post('/cps/alerts/:id/ack', ...auth, requirePermission('cps.write'), appl
 // CPS AI 洞察
 router.post('/cps/ai/daily-insight', ...auth, requirePermission('ai.use'), applyDataScope('cps_metric'), cpsAiController.dailyInsight);
 router.post('/cps/ai/period-analysis', ...auth, requirePermission('ai.use'), applyDataScope('cps_metric'), cpsAiController.periodAnalysis);
+router.post('/cps/ai/forecast-insight', ...auth, requirePermission('ai.use'), applyDataScope('cps_metric'), cpsAiController.forecastInsight);
+
+// 设备推送（APNs）：登录用户注册/注销自己的设备 token；test 仅给自己发
+router.post('/push/devices', ...auth, pushController.registerDevice);
+router.delete('/push/devices', ...auth, pushController.unregisterDevice);
+router.post('/push/test', ...auth, pushController.testPush);
 
 // 渠道录入接口 (cps_channel_user 专属，只操作自己渠道)
 router.post('/cps/channel-entry', ...auth, requirePermission('cps.channel_upload'), applyDataScope('cps_metric'), cpsController.upsertMetric);

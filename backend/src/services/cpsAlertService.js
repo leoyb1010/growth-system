@@ -1,7 +1,35 @@
 const { Op } = require('sequelize');
-const { CpsDailyMetric, CpsChannel, CpsProduct, CpsAlertRule, CpsAlertEvent } = require('../models');
+const { CpsDailyMetric, CpsChannel, CpsProduct, CpsAlertRule, CpsAlertEvent, User } = require('../models');
 const cpsCalc = require('./cpsCalcService');
+const pushService = require('./pushService');
 const { todayString } = require('../utils/businessDate');
+
+// 预警推送收件人（严格按数据范围，避免越权）：
+//  - 管理员(super_admin/admin) 与 全量 CPS 角色(cps_admin/cps_ops) → 全部预警
+//  - 渠道用户(cps_role=channel_user，受限于本渠道) → 仅其绑定渠道的预警
+// 注意：不能用 cps_role != null，否则会把渠道用户也广播进来 → 收到他渠道预警(越权)。
+async function notifyAlert(evt) {
+  try {
+    const where = {
+      status: 'active',
+      [Op.or]: [
+        { role: { [Op.in]: ['admin', 'super_admin'] } },
+        { cps_role: { [Op.in]: ['cps_admin', 'cps_ops'] } },
+        ...(evt.channel_id ? [{ cps_channel_id: evt.channel_id }] : []),
+      ],
+    };
+    const users = await User.findAll({ where, attributes: ['id'], raw: true });
+    if (!users.length) return;
+    await pushService.sendToUsers(users.map(u => u.id), {
+      title: evt.title || 'CPS 预警',
+      body: evt.message || '出现新的 CPS 预警',
+      data: { type: 'cps_alert', alert_id: evt.id, channel_id: evt.channel_id, level: evt.level },
+      collapseId: `cps_alert_${evt.rule_code}_${evt.channel_id || 'all'}`,
+    });
+  } catch (e) {
+    console.error('notifyAlert 失败(已忽略):', e.message);
+  }
+}
 
 function shouldTrigger(value, operator, threshold) {
   const v = Number(value), t = Number(threshold);
@@ -17,7 +45,10 @@ async function raiseAlert(payload) {
     product_id: payload.product_id ?? null,
   } });
   if (exists) return exists;
-  return CpsAlertEvent.create({ rule_id: payload.rule_id, rule_code: payload.rule_code, level: payload.level || 'warning', stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id, metric: payload.metric, metric_value: Number(payload.metric_value) || 0, threshold_value: Number(payload.threshold_value) || 0, title: payload.title, message: payload.message, suggestion: payload.suggestion || '', status: 'open' });
+  const evt = await CpsAlertEvent.create({ rule_id: payload.rule_id, rule_code: payload.rule_code, level: payload.level || 'warning', stat_date: payload.stat_date, channel_id: payload.channel_id, product_id: payload.product_id, metric: payload.metric, metric_value: Number(payload.metric_value) || 0, threshold_value: Number(payload.threshold_value) || 0, title: payload.title, message: payload.message, suggestion: payload.suggestion || '', status: 'open' });
+  // 仅新建事件时推送（去重已在上方保证），best-effort、不阻塞、绝不影响告警写库
+  notifyAlert(evt).catch((e) => console.error('notifyAlert 未捕获(已忽略):', e?.message));
+  return evt;
 }
 
 async function checkAlertsForDate(date) {

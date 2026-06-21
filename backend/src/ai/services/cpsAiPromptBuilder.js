@@ -69,7 +69,42 @@ ${JSON.stringify(ctx, null, 2)}
 }`;
 }
 
+function buildForecastInsightPrompt(ctx) {
+  return `你是 CPS 连续包月业务的经营预测分析师。下面的预测数字已由统计模型算好（续费地板 + 新签弹性 + 阻尼趋势 + 区间），你的任务是"解读"，不是"重算"。绝对不要自己编造或修改任何数字，只能引用输入里的数字。
+
+【模型口径（必须理解后再解读）】
+1. 实收已拆成两条流：续费流(连包地板，相对稳定) + 新签流(波动源，跟投放强相关)。
+2. 每个周期给中性值 P50 与区间 P25~P75；并有置信度(high/medium/low)。
+3. "本季度/本半年度/本年度"含已发生(actual_to_date)+预测；"下季度"为纯预测。
+4. scenario 是用户假设的新签情景(如停投/腰斩/加投)，delta 是该假设相对基准的影响。
+5. 数据历史较短(data_days)，越长周期越不确定——必须如实说明，不要给假精确的承诺。
+
+【预测数据】
+${JSON.stringify(ctx, null, 2)}
+
+【输出要求】
+只输出 JSON，不要 Markdown。要落到具体周期、具体数字、续费/新签结构，不能空泛。
+{
+  "headline": "30字以内核心结论（点明增长动能与最大不确定性来源）",
+  "confidence_note": "一句话说明哪些周期可信、哪些只是情景推演及原因",
+  "drivers": [
+    { "factor": "续费地板|新签动能|趋势|波动|退款", "reading": "对该因子的判断", "evidence": "引用具体数字" }
+  ],
+  "horizon_reads": [
+    { "horizon": "本季度|下季度|本半年度|本年度", "read": "该周期结论", "number": "引用P50与区间", "confidence": "high|medium|low" }
+  ],
+  "scenario_read": "若 scenario 非维持现状：解读该假设(如新签停投)对各周期的冲击量级与最该担心的周期；若是维持现状则给'当前为基准情景'",
+  "risks": [
+    { "level": "low|medium|high", "risk": "风险点", "evidence": "数字依据", "suggestion": "具体动作" }
+  ],
+  "actions": [
+    { "owner": "投放|运营|管理者", "action": "具体动作", "priority": "P0|P1|P2", "watch_metric": "下一步盯哪个指标验证" }
+  ]
+}`;
+}
+
 module.exports = {
   buildDailyInsightPrompt,
   buildPeriodAnalysisPrompt,
+  buildForecastInsightPrompt,
 };

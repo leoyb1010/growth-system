@@ -2,6 +2,7 @@ const dayjs = require('dayjs');
 const { success, error } = require('../../utils/response');
 const cpsAiContextBuilder = require('../services/cpsAiContextBuilder');
 const cpsPromptBuilder = require('../services/cpsAiPromptBuilder');
+const cpsForecastService = require('../../services/cpsForecastService');
 const aiLLMProvider = require('../services/aiLLMProvider');
 const aiCache = require('../../services/aiCacheService');
 
@@ -103,7 +104,88 @@ async function periodAnalysis(req, res) {
   }
 }
 
+function fmtYi(v) {
+  const n = Number(v) || 0;
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(2)}亿`;
+  if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(1)}万`;
+  return String(Math.round(n));
+}
+
+// 规则降级：LLM 不可用时，直接用预测数字拼一份可读解读，绝不报错给前端
+function fallbackForecastInsight(forecast) {
+  if (forecast.insufficient_data) {
+    return { headline: '连续日数据不足，暂无法给出可信预测', confidence_note: forecast.message || '需要更多连续日数据', drivers: [], horizon_reads: [], scenario_read: '', risks: [], actions: [], isMock: true };
+  }
+  const m = forecast.model || {};
+  const scenarioActive = forecast.scenario && Number(forecast.scenario.new_sign_factor) !== 1;
+  const horizonReads = (forecast.horizons || []).map((h) => ({
+    horizon: h.label,
+    read: `${h.label}中性预测约 ${fmtYi(h.baseline.p50)}（${fmtYi(h.baseline.p25)}~${fmtYi(h.baseline.p75)}），其中已落袋 ${fmtYi(h.actual_to_date)}。`,
+    number: `P50 ${fmtYi(h.baseline.p50)} / 区间 ${fmtYi(h.baseline.p25)}~${fmtYi(h.baseline.p75)}`,
+    confidence: h.confidence,
+  }));
+  let scenarioRead = '当前为基准情景（维持现状）。';
+  if (scenarioActive) {
+    const worst = [...(forecast.horizons || [])].sort((a, b) => (a.delta?.pct ?? 0) - (b.delta?.pct ?? 0))[0];
+    scenarioRead = worst ? `按当前新签假设，冲击最大的是${worst.label}：相对基准${worst.delta.amount >= 0 ? '增加' : '减少'} ${fmtYi(Math.abs(worst.delta.amount))}（${worst.delta.pct}%）。` : '';
+  }
+  return {
+    headline: `续费地板日均 ${fmtYi(m.renewal_daily)}、新签日均 ${fmtYi(m.newsign_daily)}（续费占比${m.renewal_share_pct}%），波动主要来自新签`,
+    confidence_note: '本季度/本半年度多为已发生，置信高；下季度与本年度含较多外推，仅供情景参考',
+    drivers: [
+      { factor: '续费地板', reading: '相对稳定，是收入底盘', evidence: `续费日均 ${fmtYi(m.renewal_daily)}` },
+      { factor: '新签动能', reading: m.trend_slope_per_day >= 0 ? '近期走平偏升' : '近期走弱', evidence: `日斜率 ${m.trend_slope_per_day}，R²${m.trend_r2}` },
+      { factor: '波动', reading: '日波动较大，区间需关注', evidence: `日波动 ${fmtYi(m.daily_volatility)}` },
+    ],
+    horizon_reads: horizonReads,
+    scenario_read: scenarioRead,
+    risks: [],
+    actions: [{ owner: '投放', action: '关注新签流是否可持续，结合预算计划用情景模拟评估缺口', priority: 'P1', watch_metric: '新签净额日均、退款率' }],
+    isMock: true,
+  };
+}
+
+async function forecastInsight(req, res) {
+  try {
+    const body = req.body || {};
+    const { filters, scopeTag } = resolveCpsScope(req);
+    const scenario = {
+      new_sign_factor: body.new_sign_factor,
+      effective_from: body.effective_from,
+      recover_after_days: body.recover_after_days,
+      renewal_decay_monthly: body.renewal_decay_monthly,
+    };
+    const forecast = await cpsForecastService.getForecast({ ...filters, as_of: body.as_of, scenario });
+
+    const cacheKey = aiCache.createCacheKey('cps_forecast_insight', {
+      as_of: forecast.as_of, ...filters, ...scenario, scopeTag,
+    });
+    const cached = await aiCache.getCached(cacheKey);
+    if (cached) return success(res, { ...cached, forecast, cached: true });
+
+    const fallback = fallbackForecastInsight(forecast);
+    if (forecast.insufficient_data || !aiLLMProvider.isAvailable()) {
+      return success(res, { ...fallback, forecast });
+    }
+    try {
+      // 周序列对叙事无用且占 token，剥掉再喂 LLM（防 prompt 过长/输出截断）
+      const { series_weekly, ...leanForecast } = forecast;
+      const prompt = cpsPromptBuilder.buildForecastInsightPrompt(leanForecast);
+      const result = await aiLLMProvider.chat({ prompt, user: req.user, taskType: 'cps_forecast_insight', responseFormat: false, fallback, maxTokens: 4000 });
+      if (result && !result.isMock) aiCache.setCached(cacheKey, 'cps_forecast_insight', result, CPS_AI_TTL).catch(() => {});
+      return success(res, { ...(result || fallback), forecast });
+    } catch (llmErr) {
+      console.error('CPS forecastInsight LLM 降级:', llmErr.message);
+      return success(res, { ...fallback, forecast, degraded: true });
+    }
+  } catch (err) {
+    console.error('CPS forecastInsight error:', err);
+    return error(res, err.message || 'AI 预测解读失败');
+  }
+}
+
 module.exports = {
   dailyInsight,
   periodAnalysis,
+  forecastInsight,
 };

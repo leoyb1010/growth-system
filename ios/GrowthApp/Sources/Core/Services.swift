@@ -41,6 +41,30 @@ enum API {
     static func cpsDashboard() async throws -> CpsDashboard {
         try await APIClient.shared.request("/cps/dashboard", as: CpsDashboard.self)
     }
+    /// CPS 经营预测（含新签 What-if 情景）。query 透传维度与情景参数。
+    static func cpsForecast(query: [String: String]) async throws -> CpsForecast {
+        try await APIClient.shared.request("/cps/forecast", query: query.isEmpty ? nil : query, as: CpsForecast.self)
+    }
+    static func cpsChannels() async throws -> [CpsDictItem] {
+        try await APIClient.shared.request("/cps/channels", as: [CpsDictItem].self)
+    }
+    static func cpsProducts() async throws -> [CpsDictItem] {
+        try await APIClient.shared.request("/cps/products", as: [CpsDictItem].self)
+    }
+    /// 渠道日报录入（channel_id 由后端按数据范围强制注入，无需前端传）
+    static func cpsChannelEntry(_ body: [String: AnyCodable]) async throws -> CpsEntryResult {
+        try await APIClient.shared.request("/cps/channel-entry", method: "POST", body: body, as: CpsEntryResult.self)
+    }
+
+    // MARK: 推送（APNs 设备注册）
+    static func registerDevice(token: String, bundleId: String?, env: String) async throws {
+        var body: [String: AnyCodable] = ["token": AnyCodable(token), "platform": AnyCodable("ios"), "app_env": AnyCodable(env)]
+        if let bundleId { body["bundle_id"] = AnyCodable(bundleId) }
+        _ = try await APIClient.shared.send("/push/devices", method: "POST", body: body)
+    }
+    static func unregisterDevice(token: String) async throws {
+        _ = try await APIClient.shared.send("/push/devices", method: "DELETE", body: ["token": AnyCodable(token)])
+    }
 
     // MARK: 月度 / 成果
     static func monthlyTasks() async throws -> [MonthlyTaskItem] {

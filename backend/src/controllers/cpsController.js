@@ -3,6 +3,7 @@ const { sequelize, CpsChannel, CpsProduct, CpsDailyMetric, CpsDailyMetricSnapsho
 const { success, error } = require('../utils/response');
 const cpsCalc = require('../services/cpsCalcService');
 const cpsDashboardService = require('../services/cpsDashboardService');
+const cpsForecastService = require('../services/cpsForecastService');
 const cpsImportService = require('../services/cpsImportService');
 const cpsExportService = require('../services/cpsExportService');
 const cpsAlertService = require('../services/cpsAlertService');
@@ -83,6 +84,32 @@ async function getDashboard(req, res) {
   } catch (err) {
     console.error('CPS dashboard error:', err);
     return error(res, err.message || '获取CPS看板失败');
+  }
+}
+
+async function getForecast(req, res) {
+  try {
+    const q = req.query || {};
+    const scopedQuery = {
+      channel_ids: q.channel_ids,
+      product_ids: q.product_ids,
+      as_of: q.as_of,
+      scenario: {
+        new_sign_factor: q.new_sign_factor,
+        effective_from: q.effective_from,
+        recover_after_days: q.recover_after_days,
+        renewal_decay_monthly: q.renewal_decay_monthly,
+      },
+    };
+    // 渠道账号强制只看自己渠道，忽略前端传入，避免越权
+    if (isCpsChannelScope(req)) {
+      scopedQuery.channel_ids = String(req.dataScope.value);
+    }
+    const data = await cpsForecastService.getForecast(scopedQuery);
+    return success(res, data);
+  } catch (err) {
+    console.error('CPS forecast error:', err);
+    return error(res, err.message || '获取CPS预测失败');
   }
 }
 
@@ -317,4 +344,4 @@ async function checkAlertsNow(req, res) {
   }
 }
 
-module.exports = { getDashboard, getMetrics, upsertMetric, updateMetric, deleteMetric, getMetricSnapshots, importMetrics, exportMetrics, getAlerts, ackAlert, checkAlertsNow };
+module.exports = { getDashboard, getForecast, getMetrics, upsertMetric, updateMetric, deleteMetric, getMetricSnapshots, importMetrics, exportMetrics, getAlerts, ackAlert, checkAlertsNow };

@@ -25,6 +25,7 @@ final class SessionManager: ObservableObject {
             let me = try await API.me()
             user = me
             state = (me.must_change_password == true) ? .needsPasswordChange : .loggedIn
+            if state == .loggedIn { PushManager.shared.requestAndRegister() }
         } catch {
             // me 失败（刷新也失败时 APIClient 会触发 onUnauthorized）
             state = .loggedOut
@@ -38,6 +39,7 @@ final class SessionManager: ObservableObject {
             await TokenStore.shared.save(access: resp.token, refresh: resp.refresh_token)
             user = resp.user
             state = (resp.user.must_change_password == true) ? .needsPasswordChange : .loggedIn
+            if state == .loggedIn { PushManager.shared.requestAndRegister() }
         } catch let e as APIError {
             loginError = e.message
         } catch {
@@ -59,6 +61,7 @@ final class SessionManager: ObservableObject {
     }
 
     func logout() async {
+        await PushManager.shared.unregister()   // 先注销设备（需有效 token），再登出
         await API.logout()
         await TokenStore.shared.clear()
         user = nil
