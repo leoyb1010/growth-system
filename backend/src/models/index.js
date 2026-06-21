@@ -565,6 +565,24 @@ const RefreshToken = sequelize.define('RefreshToken', {
   createdAt: 'created_at'
 });
 
+// 设备推送令牌（APNs）：一个用户可有多台设备，token 唯一，登出/换设备时失活
+const DeviceToken = sequelize.define('DeviceToken', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  token: { type: DataTypes.STRING(255), allowNull: false, unique: true },
+  platform: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'ios' },
+  bundle_id: { type: DataTypes.STRING(128), allowNull: true },
+  app_env: { type: DataTypes.STRING(16), allowNull: true },   // sandbox / production
+  active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  last_seen_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'device_tokens',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [{ fields: ['user_id'] }, { unique: true, fields: ['token'] }],
+});
+
 // ==================== CPS 连包投流模块 ====================
 const CpsChannel = sequelize.define('CpsChannel', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -928,6 +946,7 @@ module.exports = {
   AiUserDigestItem,
   AiFeedback,
   RefreshToken,
+  DeviceToken,
   CpsChannel,
   CpsProduct,
   CpsDailyMetric,
