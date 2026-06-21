@@ -14,13 +14,6 @@ struct BadgeSummary: Decodable {
 @MainActor
 final class FloatingAIVM: ObservableObject {
     @Published var open = false
-    @Published var badge = 0
-
-    func loadBadge() async {
-        if let b: BadgeSummary = try? await APIClient.shared.request("/ai/badge-summary", as: BadgeSummary.self) {
-            badge = b.totalBadge ?? 0
-        }
-    }
 }
 
 /// 覆盖在整个 App 之上的悬浮球 + 展开聊天面板
@@ -46,7 +39,6 @@ struct FloatingAIOverlay: View {
         }
         .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $vm.open) { AIChatPanel() }
-        .task { await vm.loadBadge() }
     }
 
     private var bubble: some View {
@@ -67,14 +59,7 @@ struct FloatingAIOverlay: View {
                         .shadow(color: Theme.primary.opacity(0.55), radius: 14, x: 0, y: 5)
                         .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
                 }
-                if vm.badge > 0 {
-                    Text("\(min(vm.badge,99))")
-                        .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Theme.danger).clipShape(Capsule())
-                        .overlay(Capsule().stroke(.white, lineWidth: 1.5))
-                        .offset(x: 6, y: -4)
-                }
+                // 已移除红色数字徽标（按用户要求，悬浮按钮不显示任何提醒数字）
             }
         }
         .buttonStyle(.plain)

@@ -44,7 +44,7 @@ final class ForecastVM: ObservableObject {
         loading = (forecast == nil); error = nil
         do { forecast = try await API.cpsForecast(query: query()) }
         catch let e as APIError { error = e.message }
-        catch { error = error.localizedDescription }
+        catch let err { error = err.localizedDescription }
         loading = false
     }
 
