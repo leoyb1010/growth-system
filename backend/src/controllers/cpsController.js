@@ -99,6 +99,7 @@ async function getForecast(req, res) {
         effective_from: q.effective_from,
         recover_after_days: q.recover_after_days,
         renewal_decay_monthly: q.renewal_decay_monthly,
+        target_product_ids: q.target_product_ids,
       },
     };
     // 渠道账号强制只看自己渠道，忽略前端传入，避免越权

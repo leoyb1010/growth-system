@@ -154,6 +154,7 @@ async function forecastInsight(req, res) {
       effective_from: body.effective_from,
       recover_after_days: body.recover_after_days,
       renewal_decay_monthly: body.renewal_decay_monthly,
+      target_product_ids: body.target_product_ids,
     };
     const forecast = await cpsForecastService.getForecast({ ...filters, as_of: body.as_of, scenario });
 

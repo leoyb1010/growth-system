@@ -79,12 +79,27 @@ test('projectDay 恢复期后新签回到基准', () => {
   assert.equal(recovered.newsign_scenario, 100);
 });
 
-test('projectDay 续费衰减仅在新签走弱且开启衰减时生效', () => {
+test('projectDay 续费衰减独立于新签因子，从生效日起按月线性侵蚀(可蚀到0)', () => {
   const model = { newsign_daily: 100, renewal_daily: 200, newsign_slope: 0, r2: 0.5 };
-  const scenario = normalizeScenario({ new_sign_factor: 0, renewal_decay_monthly: 0.1 }, '2026-06-20');
-  const day30 = projectDay(30, '2026-07-20', model, scenario);
-  assert.ok(day30.renewal_scenario < 200, '一个月后续费应被侵蚀');
-  assert.ok(day30.renewal_scenario >= 60, '侵蚀有地板（不低于30%）');
+  // 即使新签维持(factor=1)，只要设了衰减就生效（修复"只拉衰减不生效"的旧 bug）
+  const sc = normalizeScenario({ new_sign_factor: 1, renewal_decay_monthly: 0.2 }, '2026-06-20');
+  const d30 = projectDay(30, '2026-07-21', model, sc);   // ~1个月 → 蚀20% → 80%
+  assert.ok(Math.abs(d30.renewal_scenario - 160) < 1, '一个月后续费≈基准×80%');
+  const d180 = projectDay(180, '2026-12-18', model, sc); // ~6个月 → 蚀>100% → 地板0
+  assert.equal(d180.renewal_scenario, 0, '长期可蚀到0(已去掉0.3地板)');
+});
+
+test('projectDay 情景只作用于目标产品线份额(停某条线)', () => {
+  // 目标线占新签 30% → 停投后新签只降 30%
+  const model = { newsign_daily: 100, renewal_daily: 0, newsign_slope: 0, r2: 0, newsign_target_share: 0.3, renewal_target_share: 0 };
+  const sc = normalizeScenario({ new_sign_factor: 0 }, '2026-06-20');
+  const d = projectDay(1, '2026-06-21', model, sc);
+  assert.ok(Math.abs(d.newsign_scenario - 70) < 0.01, '停目标线后新签=基准×(1-0.3)=70');
+});
+
+test('normalizeScenario 解析 target_product_ids', () => {
+  assert.deepEqual(normalizeScenario({ target_product_ids: '3,5' }, '2026-06-20').target_product_ids, [3, 5]);
+  assert.deepEqual(normalizeScenario({}, '2026-06-20').target_product_ids, []);
 });
 
 test('gradeConfidence 按已发生占比/周期长度/数据量分级', () => {

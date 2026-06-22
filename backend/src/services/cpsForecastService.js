@@ -14,7 +14,7 @@
  * 纯增量模块：不改动 cpsDashboardService 等既有逻辑。
  */
 const { Op, fn, col, literal } = require('sequelize');
-const { CpsDailyMetric } = require('../models');
+const { CpsDailyMetric, CpsProduct } = require('../models');
 
 const MS_DAY = 86400000;
 const LOOKBACK_DAYS = 60;        // 取最近 60 天作为可用历史窗口
@@ -163,6 +163,39 @@ async function sumActual(filters, start, end) {
   return Number(row?.amt) || 0;
 }
 
+// 按产品线拆分窗口内的净日均（用于产品线视图 + "停某条线"的目标份额计算）
+async function loadProductBreakdown(filters, windowStart, asOf) {
+  const rows = await CpsDailyMetric.findAll({
+    where: buildWhere(filters, windowStart, asOf),
+    attributes: [
+      'product_id',
+      [fn('COALESCE', fn('SUM', col('new_sign_amount')), 0), 'new_sign_amount'],
+      [fn('COALESCE', fn('SUM', col('renewal_amount')), 0), 'renewal_amount'],
+      [fn('COALESCE', fn('SUM', col('actual_amount')), 0), 'actual_amount'],
+      [fn('COUNT', fn('DISTINCT', col('stat_date'))), 'days'],
+    ],
+    include: [{ model: CpsProduct, as: 'product', attributes: ['id', 'name'] }],
+    group: ['CpsDailyMetric.product_id', 'product.id', 'product.name'],
+    raw: true,
+    nest: true,
+  });
+  return rows.map((r) => {
+    const gNew = Number(r.new_sign_amount) || 0;
+    const gRen = Number(r.renewal_amount) || 0;
+    const act = Number(r.actual_amount) || 0;
+    const gross = gNew + gRen;
+    const ded = Math.max(0, gross - act);             // 售后退款隐含扣减
+    const ns = gross > 0 ? gNew / gross : 0.5;
+    const days = Number(r.days) || 1;
+    return {
+      product_id: Number(r.product_id),
+      name: r.product?.name || `产品${r.product_id}`,
+      newsign_daily: (gNew - ded * ns) / days,
+      renewal_daily: (gRen - ded * (1 - ns)) / days,
+    };
+  });
+}
+
 // 构建周序列（供前端"实际→预测分叉图"）：历史实际 + 未来基准/情景预测，按 7 天分桶
 function buildWeeklySeries(series, asOf, end, model, scenario) {
   const actualMap = new Map(series.map((r) => [r.date, r.actual_amount]));
@@ -227,14 +260,17 @@ function normalizeScenario(scenario = {}, asOf) {
     effective_from: scenario.effective_from ? String(scenario.effective_from).slice(0, 10) : addDays(asOf, 1),
     recover_after_days: Number.isFinite(Number(scenario.recover_after_days)) && Number(scenario.recover_after_days) > 0
       ? Math.round(Number(scenario.recover_after_days)) : null,
-    // 续费随新签下滑的延迟衰减（每月侵蚀比例 0~1），默认 0=不衰减
+    // 续费衰减（每月侵蚀比例 0~1），默认 0=不衰减；独立于新签因子，从情景生效日起生效
     renewal_decay_monthly: Number.isFinite(Number(scenario.renewal_decay_monthly))
       ? clamp(Number(scenario.renewal_decay_monthly), 0, 1) : 0,
+    // 情景作用的产品线（空=作用于全部产品；用于"停某条产品线"）
+    target_product_ids: parseIds(scenario.target_product_ids),
   };
 }
 
 /* ------------------- 逐日投影：基准 & 情景 ------------------- */
 // 返回某日的 { baseline, scenario }（净实收）
+// 情景只作用于"目标产品线那部分份额"：share=1 即作用于全部(默认)，share<1 即只动选中的产品线。
 function projectDay(k, dateStr, model, scenario) {
   // 新签：基准 = 截尾日均 + 阻尼趋势；阻尼累积 (1-φ^k)/(1-φ) 会饱和，防止爆炸。
   // 趋势贡献再封顶 ±35% 日均，避免把 7-14 天短期斜率过度外推成长期幻觉。
@@ -242,27 +278,29 @@ function projectDay(k, dateStr, model, scenario) {
   // 用绝对值,保证 clamp 上下界正确(防新签日均为负时 [-cap,cap] 反转)
   const trendCap = Math.abs(0.35 * model.newsign_daily);
   const trendAdj = clamp(model.newsign_slope * damped, -trendCap, trendCap);
-  let newsignBase = Math.max(0, model.newsign_daily + trendAdj);
+  const newsignBase = Math.max(0, model.newsign_daily + trendAdj);
+  const renewalBase = model.renewal_daily;
 
-  // 情景因子：到达生效日后乘 factor；若设定恢复，恢复日后回到 1
-  let factor = 1;
+  const nShare = model.newsign_target_share ?? 1;   // 目标产品线占新签的份额
+  const rShare = model.renewal_target_share ?? 1;   // 目标产品线占续费的份额
+
+  // 当日有效新签因子：生效日起 = factor；若设定恢复，恢复日后回到 1
+  let dayFactor = 1;
   if (dateStr >= scenario.effective_from) {
-    factor = scenario.new_sign_factor;
-    if (scenario.recover_after_days != null) {
-      const recoverDate = addDays(scenario.effective_from, scenario.recover_after_days);
-      if (dateStr >= recoverDate) factor = 1;
+    dayFactor = scenario.new_sign_factor;
+    if (scenario.recover_after_days != null && dateStr >= addDays(scenario.effective_from, scenario.recover_after_days)) {
+      dayFactor = 1;
     }
   }
-  const newsignScenario = newsignBase * factor;
+  // 因子只作用于目标份额：scenario = base × (1 - 目标份额 × (1-因子))
+  const newsignScenario = newsignBase * (1 - nShare * (1 - dayFactor));
 
-  // 续费：基准持平；情景下若新签走弱且开启衰减，续费地板按月延迟侵蚀
-  let renewalBase = model.renewal_daily;
-  let renewalScenario = renewalBase;
-  if (scenario.renewal_decay_monthly > 0 && scenario.new_sign_factor < 1) {
-    const monthsOut = k / 30;
-    const erosion = scenario.renewal_decay_monthly * monthsOut * (1 - scenario.new_sign_factor);
-    renewalScenario = renewalBase * Math.max(0.3, 1 - erosion);
+  // 续费衰减：独立于新签因子，从情景生效日起按 decay%/月 线性侵蚀(可蚀到0)，只作用于目标份额
+  let decayMul = 1;
+  if (scenario.renewal_decay_monthly > 0 && dateStr >= scenario.effective_from) {
+    decayMul = Math.max(0, 1 - scenario.renewal_decay_monthly * (k / 30));
   }
+  const renewalScenario = renewalBase * (1 - rShare * (1 - decayMul));
 
   return {
     baseline: newsignBase + renewalBase,
@@ -325,11 +363,22 @@ async function getForecast(params = {}) {
   const fit = linearFit(modelSeries.slice(-NEWSIGN_WINDOW).map((r) => r.newsign_net));
   const dailyVol = stdDev(modelSeries.slice(-NEWSIGN_WINDOW).map((r) => r.actual_amount));
 
+  // 产品线拆分 + 情景目标份额（"停某条线"时因子只作用于该线的份额）
+  const breakdown = await loadProductBreakdown(filters, windowStart, asOf);
+  const totalNew = breakdown.reduce((s, p) => s + Math.max(0, p.newsign_daily), 0);
+  const totalRen = breakdown.reduce((s, p) => s + Math.max(0, p.renewal_daily), 0);
+  const targetIds = scenario.target_product_ids;
+  const tgt = targetIds.length ? breakdown.filter((p) => targetIds.includes(p.product_id)) : breakdown;
+  const tgtNew = tgt.reduce((s, p) => s + Math.max(0, p.newsign_daily), 0);
+  const tgtRen = tgt.reduce((s, p) => s + Math.max(0, p.renewal_daily), 0);
+
   const model = {
     newsign_daily,
     renewal_daily,
     newsign_slope: fit.slope,
     r2: fit.r2,
+    newsign_target_share: totalNew > 0 ? clamp(tgtNew / totalNew, 0, 1) : (targetIds.length ? 0 : 1),
+    renewal_target_share: totalRen > 0 ? clamp(tgtRen / totalRen, 0, 1) : (targetIds.length ? 0 : 1),
   };
 
   const horizonsDef = buildHorizons(asOf);
@@ -410,6 +459,19 @@ async function getForecast(params = {}) {
   const fullYearEnd = horizonsDef.find((h) => h.key === 'full_year').end;
   const series_weekly = buildWeeklySeries(modelSeries, asOf, fullYearEnd, model, scenario);
 
+  // 产品线拆分输出（按净日均合计降序），供前端展示与选择"停某条线"
+  const totalDaily = totalNew + totalRen;
+  const product_breakdown = breakdown
+    .map((p) => ({
+      product_id: p.product_id,
+      name: p.name,
+      newsign_daily: round2(p.newsign_daily),
+      renewal_daily: round2(p.renewal_daily),
+      total_daily: round2(p.newsign_daily + p.renewal_daily),
+      share_pct: totalDaily > 0 ? Number((((p.newsign_daily + p.renewal_daily) / totalDaily) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.total_daily - a.total_daily);
+
   return {
     as_of: asOf,
     insufficient_data: false,
@@ -423,9 +485,12 @@ async function getForecast(params = {}) {
       daily_volatility: round2(dailyVol),
       trend_slope_per_day: round2(fit.slope),
       trend_r2: Number(fit.r2.toFixed(3)),
+      newsign_target_share: Number(model.newsign_target_share.toFixed(3)),
+      renewal_target_share: Number(model.renewal_target_share.toFixed(3)),
     },
     horizons,
     series_weekly,
+    product_breakdown,
   };
 }
 

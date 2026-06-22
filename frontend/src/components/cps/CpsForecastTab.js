@@ -83,6 +83,7 @@ function CpsForecastTab({ channelId }) {
   const [recover, setRecover] = useState(false);
   const [recoverDays, setRecoverDays] = useState(14);
   const [decay, setDecay] = useState(0);              // 续费衰减 %/月
+  const [targetProducts, setTargetProducts] = useState([]); // 情景作用的产品线(空=全部)
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true); // 初始即加载态，避免首屏闪"暂无数据"
@@ -104,8 +105,9 @@ function CpsForecastTab({ channelId }) {
     p.new_sign_factor = factor / 100;
     if (recover) p.recover_after_days = recoverDays;
     if (decay > 0) p.renewal_decay_monthly = decay / 100;
+    if (targetProducts.length) p.target_product_ids = targetProducts.join(',');
     return p;
-  }, [selChannels, selProducts, factor, recover, recoverDays, decay]);
+  }, [selChannels, selProducts, factor, recover, recoverDays, decay, targetProducts]);
 
   const fetchForecast = useCallback(async () => {
     setLoading(true);
@@ -214,12 +216,27 @@ function CpsForecastTab({ channelId }) {
                 </Space>
               </Col>
               <Col xs={24} md={7}>
-                <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>续费延迟衰减：<b>{decay}%/月</b>
-                  <Tooltip title="连包特性：今天的新签是未来的续费来源。新签走弱时，续费地板会延迟性地慢慢塌。这里手动估这个衰减。">
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>续费月衰减：<b>{decay}%/月</b>
+                  <Tooltip title="情景假设：从生效日起，(目标)产品线的续费按此比例逐月线性流失，可蚀到 0。用于模拟停止获客后续包用户的自然跑掉。独立于新签强度——只拉这个也会生效。">
                     <InfoCircleOutlined style={{ color: 'var(--text-3)', marginLeft: 4 }} />
                   </Tooltip>
                 </div>
-                <Slider min={0} max={20} step={1} value={decay} onChange={setDecay} marks={{ 0: '0', 10: '10%', 20: '20%' }} />
+                <Slider min={0} max={40} step={1} value={decay} onChange={setDecay} marks={{ 0: '0', 20: '20%', 40: '40%' }} />
+              </Col>
+            </Row>
+            <Row style={{ marginTop: 4 }}>
+              <Col span={24}>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>情景作用范围
+                  <Tooltip title="默认作用于全部产品线。选定某条/某几条产品线后，上面的新签强度与续费衰减只作用于这些线，其余产品线维持基准——用于'停某条产品线'的测算。">
+                    <InfoCircleOutlined style={{ color: 'var(--text-3)', marginLeft: 4 }} />
+                  </Tooltip>
+                </div>
+                <Select mode="multiple" allowClear placeholder="全部产品线（不指定）" value={targetProducts} onChange={setTargetProducts}
+                  style={{ width: '100%' }} maxTagCount={4} optionFilterProp="children">
+                  {(data?.product_breakdown || []).map(p => (
+                    <Select.Option key={p.product_id} value={p.product_id}>{p.name}（日均¥{fmtMoney(p.total_daily)}·{p.share_pct}%）</Select.Option>
+                  ))}
+                </Select>
               </Col>
             </Row>
           </Card>
@@ -234,6 +251,32 @@ function CpsForecastTab({ channelId }) {
             <span>· 日波动 ¥{fmtMoney(model.daily_volatility)}</span>
             <span>· 趋势 R² {model.trend_r2}</span>
           </div>
+
+          {/* 产品线拆分 */}
+          {(data?.product_breakdown || []).length > 0 && (
+            <Card size="small" title={<Space><span>产品线拆分</span>
+              <Tooltip title="按近窗净日均拆分各产品线。点「停此线」= 该线新签归零 + 续费按30%/月跑掉(可在上方继续调衰减)，看停掉这条线对各周期的影响。">
+                <InfoCircleOutlined style={{ color: 'var(--text-3)' }} /></Tooltip></Space>} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+                {data.product_breakdown.slice(0, 12).map(p => {
+                  const isTarget = targetProducts.includes(p.product_id);
+                  return (
+                    <div key={p.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-soft)', background: isTarget ? '#FEF2F2' : 'var(--bg-muted)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)' }}>日均 ¥{fmtMoney(p.total_daily)} · 占{p.share_pct}% · 新签{fmtMoney(p.newsign_daily)}/续费{fmtMoney(p.renewal_daily)}</div>
+                      </div>
+                      <Button size="small" danger={!isTarget} type={isTarget ? 'primary' : 'default'}
+                        onClick={() => {
+                          if (isTarget) { setTargetProducts([]); setFactor(100); setDecay(0); }
+                          else { setTargetProducts([p.product_id]); setFactor(0); setDecay(30); }
+                        }}>{isTarget ? '恢复' : '停此线'}</Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
 
           <SectionHeader title="分周期预测" subtitle="中性值 + 区间 + 置信度；情景开启后显示对比与缺口" icon={<AimOutlined style={{ color: COLORS.primary }} />} />
           <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
