@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Row, Col, Card, Select, Segmented, Slider, Switch, InputNumber, Button, Spin, Empty, Tag, Tooltip, Modal, Space, message } from 'antd';
-import { RobotOutlined, InfoCircleOutlined, ThunderboltOutlined, AimOutlined } from '@ant-design/icons';
+import { RobotOutlined, InfoCircleOutlined, ThunderboltOutlined, AimOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
@@ -84,6 +84,9 @@ function CpsForecastTab({ channelId }) {
   const [recoverDays, setRecoverDays] = useState(14);
   const [decay, setDecay] = useState(0);              // 续费衰减 %/月
   const [targetProducts, setTargetProducts] = useState([]); // 情景作用的产品线(空=全部)
+
+  const [breakdownOpen, setBreakdownOpen] = useState(false);   // 产品线拆分默认折叠
+  const [showAllProducts, setShowAllProducts] = useState(false); // 展开后是否显示全部产品线
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true); // 初始即加载态，避免首屏闪"暂无数据"
@@ -217,7 +220,7 @@ function CpsForecastTab({ channelId }) {
               </Col>
               <Col xs={24} md={7}>
                 <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>续费月衰减：<b>{decay}%/月</b>
-                  <Tooltip title="情景假设：从生效日起，(目标)产品线的续费按此比例逐月线性流失，可蚀到 0。用于模拟停止获客后续包用户的自然跑掉。独立于新签强度——只拉这个也会生效。">
+                  <Tooltip title="情景假设：从生效日起，(目标)产品线的续费按此比例逐月线性流失，可蚀到 0。用于模拟停止获客后续包用户的自然跑掉。独立于新签强度——只拉这个也会生效。注意：这是'月侵蚀速率'不是'总额打折'——X% 表示每过一个月续费再多掉 X 个百分点(累计)，且只蚀续费、不动新签与已落袋；因此越靠未来的周期(下季度/本年度)影响越大，几乎全是已发生的近周期几乎不受影响。要让全年大致少 10%，约设 7~8%/月即可。">
                     <InfoCircleOutlined style={{ color: 'var(--text-3)', marginLeft: 4 }} />
                   </Tooltip>
                 </div>
@@ -252,29 +255,48 @@ function CpsForecastTab({ channelId }) {
             <span>· 趋势 R² {model.trend_r2}</span>
           </div>
 
-          {/* 产品线拆分 */}
+          {/* 产品线拆分（默认折叠，点标题展开） */}
           {(data?.product_breakdown || []).length > 0 && (
-            <Card size="small" title={<Space><span>产品线拆分</span>
-              <Tooltip title="按近窗净日均拆分各产品线。点「停此线」= 该线新签归零 + 续费按30%/月跑掉(可在上方继续调衰减)，看停掉这条线对各周期的影响。">
-                <InfoCircleOutlined style={{ color: 'var(--text-3)' }} /></Tooltip></Space>} style={{ marginBottom: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
-                {data.product_breakdown.slice(0, 12).map(p => {
-                  const isTarget = targetProducts.includes(p.product_id);
-                  return (
-                    <div key={p.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-soft)', background: isTarget ? '#FEF2F2' : 'var(--bg-muted)' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-3)' }}>日均 ¥{fmtMoney(p.total_daily)} · 占{p.share_pct}% · 新签{fmtMoney(p.newsign_daily)}/续费{fmtMoney(p.renewal_daily)}</div>
-                      </div>
-                      <Button size="small" danger={!isTarget} type={isTarget ? 'primary' : 'default'}
-                        onClick={() => {
-                          if (isTarget) { setTargetProducts([]); setFactor(100); setDecay(0); }
-                          else { setTargetProducts([p.product_id]); setFactor(0); setDecay(30); }
-                        }}>{isTarget ? '恢复' : '停此线'}</Button>
+            <Card size="small" style={{ marginBottom: 16 }} styles={{ body: breakdownOpen ? undefined : { padding: 0 } }}
+              title={(
+                <div onClick={() => setBreakdownOpen(o => !o)} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {breakdownOpen ? <DownOutlined style={{ fontSize: 12, color: 'var(--text-3)' }} /> : <RightOutlined style={{ fontSize: 12, color: 'var(--text-3)' }} />}
+                  <span>产品线拆分</span>
+                  <Tag style={{ margin: 0 }}>{data.product_breakdown.length} 条</Tag>
+                  {targetProducts.length > 0 && <Tag color="red" style={{ margin: 0 }}>已指定 {targetProducts.length} 条</Tag>}
+                  <Tooltip title="按近窗净日均拆分各产品线。点「停此线」= 该线新签归零 + 续费按30%/月跑掉(可在上方继续调衰减)，看停掉这条线对各周期的影响。">
+                    <InfoCircleOutlined style={{ color: 'var(--text-3)' }} onClick={(e) => e.stopPropagation()} /></Tooltip>
+                </div>
+              )}>
+              {breakdownOpen && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+                    {(showAllProducts ? data.product_breakdown : data.product_breakdown.slice(0, 6)).map(p => {
+                      const isTarget = targetProducts.includes(p.product_id);
+                      return (
+                        <div key={p.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-soft)', background: isTarget ? '#FEF2F2' : 'var(--bg-muted)' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>日均 ¥{fmtMoney(p.total_daily)} · 占{p.share_pct}% · 新签{fmtMoney(p.newsign_daily)}/续费{fmtMoney(p.renewal_daily)}</div>
+                          </div>
+                          <Button size="small" danger={!isTarget} type={isTarget ? 'primary' : 'default'}
+                            onClick={() => {
+                              if (isTarget) { setTargetProducts([]); setFactor(100); setDecay(0); }
+                              else { setTargetProducts([p.product_id]); setFactor(0); setDecay(30); }
+                            }}>{isTarget ? '恢复' : '停此线'}</Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {data.product_breakdown.length > 6 && (
+                    <div style={{ textAlign: 'center', marginTop: 10 }}>
+                      <Button size="small" type="link" onClick={() => setShowAllProducts(v => !v)}>
+                        {showAllProducts ? '收起部分' : `全部展示（共 ${data.product_breakdown.length} 条）`}
+                      </Button>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </>
+              )}
             </Card>
           )}
 
