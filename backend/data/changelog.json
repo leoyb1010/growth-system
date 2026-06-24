@@ -1,6 +1,14 @@
 {
-  "latestVersion": "1.22.2",
+  "latestVersion": "1.22.3",
   "releases": [
+    {
+      "version": "1.22.3",
+      "date": "2026-06-24",
+      "title": "视觉去 AI 感：清除全站 110 处 emoji，统一改用图标",
+      "changes": [
+        { "type": "improve", "module": "视觉", "desc": "清除全站页面/卡片标题里散落的 110 处 emoji(👤📝🔴💤⏰📊🚀等)——这是最明显的'AI/廉价'信号;驾驶舱快捷入口的 emoji 改为统一的 Ant Design 图标,整体更克制、专业、一致" }
+      ]
+    },
     {
       "version": "1.22.2",
       "date": "2026-06-24",

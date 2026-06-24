@@ -143,7 +143,7 @@ function AchievementPage() {
 
             {item.quantified_result && (
               <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                📊 {item.quantified_result}
+                {item.quantified_result}
               </div>
             )}
 
@@ -189,7 +189,7 @@ function AchievementPage() {
       {/* 成果录入引导 */}
       {data.length === 0 && (
         <div style={{ marginBottom: 16, padding: '12px 20px', background: '#F0F4FF', border: '1px solid #C7D7FE', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 18 }}>💡</span>
+          <span style={{ fontSize: 18 }}></span>
           <span style={{ fontSize: 13, color: '#1E40AF' }}>
             当前季度暂无成果记录。项目完成时会自动生成成果草稿，您也可以手动新增成果进行沉淀。
           </span>

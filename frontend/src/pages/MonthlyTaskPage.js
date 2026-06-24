@@ -116,7 +116,7 @@ function MonthlyTaskPage() {
 
             {item.output && (
               <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                📦 {item.output}
+                {item.output}
               </div>
             )}
           </Card>

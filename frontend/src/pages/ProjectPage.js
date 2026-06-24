@@ -286,12 +286,12 @@ function ProjectPage() {
                     >
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span className="subtle-text" style={{ fontSize: 11 }}>👤 {item.owner_name}</span>
+                        <span className="subtle-text" style={{ fontSize: 11 }}>{item.owner_name}</span>
                         {item.priority && item.priority !== '中' && <Tag color={item.priority === '高' ? 'red' : 'default'} style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>{item.priority}</Tag>}
                       </div>
                       <Progress percent={item.progress_pct} strokeColor={getProgressColor(item.progress_pct)} size="small" style={{ marginBottom: 4 }} />
                       {/* 闭环字段 */}
-                      {(item.next_action || item.block_reason) && <div style={{ fontSize: 11, color: '#3B5AFB', marginTop: 4 }}>➡️ {item.next_action || item.block_reason}</div>}
+                      {(item.next_action || item.block_reason) && <div style={{ fontSize: 11, color: '#3B5AFB', marginTop: 4 }}>➡{item.next_action || item.block_reason}</div>}
                       {item.decision_needed && <Tag color="orange" style={{ fontSize: 10, margin: 0, marginTop: 4 }}>需决策</Tag>}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
                         <Tooltip title="查看"><EyeOutlined style={{ cursor: 'pointer', color: '#8C8C8C' }} onClick={() => showDetail(item)} /></Tooltip>
@@ -348,14 +348,14 @@ function ProjectPage() {
                   <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {item.type === '下周重点' && <Tag color="purple" style={{ fontSize: 11 }}>⚡ 下周</Tag>}
+                  {item.type === '下周重点' && <Tag color="purple" style={{ fontSize: 11 }}>下周</Tag>}
                   <Tag color={sc.tag}>{item.status}</Tag>
                 </div>
               </div>
 
               {/* 负责人 + 截止 — 2个核心信息 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, fontSize: 13 }}>
-                <span className="subtle-text">👤 {item.owner_name || '-'}</span>
+                <span className="subtle-text">{item.owner_name || '-'}</span>
                 {item.due_date && (
                   <span className="subtle-text" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                     截止 {item.due_date}
@@ -371,8 +371,8 @@ function ProjectPage() {
               {/* V4 闭环字段：优先级 + 需决策 */}
               {(item.priority !== '中' || item.decision_needed) && (
                 <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                  {item.priority && item.priority !== '中' && <Tag color={item.priority === '高' ? 'red' : 'default'} style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>🔥 {item.priority}优先</Tag>}
-                  {item.decision_needed && <Tag color="orange" style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>⚡ 需决策</Tag>}
+                  {item.priority && item.priority !== '中' && <Tag color={item.priority === '高' ? 'red' : 'default'} style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>{item.priority}优先</Tag>}
+                  {item.decision_needed && <Tag color="orange" style={{ fontSize: 11, lineHeight: '16px', padding: '0 6px', margin: 0 }}>需决策</Tag>}
                 </div>
               )}
 
@@ -412,7 +412,7 @@ function ProjectPage() {
                     onClick={() => isDeptManager && openTodayUpdate(item)}
                     style={{ background: '#F5F7FB', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#6B7280', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', cursor: isDeptManager ? 'pointer' : 'default' }}
                   >
-                    📝 {item.weekly_progress}
+                    {item.weekly_progress}
                   </div>
                 </Tooltip>
               )}
@@ -425,21 +425,21 @@ function ProjectPage() {
               {/* 下周重点工作摘要 */}
               {item.next_week_focus && (
                 <div style={{ background: '#F0F4FF', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#3B5AFB', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  📋 {item.next_week_focus}
+                  {item.next_week_focus}
                 </div>
               )}
 
               {/* 目标 — 一行概括 */}
               {item.goal && (
                 <div className="subtle-text" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  🎯 {item.goal}
+                  {item.goal}
                 </div>
               )}
 
               {/* V4 闭环字段：下一步动作/待解决 */}
               {(item.next_action || item.block_reason) && (
                 <div style={{ background: '#EFF6FF', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: '#3B5AFB', marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  ➡️ {item.next_action || item.block_reason}
+                  ➡{item.next_action || item.block_reason}
                 </div>
               )}
 
@@ -448,21 +448,21 @@ function ProjectPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {item.updated_at && (
                     <span className="subtle-text" style={{ fontSize: 11 }}>
-                      🕐 {moment(item.updated_at).fromNow()}
+                      {moment(item.updated_at).fromNow()}
                     </span>
                   )}
                   {/* 长期未更新提醒 — 替代纯"7天内到期"逻辑 */}
                   {item.updated_at && (() => {
                     const daysSince = moment().diff(moment(item.updated_at), 'days');
-                    if (daysSince >= 14 && item.status !== '完成') return <Tag color="error" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>🚨 {daysSince}天未更新</Tag>;
-                    if (daysSince >= 10 && item.status !== '完成') return <Tag color="orange" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>⚠ {daysSince}天未更新</Tag>;
-                    if (daysSince >= 7 && item.status !== '完成') return <Tag color="default" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>💤 {daysSince}天未更新</Tag>;
+                    if (daysSince >= 14 && item.status !== '完成') return <Tag color="error" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{daysSince}天未更新</Tag>;
+                    if (daysSince >= 10 && item.status !== '完成') return <Tag color="orange" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{daysSince}天未更新</Tag>;
+                    if (daysSince >= 7 && item.status !== '完成') return <Tag color="default" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{daysSince}天未更新</Tag>;
                     return null;
                   })()}
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {item.is_risk && <Tag color="error" style={{ margin: 0, fontSize: 11 }}><WarningOutlined /> 风险</Tag>}
-                  {item.is_due_soon && !item.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>⏰ 临期</Tag>}
+                  {item.is_due_soon && !item.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>临期</Tag>}
                 </div>
               </div>
             </Card>
@@ -475,7 +475,7 @@ function ProjectPage() {
   // ===== 表格视图 =====
   const columns = [
     { title: '部门', dataIndex: ['Department', 'name'], key: 'dept', width: 90 },
-    { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (t) => t === '下周重点' ? <Tag color="purple">⚡ 下周</Tag> : t },
+    { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (t) => t === '下周重点' ? <Tag color="purple">下周</Tag> : t },
     { title: '项目名称', dataIndex: 'name', key: 'name', width: 180 },
     { title: '负责人', dataIndex: 'owner_name', key: 'owner', width: 80 },
     { title: '进度', dataIndex: 'progress_pct', key: 'progress', width: 140, render: (pct) => <Progress percent={pct} strokeColor={getProgressColor(pct)} size="small" /> },
@@ -679,9 +679,9 @@ function ProjectPage() {
                       </Descriptions.Item>
                       <Descriptions.Item label="状态标记" span={1}>
                         <span>
-                          {detailRecord.is_risk && <Tag color="error" style={{ marginRight: 4 }}>🔴 风险</Tag>}
-                          {detailRecord.is_due_soon && <Tag color="warning" style={{ marginRight: 4 }}>⏰ 临期</Tag>}
-                          {detailRecord.severe_warning && <Tag color="error">⚠ 严重预警</Tag>}
+                          {detailRecord.is_risk && <Tag color="error" style={{ marginRight: 4 }}>风险</Tag>}
+                          {detailRecord.is_due_soon && <Tag color="warning" style={{ marginRight: 4 }}>临期</Tag>}
+                          {detailRecord.severe_warning && <Tag color="error">严重预警</Tag>}
                           {!detailRecord.is_risk && !detailRecord.is_due_soon && !detailRecord.severe_warning && <Tag>正常</Tag>}
                         </span>
                       </Descriptions.Item>
@@ -812,7 +812,7 @@ function ProjectPage() {
               <Option value="渠道合作">渠道合作</Option>
               <Option value="产品迭代">产品迭代</Option>
               <Option value="运营优化">运营优化</Option>
-              <Option value="下周重点">⚡ 下周重点</Option>
+              <Option value="下周重点">下周重点</Option>
               <Option value="其他">其他</Option>
             </Select>
           </Form.Item>
@@ -859,7 +859,7 @@ function ProjectPage() {
             <Col span={8}>
               <Form.Item name="priority" label="优先级" initialValue="中">
                 <Select>
-                  <Option value="高">🔥 高</Option>
+                  <Option value="高">高</Option>
                   <Option value="中">中</Option>
                   <Option value="低">低</Option>
                 </Select>
@@ -917,7 +917,7 @@ function ProjectPage() {
             <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Tag color={getStatusStyle(todayUpdateItem.status).tag}>{todayUpdateItem.status}</Tag>
               <Tag>{todayUpdateItem.Department?.name}</Tag>
-              <span className="subtle-text">👤 {todayUpdateItem.owner_name}</span>
+              <span className="subtle-text">{todayUpdateItem.owner_name}</span>
               {todayUpdateItem.due_date && (
                 <span className="subtle-text" style={{ fontSize: 12 }}>截止 {todayUpdateItem.due_date}</span>
               )}
@@ -931,7 +931,7 @@ function ProjectPage() {
             {/* 本周进展（只读） */}
             {todayUpdateItem.weekly_progress && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#334155' }}>📝 本周进展</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#334155' }}>本周进展</div>
                 <div style={{ background: '#F5F7FB', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto' }}>
                   {todayUpdateItem.weekly_progress}
                 </div>
@@ -941,7 +941,7 @@ function ProjectPage() {
             {/* 风险与问题（只读） */}
             {todayUpdateItem.risk_desc && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#DC2626' }}>⚠️ 风险与问题</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#DC2626' }}>风险与问题</div>
                 <div style={{ background: '#FEF2F2', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#991B1B', whiteSpace: 'pre-wrap' }}>
                   {todayUpdateItem.risk_desc}
                 </div>
@@ -951,7 +951,7 @@ function ProjectPage() {
             {/* 下周重点工作（只读） */}
             {todayUpdateItem.next_week_focus && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>📋 下周重点工作</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>下周重点工作</div>
                 <div style={{ background: '#F0F4FF', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#1E40AF', whiteSpace: 'pre-wrap' }}>
                   {todayUpdateItem.next_week_focus}
                 </div>
@@ -961,7 +961,7 @@ function ProjectPage() {
             {/* 下一步/待解决（只读） */}
             {(todayUpdateItem.next_action || todayUpdateItem.block_reason) && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>➡️ 下一步/待解决</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#3B5AFB' }}>➡下一步/待解决</div>
                 <div style={{ background: '#EFF6FF', padding: '10px 12px', borderRadius: 8, fontSize: 13, color: '#1E40AF', whiteSpace: 'pre-wrap' }}>
                   {todayUpdateItem.next_action || todayUpdateItem.block_reason}
                 </div>
@@ -1010,7 +1010,7 @@ function ProjectPage() {
             {/* 工作目标（只读参考） */}
             {todayUpdateItem.goal && (
               <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 12 }}>
-                <span style={{ fontWeight: 600, color: '#334155' }}>🎯 工作目标：</span>
+                <span style={{ fontWeight: 600, color: '#334155' }}>工作目标：</span>
                 <span style={{ color: '#6B7280' }}>{todayUpdateItem.goal}</span>
               </div>
             )}
@@ -1034,7 +1034,7 @@ function ProjectPage() {
             </div>
             {log.progress_content && (
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>📝 进展</div>
+                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>进展</div>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{log.progress_content}</div>
               </div>
             )}
@@ -1047,7 +1047,7 @@ function ProjectPage() {
               <div style={{ marginTop: 8, fontSize: 12, color: '#DC2626', whiteSpace: 'pre-wrap' }}>{log.risk_desc}</div>
             )}
             {log.next_action && (
-              <div style={{ marginTop: 8, fontSize: 12, color: '#3B5AFB' }}>➡️ 下一步：{log.next_action}</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#3B5AFB' }}>➡下一步：{log.next_action}</div>
             )}
           </div>
         ))}

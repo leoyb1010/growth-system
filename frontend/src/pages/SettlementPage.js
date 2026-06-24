@@ -20,12 +20,12 @@ function SettlementPage() {
         items={[
           {
             key: 'monthly',
-            label: '📅 月度工作',
+            label: '月度工作',
             children: <MonthlyTaskPage />,
           },
           {
             key: 'achievement',
-            label: '🏆 季度成果',
+            label: '季度成果',
             children: <AchievementPage />,
           },
         ]}

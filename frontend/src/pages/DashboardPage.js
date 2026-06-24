@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Row, Col, Card, Table, Tag, Button, message, Progress, Segmented, Drawer, Input, Badge, Spin, Empty, Tooltip } from 'antd';
-import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, RocketOutlined, CheckCircleOutlined, FlagOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { WarningOutlined, FileTextOutlined, FundOutlined, RiseOutlined, DollarOutlined, TeamOutlined, ClockCircleOutlined, AlertOutlined, ExclamationCircleOutlined, EditOutlined, ThunderboltOutlined, RocketOutlined, CheckCircleOutlined, FlagOutlined, UserOutlined, RobotOutlined, ProfileOutlined, StarOutlined, BarChartOutlined, CalendarOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { api, useAuth } from '../hooks/useAuth';
@@ -361,14 +361,14 @@ function DashboardPage() {
                 const myProjects = (data.recent_projects || []).filter(p => p.owner_name === user?.name);
                 const todos = [];
                 // 风险
-                myProjects.filter(p => p.is_risk).forEach(p => todos.push({ text: `🔴 ${p.name}`, type: 'risk' }));
+                myProjects.filter(p => p.is_risk).forEach(p => todos.push({ text: `${p.name}`, type: 'risk' }));
                 // 临期
-                myProjects.filter(p => p.is_due_soon && !p.is_risk).forEach(p => todos.push({ text: `⏰ ${p.name} 即将到期`, type: 'due' }));
+                myProjects.filter(p => p.is_due_soon && !p.is_risk).forEach(p => todos.push({ text: `${p.name} 即将到期`, type: 'due' }));
                 // 待更新
                 const staleItems = staleProjects.filter(p => p.owner_name === user?.name);
-                staleItems.forEach(p => todos.push({ text: `💤 ${p.name} ${p.days_since_update}天未更新`, type: 'stale' }));
+                staleItems.forEach(p => todos.push({ text: `${p.name} ${p.days_since_update}天未更新`, type: 'stale' }));
                 if (todos.length === 0) {
-                  return <Empty description="暂无待办 ✌️" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+                  return <Empty description="暂无待办 " image={Empty.PRESENTED_IMAGE_SIMPLE} />;
                 }
                 return todos.map((t, idx) => (
                   <div key={idx} style={{ padding: '8px 12px', marginBottom: 6, background: t.type === 'risk' ? '#FEF2F2' : t.type === 'due' ? '#FFFBEB' : '#F9FAFB', borderRadius: 6, fontSize: 13 }}>
@@ -386,10 +386,10 @@ function DashboardPage() {
             <PanelCard title="快捷入口" subtitle="常用功能快速到达">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
                 {[
-                  { label: '项目推进', icon: '🚀', path: '/projects', color: '#7C3AED' },
-                  { label: '月度任务', icon: '📋', path: '/monthly-tasks', color: '#0891B2' },
-                  { label: '季度成果', icon: '⭐', path: '/achievements', color: '#16A34A' },
-                  { label: '周报复盘', icon: '📊', path: '/weekly-reports', color: '#3B5AFB' },
+                  { label: '项目推进', icon: <RocketOutlined />, path: '/projects', color: '#7C3AED' },
+                  { label: '月度任务', icon: <ProfileOutlined />, path: '/monthly-tasks', color: '#0891B2' },
+                  { label: '季度成果', icon: <StarOutlined />, path: '/achievements', color: '#16A34A' },
+                  { label: '周报复盘', icon: <BarChartOutlined />, path: '/weekly-reports', color: '#3B5AFB' },
                 ].map(item => (
                   <Card key={item.label} className="surface-card hover-lift" bodyStyle={{ padding: 16, cursor: 'pointer', textAlign: 'center' }} onClick={() => navigate(item.path)}>
                     <div style={{ fontSize: 28, marginBottom: 6 }}>{item.icon}</div>
@@ -434,16 +434,16 @@ function DashboardPage() {
           {/* 待更新项目 */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              ⚠️ 待更新项目
+              待更新项目
             </div>
             {(() => {
               const myStale = todayStale.filter(p => p.owner_name === user?.name);
-              if (myStale.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>所有项目均近期更新 ✌️</div>;
+              if (myStale.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>所有项目均近期更新 </div>;
               return myStale.map(p => {
                 const sl = getStaleLevel(p.days_since_update);
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: sl.bg, borderRadius: 8 }}>
-                    <span style={{ fontSize: 14 }}>💤</span>
+                    <span style={{ fontSize: 14 }}></span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
                     </div>
@@ -457,11 +457,11 @@ function DashboardPage() {
 
           {/* 快捷入口 */}
           <div style={{ background: '#F0F4FF', borderRadius: 10, padding: 16 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 8 }}>📌 快捷入口</div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 8 }}>快捷入口</div>
             <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 2 }}>
-              <div>📝 <strong>项目推进</strong>：维护项目进度、状态、风险 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/projects'); }}>前往 →</Button></div>
-              <div>📋 <strong>月度任务</strong>：更新月度工作进展 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/monthly-tasks'); }}>前往 →</Button></div>
-              <div>⭐ <strong>季度成果</strong>：录入和更新成果 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/achievements'); }}>前往 →</Button></div>
+              <div><strong>项目推进</strong>：维护项目进度、状态、风险 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/projects'); }}>前往 →</Button></div>
+              <div><strong>月度任务</strong>：更新月度工作进展 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/monthly-tasks'); }}>前往 →</Button></div>
+              <div><strong>季度成果</strong>：录入和更新成果 — <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/achievements'); }}>前往 →</Button></div>
             </div>
           </div>
         </Drawer>
@@ -643,13 +643,13 @@ function DashboardPage() {
                   </div>
                 );
               }
-              const iconMap = { due_today: '🔴', due_soon: '⏰', risk: '⚠️', stale: '💤', deviation: '📉' };
+              const iconMap = { due_today: '', due_soon: '', risk: '', stale: '', deviation: '' };
               const bgMap = { due_today: '#FEF2F2', due_soon: '#FFFBEB', risk: '#FEF2F2', stale: '#F9FAFB', deviation: '#F5F3FF' };
               return (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {reminders.map((r, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: bgMap[r.type] || '#F9FAFB', borderRadius: 8, fontSize: 13 }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[r.type] || '📌'}</span>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[r.type] || ''}</span>
                       <span style={{ color: '#111827', fontWeight: 500 }}>{r.text}</span>
                       <Tag color={r.type === 'risk' || r.type === 'due_today' ? 'error' : r.type === 'due_soon' ? 'warning' : 'default'} style={{ flexShrink: 0, margin: 0 }}>{r.count}</Tag>
                     </div>
@@ -670,7 +670,7 @@ function DashboardPage() {
       {(() => {
         const deviatingDepts = (data.kpi_cards?.dept_cards || []).filter(d => d.gmv_status === 'error');
         if (deviatingDepts.length === 0 && primaryKpiCards.every(c => c.status !== 'error')) {
-          return <div style={{ marginBottom: 16, padding: '10px 16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: 13, color: '#166534' }}>✅ 各项指标均正常，无显著偏差</div>;
+          return <div style={{ marginBottom: 16, padding: '10px 16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: 13, color: '#166534' }}>各项指标均正常，无显著偏差</div>;
         }
         return (
           <Row gutter={[12, 8]} style={{ marginBottom: 16 }}>
@@ -704,7 +704,7 @@ function DashboardPage() {
               return focusProjects.map(p => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: p.status === '风险' ? '#FEF2F2' : '#F9FAFB', borderRadius: 8 }}>
                   {p.status === '风险' && <Tag color="error" style={{ margin: 0, fontSize: 11 }}>风险</Tag>}
-                  {p.priority === '高' && p.status !== '风险' && <Tag color="red" style={{ margin: 0, fontSize: 11 }}>🔥 高优先</Tag>}
+                  {p.priority === '高' && p.status !== '风险' && <Tag color="red" style={{ margin: 0, fontSize: 11 }}>高优先</Tag>}
                   {p.is_due_soon && !p.is_risk && <Tag color="warning" style={{ margin: 0, fontSize: 11 }}>临期</Tag>}
                   {p.progress_status === 'behind' && p.status !== '风险' && !p.is_due_soon && <Tag color="default" style={{ margin: 0, fontSize: 11 }}>落后</Tag>}
                   <span style={{ flex: 1, fontSize: 13, color: '#111827', fontWeight: 500 }}>{p.name}</span>
@@ -722,13 +722,13 @@ function DashboardPage() {
             extra={<Button type="link" size="small" onClick={openTodayDrawer}>今日更新 →</Button>}
           >
             {staleProjects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目近期均有更新 ✌️</div>
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目近期均有更新 </div>
             ) : (
               staleProjects.slice(0, 6).map(p => {
                 const sl = getStaleLevel(p.days_since_update);
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: sl.bg, borderRadius: 8 }}>
-                    <span style={{ fontSize: 14 }}>💤</span>
+                    <span style={{ fontSize: 14 }}></span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
                       <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name}</div>
@@ -758,10 +758,10 @@ function DashboardPage() {
           <PanelCard title="快捷操作" subtitle="日常管理常用入口">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
-                { label: '今日更新', icon: '📋', desc: '查看变更与待办', action: openTodayDrawer, color: '#3B5AFB' },
-                { label: '项目推进', icon: '🚀', desc: '维护项目数据（唯一入口）', path: '/projects', color: '#7C3AED' },
-                { label: '本周管理', icon: '📅', desc: '过程管理（自动汇总）', path: '/week', color: '#0891B2' },
-                { label: '周报与复盘', icon: '📊', desc: '结果输出（自动生成）', path: '/weekly-reports', color: '#16A34A' },
+                { label: '今日更新', icon: <ClockCircleOutlined />, desc: '查看变更与待办', action: openTodayDrawer, color: '#3B5AFB' },
+                { label: '项目推进', icon: <RocketOutlined />, desc: '维护项目数据（唯一入口）', path: '/projects', color: '#7C3AED' },
+                { label: '本周管理', icon: <CalendarOutlined />, desc: '过程管理（自动汇总）', path: '/week', color: '#0891B2' },
+                { label: '周报与复盘', icon: <BarChartOutlined />, desc: '结果输出（自动生成）', path: '/weekly-reports', color: '#16A34A' },
               ].map(item => (
                 <Card key={item.label} className="surface-card hover-lift" bodyStyle={{ padding: 16, cursor: 'pointer' }} onClick={() => item.action ? item.action() : navigate(item.path)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -812,7 +812,7 @@ function DashboardPage() {
         {/* 今日变更流 */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            📝 今日变更
+            今日变更
             {todayChanges.length > 0 && <Badge count={todayChanges.length} style={{ backgroundColor: '#3B5AFB' }} />}
           </div>
           {todayChanges.length === 0 ? (
@@ -830,17 +830,17 @@ function DashboardPage() {
         {/* 待更新项目 */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            ⚠️ 待更新项目
+            待更新项目
             {todayStale.length > 0 && <Badge count={todayStale.length} style={{ backgroundColor: '#F59E0B' }} />}
           </div>
           {todayStale.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>所有项目均近期更新 ✌️</div>
+            <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF', background: '#F9FAFB', borderRadius: 10 }}>所有项目均近期更新 </div>
           ) : (
             todayStale.map(p => {
               const sl = getStaleLevel(p.days_since_update);
               return (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 8, background: sl.bg, borderRadius: 8 }}>
-                  <span style={{ fontSize: 14 }}>💤</span>
+                  <span style={{ fontSize: 14 }}></span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
                     <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name}</div>
@@ -859,15 +859,15 @@ function DashboardPage() {
 
         {/* 快捷录入入口 */}
         <div style={{ background: '#F0F4FF', borderRadius: 10, padding: 16 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 8 }}>📌 快捷录入</div>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#3B5AFB', marginBottom: 8 }}>快捷录入</div>
           <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 2 }}>
-            <div>📝 <strong>项目推进</strong>：维护项目进度、状态、风险（唯一填写入口） — 
+            <div><strong>项目推进</strong>：维护项目进度、状态、风险（唯一填写入口） — 
               <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/projects'); }}>前往 →</Button>
             </div>
-            <div>📋 <strong>本周管理</strong>：查看本周重点与风险汇总（自动生成） — 
+            <div><strong>本周管理</strong>：查看本周重点与风险汇总（自动生成） — 
               <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/week'); }}>前往 →</Button>
             </div>
-            <div>📊 <strong>周报与复盘</strong>：输出本周总结（自动生成，可补充管理评语） — 
+            <div><strong>周报与复盘</strong>：输出本周总结（自动生成，可补充管理评语） — 
               <Button type="link" size="small" onClick={() => { setTodayDrawerVisible(false); navigate('/weekly-reports'); }}>前往 →</Button>
             </div>
           </div>

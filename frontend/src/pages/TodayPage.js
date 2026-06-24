@@ -176,13 +176,13 @@ function TodayPage() {
             style={{ marginBottom: 16 }}
           >
             {staleProjects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目均近期更新 ✌️</div>
+              <div style={{ textAlign: 'center', padding: 24, color: '#9CA3AF' }}>所有项目均近期更新 </div>
             ) : (
               staleProjects.map(p => {
                 const sl = getStaleLevel(p.days_since_update);
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: sl.bg, borderRadius: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 14 }}>💤</span>
+                    <span style={{ fontSize: 14 }}></span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{p.name}</div>
                       <div className="subtle-text" style={{ fontSize: 11 }}>{p.Department?.name} · {p.owner_name}</div>
@@ -204,13 +204,13 @@ function TodayPage() {
           {/* 快捷操作提示 */}
           <PanelCard title={<span><FormOutlined style={{ color: '#3B5AFB', marginRight: 8 }} />快捷操作</span>}>
             <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 2 }}>
-              <div>📌 <strong>今日更新</strong>：查看变更、到期、待更新提醒</div>
-              <div>📝 <strong>项目推进</strong>：维护项目进度、状态、风险（唯一填写入口）</div>
-              <div>📋 <strong>本周管理</strong>：查看本周重点与风险汇总（自动生成）</div>
-              <div>📊 <strong>周报与复盘</strong>：输出本周总结（自动生成，可补充管理评语）</div>
+              <div><strong>今日更新</strong>：查看变更、到期、待更新提醒</div>
+              <div><strong>项目推进</strong>：维护项目进度、状态、风险（唯一填写入口）</div>
+              <div><strong>本周管理</strong>：查看本周重点与风险汇总（自动生成）</div>
+              <div><strong>周报与复盘</strong>：输出本周总结（自动生成，可补充管理评语）</div>
             </div>
             <div style={{ marginTop: 12, padding: '8px 12px', background: '#F0F4FF', borderRadius: 8, fontSize: 12, color: '#3B5AFB' }}>
-              💡 标注"自动生成"的内容来源于项目推进页的维护数据，无需重复填写
+              标注"自动生成"的内容来源于项目推进页的维护数据，无需重复填写
             </div>
           </PanelCard>
         </Col>

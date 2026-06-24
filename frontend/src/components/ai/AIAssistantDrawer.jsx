@@ -61,7 +61,7 @@ function AIActionCard({ action, onExecute }) {
         borderRadius: 8,
         border: '1px solid rgba(59, 90, 251, 0.1)',
       }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[action.key] || '⚡'}</span>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>{iconMap[action.key] || ''}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{action.label}</div>
           {action.desc && <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{action.desc}</div>}

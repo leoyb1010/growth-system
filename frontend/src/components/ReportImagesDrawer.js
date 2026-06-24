@@ -16,7 +16,7 @@ export default function ReportImagesDrawer({ open, onClose, reportId, projects =
   const [uploading, setUploading] = useState(false);
 
   const projectOptions = useMemo(() => {
-    const opts = [{ label: '📌 整报封面 / 通用图', value: 'cover' }];
+    const opts = [{ label: '整报封面 / 通用图', value: 'cover' }];
     (projects || []).forEach((p) => {
       if (p && p.id != null) {
         opts.push({ label: `${p.dept_name ? p.dept_name + ' · ' : ''}${p.name || '未命名项目'}`, value: String(p.id) });

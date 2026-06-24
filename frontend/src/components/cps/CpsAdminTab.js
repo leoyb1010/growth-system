@@ -98,7 +98,7 @@ function CpsAdminTab() {
         { title: '指标', dataIndex: 'metric', width: 110, render: v => METRIC_LABELS[v] || v },
         { title: '条件', key: 'cond', width: 100, render: (_, r) => `${r.operator} ${fmtThreshold(r.metric, r.threshold_value)}` },
         { title: '级别', dataIndex: 'level', width: 80, render: v => <Tag color={v==='critical'?'red':'orange'}>{v}</Tag> },
-        { title: '启用', dataIndex: 'enabled', width: 60, render: v => v ? '✅' : '⛔' },
+        { title: '启用', dataIndex: 'enabled', width: 60, render: v => v ? '' : '⛔' },
         { title: '操作', key: 'actions', width: 120, render: (_, r) => (
           <Space size="small">
             <Button size="small" icon={<EditOutlined />} onClick={() => { setEditRule(r); ruleForm.setFieldsValue(r); setRuleModal(true); }} />

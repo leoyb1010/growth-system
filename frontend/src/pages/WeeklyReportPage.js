@@ -401,7 +401,7 @@ function WeeklyReportPage() {
     if (!auto && !manual) return '';
     if (!manual) return auto;
     if (!auto) return manual;
-    return auto + '\n\n✍️ ' + manual;
+    return auto + '\n\n✍' + manual;
   };
 
   const renderStatus = (status) => (
@@ -618,7 +618,7 @@ function WeeklyReportPage() {
       md += `\n`;
     }
     if (!riskProjects.length && !(risk_and_warnings?.severe_warnings?.length)) {
-      md += `✅ 本周无风险项目或严重预警指标\n\n`;
+      md += `本周无风险项目或严重预警指标\n\n`;
     }
     md += `## 四、下周重点工作\n\n`;
     const visibleKeyWork = keyWorkItems.filter(p => !p._hidden);
@@ -667,7 +667,7 @@ td.text-cell { white-space: pre-wrap; }
 </style></head><body>`;
     html += `<h1>增长组业务周报</h1><p><strong>周期</strong>：${content.week_start} 至 ${content.week_end}</p>`;
     if (conclusion) {
-      html += `<div class="conclusion-box"><strong>📋 本周结论</strong><br/>${textToHtml(conclusion)}</div>`;
+      html += `<div class="conclusion-box"><strong>本周结论</strong><br/>${textToHtml(conclusion)}</div>`;
     }
     html += `<h2>一、本周数据摘要</h2>`;
     if (kpi_summary?.length) {
@@ -753,7 +753,7 @@ td.text-cell { white-space: pre-wrap; }
       html += `</tbody></table>`;
     }
     if (!riskProjects.length && !severeWarnings.length) {
-      html += `<p style="color:#16A34A">✅ 本周无风险项目或严重预警指标</p>`;
+      html += `<p style="color:#16A34A">本周无风险项目或严重预警指标</p>`;
     }
 
     html += `<h2>四、下周重点工作</h2>`;
@@ -1538,7 +1538,7 @@ td.text-cell { white-space: pre-wrap; }
       <div ref={!compact && !editing ? reportRef : undefined} className="weekly-report">
         <h1 style={{ fontSize: compact ? 18 : 22, borderBottom: `2px solid #3B5AFB`, paddingBottom: 8, color: '#111827' }}>增长组业务周报</h1>
         <div style={{ fontSize, color: '#6B7280', marginBottom: 20 }}>
-          📅 {data.week_start} 至 {data.week_end}
+          {data.week_start} 至 {data.week_end}
           {editing && <Tag color="orange" style={{ marginLeft: 8 }}>编辑中</Tag>}
         </div>
 
@@ -1676,9 +1676,9 @@ td.text-cell { white-space: pre-wrap; }
             }}>
               {week_attention.map((p, idx) => {
                 const reasons = [];
-                if (p.priority === '高') reasons.push('🔥高优先');
-                if (p.decision_needed) reasons.push('📋需决策');
-                if (p.status === '风险') reasons.push('🔴风险');
+                if (p.priority === '高') reasons.push('高优先');
+                if (p.decision_needed) reasons.push('需决策');
+                if (p.status === '风险') reasons.push('风险');
                 const isRisk = p.status === '风险';
                 const progressColor = p.progress_pct >= 80 ? '#16A34A' : p.progress_pct >= 50 ? '#F59E0B' : '#DC2626';
                 return (
@@ -1721,7 +1721,7 @@ td.text-cell { white-space: pre-wrap; }
           {editing && project_progress.some(p => p._hidden) && (
             <div style={{ marginTop: 12, padding: '10px 14px', background: '#F9FAFB', borderRadius: 8, border: '1px dashed #D1D5DB' }}>
               <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: 600 }}>
-                👁️ 已隐藏项目（点击眼睛恢复显示）
+                已隐藏项目（点击眼睛恢复显示）
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {project_progress.map((p, idx) => p._hidden ? (
@@ -1836,7 +1836,7 @@ td.text-cell { white-space: pre-wrap; }
             </>
           )}
           {riskProjects.length === 0 && severeWarnings.length === 0 && (
-            <p style={{ color: '#16A34A' }}>✅ 本周无风险项目或严重预警指标</p>
+            <p style={{ color: '#16A34A' }}>本周无风险项目或严重预警指标</p>
           )}
         </div>
 
@@ -1852,7 +1852,7 @@ td.text-cell { white-space: pre-wrap; }
           {editing && keyWorkItems.some(p => p._hidden) && (
             <div style={{ marginTop: 12, padding: '10px 14px', background: '#F9FAFB', borderRadius: 8, border: '1px dashed #D1D5DB' }}>
               <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, fontWeight: 600 }}>
-                👁️ 已隐藏项目（点击恢复显示）
+                已隐藏项目（点击恢复显示）
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {keyWorkItems.map((p, idx) => p._hidden ? (
@@ -1935,7 +1935,7 @@ td.text-cell { white-space: pre-wrap; }
         </div>
 
         <div className="footer" style={{ marginTop: 20, borderTop: '1px solid #E5E7EB', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#9CA3AF', fontSize: 12 }}>🤖 本周报基础数据由系统自动汇总生成于 {data.generated_at}</span>
+          <span style={{ color: '#9CA3AF', fontSize: 12 }}>本周报基础数据由系统自动汇总生成于 {data.generated_at}</span>
           <span style={{ color: '#3B5AFB', fontSize: 12 }}>
             {editing ? '编辑后请点击保存' : '点击编辑按钮补充结论和复盘'}
           </span>

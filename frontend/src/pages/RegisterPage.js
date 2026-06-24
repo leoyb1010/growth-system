@@ -47,7 +47,7 @@ function RegisterPage() {
               border: '1px solid rgba(59, 90, 251, 0.3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 24px', fontSize: 24, color: '#3B5AFB',
-            }}>⚡</div>
+            }}></div>
             <h1 style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
               增长业务管理系统
             </h1>

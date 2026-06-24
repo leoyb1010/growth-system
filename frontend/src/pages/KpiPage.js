@@ -513,7 +513,7 @@ function KpiPage() {
                 size={160}
               />
               <div style={{ marginTop: 12, fontSize: 16, fontWeight: 600, color: getCompletionColor(detailRecord.completion_rate, detailRecord.time_progress) }}>
-                {detailRecord.progress_label === '超前' ? '✓ 超前于时间进度' : detailRecord.progress_label === '正常' ? '⚡ 与时间进度持平' : '⚠ 落后于时间进度'}
+                {detailRecord.progress_label === '超前' ? '✓ 超前于时间进度' : detailRecord.progress_label === '正常' ? '与时间进度持平' : '落后于时间进度'}
               </div>
             </div>
             <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, background: '#fafafa', width: 100 }}>

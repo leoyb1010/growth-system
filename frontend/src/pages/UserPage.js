@@ -348,7 +348,7 @@ function UserPage() {
         onCancel={() => { setResetPwdModalVisible(false); setResetPwdUser(null); }}
       >
         <div style={{ marginBottom: 16, padding: '8px 12px', background: '#fff7e6', borderRadius: 6, fontSize: 13, color: '#ad6800' }}>
-          ⚠️ 管理员重置密码操作将被审计日志记录。重置后请通知用户尽快修改密码。
+          管理员重置密码操作将被审计日志记录。重置后请通知用户尽快修改密码。
         </div>
         <Form form={resetPwdForm} onFinish={handleResetPassword} layout="vertical">
           <Form.Item name="new_password" label="新密码" rules={[

@@ -89,7 +89,7 @@ function NextWeekFocusPage() {
         <div>
           <h2 style={{ margin: 0 }}>下周重点工作</h2>
           <div style={{ color: '#8c8c8c', fontSize: 13, marginTop: 4 }}>
-            📅 下周：{nextWeek.start} ~ {nextWeek.end}
+            下周：{nextWeek.start} ~ {nextWeek.end}
           </div>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => {
@@ -133,8 +133,8 @@ function NextWeekFocusPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
-                  <span>📂 {item.Department?.name || '-'}</span>
-                  <span>👤 {item.owner_name || '-'}</span>
+                  <span>{item.Department?.name || '-'}</span>
+                  <span>{item.owner_name || '-'}</span>
                 </div>
 
                 {item.goal && (
@@ -145,7 +145,7 @@ function NextWeekFocusPage() {
 
                 {item.weekly_progress && (
                   <div style={{ background: '#f6f8fa', padding: '8px 12px', borderRadius: 8, fontSize: 13, color: '#595959', marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    💡 {item.weekly_progress}
+                    {item.weekly_progress}
                   </div>
                 )}
 
