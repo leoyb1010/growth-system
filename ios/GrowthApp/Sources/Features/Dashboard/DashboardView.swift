@@ -48,6 +48,13 @@ struct DashboardView: View {
             }
             .background(Theme.bgLayout)
             .navigationTitle(session.user?.isAdmin == true ? "经营驾驶舱" : "我的工作台")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: DashboardForecastView()) {
+                        Label("经营预测", systemImage: "chart.line.uptrend.xyaxis").font(.caption)
+                    }
+                }
+            }
             .refreshable { await vm.load() }
             .task { if vm.data == nil { await vm.load() } }
             .sheet(item: $detail) { DashDetailSheet(kind: $0, quarter: vm.data?.effective_quarter) }

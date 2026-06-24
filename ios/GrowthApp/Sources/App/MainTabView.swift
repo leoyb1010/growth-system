@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject var session: SessionManager
+    @StateObject private var reminderMgr = ReminderManager()
 
     init() {
         // TabBar 外观：毛玻璃 + 选中主色
@@ -29,6 +30,12 @@ struct MainTabView: View {
             // 全局悬浮 AI（覆盖在 Tab 之上）
             FloatingAIOverlay()
                 .allowsHitTesting(true)
+        }
+        .task { await reminderMgr.checkDaily() }
+        .sheet(isPresented: $reminderMgr.show) {
+            if let r = reminderMgr.reminders {
+                DailyReminderView(reminders: r, onClose: { reminderMgr.dismiss() })
+            }
         }
     }
 }

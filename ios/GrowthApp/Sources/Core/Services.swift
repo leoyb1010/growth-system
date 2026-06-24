@@ -25,6 +25,14 @@ enum API {
     static func badge() async throws -> BadgeSummary {
         try await APIClient.shared.request("/ai/badge-summary", as: BadgeSummary.self)
     }
+    /// 驾驶舱经营预测（自然季度 run-rate + 因子）
+    static func dashboardForecast(_ factors: DashFactors) async throws -> DashForecast {
+        try await APIClient.shared.request("/dashboard/forecast", method: "POST", body: DashForecastBody(factors: factors), as: DashForecast.self)
+    }
+    /// 每日提醒（按当前用户归属）
+    static func dailyReminders() async throws -> DailyReminders {
+        try await APIClient.shared.request("/me/daily-reminders", as: DailyReminders.self)
+    }
 
     // MARK: 指标 KPI / 业绩
     static func kpis() async throws -> [KpiItem] {
