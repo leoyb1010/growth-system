@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Segmented, Slider, Button, Spin, Empty, Tag, Tooltip, Collapse, message } from 'antd';
-import { InfoCircleOutlined, AimOutlined, ThunderboltOutlined, RiseOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Segmented, Slider, Spin, Empty, Tag, Tooltip, Collapse, message } from 'antd';
+import { InfoCircleOutlined, ThunderboltOutlined, RiseOutlined, ApartmentOutlined } from '@ant-design/icons';
 import { api } from '../hooks/useAuth';
 import PageHeader from '../components/ui/PageHeader';
 import PanelCard from '../components/ui/PanelCard';
@@ -21,7 +21,7 @@ function ConfBadge({ level }) {
   return <span style={{ fontSize: 11, fontWeight: 600, color: c.color, background: `${c.color}1A`, padding: '2px 8px', borderRadius: 6 }}>{c.label}</span>;
 }
 
-function HorizonRow({ h, unit }) {
+function HorizonChip({ h, unit }) {
   return (
     <div style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'var(--bg-muted)', borderRadius: 8 }}>
       <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{h.label}</div>
@@ -32,17 +32,46 @@ function HorizonRow({ h, unit }) {
   );
 }
 
+// 季度投影迷你柱图（实际/本季/预测）
+function QuarterBars({ proj, unit }) {
+  const max = Math.max(1, ...proj.map(p => Math.abs(p.value)));
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 86, marginTop: 4 }}>
+      {proj.map(p => {
+        const hgt = Math.max(3, (Math.abs(p.value) / max) * 56);
+        const color = p.is_actual ? COLORS.primary : p.is_current ? COLORS.warning : COLORS.muted;
+        return (
+          <div key={p.quarter} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 2 }}>{fmt(p.value)}</div>
+            <div style={{ height: hgt, background: color, opacity: p.is_actual ? 1 : 0.55, borderRadius: 4 }} />
+            <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 3 }}>{p.quarter}{p.is_actual ? '·实' : p.is_current ? '·本季' : ''}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function IndicatorCard({ ind }) {
   const b = ind.basis || {};
+  const att = b.attainment_pct;
   return (
     <Card size="small" style={{ marginBottom: 12 }} title={
-      <span>{ind.name} <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>{ind.unit}</span></span>
-    } extra={
-      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>本季实际 {fmt(b.current_actual)} / 目标 {fmt(b.current_target)} · 用增速 {b.applied_growth_pct}%</span>
-    }>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {ind.horizons.map(h => <HorizonRow key={h.key} h={h} unit={ind.unit} />)}
-      </div>
+      <span>{ind.name} <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>{ind.unit}</span>
+        {att != null && <Tag style={{ marginLeft: 8 }} color={att >= (b.time_progress_pct || 0) ? 'success' : 'warning'}>本季达成 {att}%</Tag>}
+      </span>
+    } extra={<span style={{ fontSize: 11, color: 'var(--text-3)' }}>实际 {fmt(b.current_actual)} / 目标 {fmt(b.current_target)} · 用增速 {b.applied_growth_pct}%</span>}>
+      <Row gutter={[12, 12]}>
+        <Col xs={24} lg={14}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {ind.horizons.map(h => <HorizonChip key={h.key} h={h} unit={ind.unit} />)}
+          </div>
+        </Col>
+        <Col xs={24} lg={10}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 2 }}>四季度投影</div>
+          {ind.quarter_projection && <QuarterBars proj={ind.quarter_projection} unit={ind.unit} />}
+        </Col>
+      </Row>
     </Card>
   );
 }
@@ -51,16 +80,11 @@ function ForecastPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scenario, setScenario] = useState('neutral');
-  const [growth, setGrowth] = useState(0);      // 季度环比增速 %（叠加在历史之上）
-  const [season, setSeason] = useState(100);    // 季节系数 %
-  const [event, setEvent] = useState(0);        // 事件加成 %
+  const [growth, setGrowth] = useState(0);
+  const [season, setSeason] = useState(100);
+  const [event, setEvent] = useState(0);
 
-  const buildFactors = useCallback(() => ({
-    scenario,
-    global_growth: growth,
-    season_factor: season / 100,
-    event_pct: event,
-  }), [scenario, growth, season, event]);
+  const buildFactors = useCallback(() => ({ scenario, global_growth: growth, season_factor: season / 100, event_pct: event }), [scenario, growth, season, event]);
 
   const fetchForecast = useCallback(async () => {
     setLoading(true);
@@ -74,19 +98,15 @@ function ForecastPage() {
     }
   }, [buildFactors]);
 
-  useEffect(() => {
-    const t = setTimeout(() => fetchForecast(), 350);
-    return () => clearTimeout(t);
-  }, [fetchForecast]);
+  useEffect(() => { const t = setTimeout(() => fetchForecast(), 350); return () => clearTimeout(t); }, [fetchForecast]);
 
   const primary = useMemo(() => (data?.indicators || []).filter(i => PRIMARY.includes(i.name)), [data]);
   const others = useMemo(() => (data?.indicators || []).filter(i => !PRIMARY.includes(i.name)), [data]);
 
   return (
     <div className="app-page">
-      <PageHeader title="经营预测" subtitle="自然季度口径（Q1–Q4）· 基于本季度流速 + 历史环比 + 可调因素" />
+      <PageHeader title="经营预测" subtitle="自然季度口径（Q1–Q4）· 本季度流速 + 历史环比 + 可调因素 · 结合各部门产值分组" />
 
-      {/* 影响因素面板 */}
       <Card size="small" style={{ marginBottom: 16, background: 'var(--bg-muted)' }}
         title={<span><ThunderboltOutlined style={{ color: COLORS.warning, marginRight: 6 }} />影响因素
           <Tooltip title="预测基准 = 本季度收官(实际流速与目标按时间进度加权) + 历史季度环比。下面的因素叠加在基准之上，实时重算。"><InfoCircleOutlined style={{ color: 'var(--text-3)', marginLeft: 6 }} /></Tooltip>
@@ -125,19 +145,38 @@ function ForecastPage() {
 
             {primary.map(ind => <IndicatorCard key={ind.name} ind={ind} />)}
 
-            {others.length > 0 && (
-              <Collapse ghost items={[{
-                key: 'others',
-                label: <span>其他指标预测 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{others.length}</span></span>,
-                children: others.map(ind => <IndicatorCard key={ind.name} ind={ind} />),
-              }]} />
+            {/* 各部门产值预测（分组） */}
+            {(data.dept_groups || []).length > 0 && (
+              <PanelCard title={<span><ApartmentOutlined style={{ color: COLORS.primary, marginRight: 6 }} />各部门产值预测</span>}
+                subtitle="各部门 KPI 即该组产值（项目滚动进部门 KPI）· 按本年度合计排序" style={{ marginBottom: 12 }}>
+                <Row gutter={[12, 12]}>
+                  {data.dept_groups.map(g => (
+                    <Col xs={24} sm={12} lg={8} key={g.dept_id}>
+                      <div className="surface-card-secondary" style={{ padding: 14, height: '100%' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--text-1)' }}>{g.dept_name}</div>
+                        {g.indicators.map(ind => (
+                          <div key={ind.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderTop: '1px dashed var(--border-soft)' }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{ind.name}</span>
+                            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{fmt(ind.full_year, ind.unit)}</span>
+                              <ConfBadge level={ind.confidence} />
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </Col>
+                  ))}
+                </Row>
+              </PanelCard>
             )}
 
-            {/* CPS 业务联动 */}
+            {others.length > 0 && (
+              <Collapse ghost items={[{ key: 'others', label: <span>其他指标预测 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{others.length}</span></span>, children: others.map(ind => <IndicatorCard key={ind.name} ind={ind} />) }]} />
+            )}
+
             {data.cps_linkage && (
               <PanelCard title={<span><RiseOutlined style={{ color: COLORS.success, marginRight: 6 }} />CPS 业务联动</span>}
-                subtitle={`有真实日流速(锚点 ${data.cps_linkage.as_of}) · 续费日均 ¥${fmt(data.cps_linkage.renewal_daily)}/新签日均 ¥${fmt(data.cps_linkage.newsign_daily)}`}
-                style={{ marginTop: 12 }}>
+                subtitle={`有真实日流速(锚点 ${data.cps_linkage.as_of}) · 续费日均 ¥${fmt(data.cps_linkage.renewal_daily)}/新签日均 ¥${fmt(data.cps_linkage.newsign_daily)}`} style={{ marginTop: 12 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {data.cps_linkage.horizons.map(h => (
                     <div key={h.key} style={{ flex: 1, minWidth: 130, padding: '8px 10px', background: 'var(--bg-muted)', borderRadius: 8 }}>
@@ -151,7 +190,7 @@ function ForecastPage() {
             )}
 
             <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-3)' }}>
-              * KPI 为季度快照口径：本季度已过 {data.quarter_time_progress_pct}%，置信较高；越靠后的季度越依赖外推与因素假设，请按"情景参考"看待。
+              * KPI 为季度快照口径：本季已过 {data.quarter_time_progress_pct}%，置信较高；越靠后的季度越依赖外推与因素假设，请按"情景参考"看待。
             </div>
           </>
         )}

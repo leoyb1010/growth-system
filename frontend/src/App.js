@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const TodayPage = React.lazy(() => import('./pages/TodayPage'));
 const WeekPage = React.lazy(() => import('./pages/WeekPage'));
+const WorkPage = React.lazy(() => import('./pages/WorkPage'));
 const ForecastPage = React.lazy(() => import('./pages/ForecastPage'));
 const KpiPage = React.lazy(() => import('./pages/KpiPage'));
 const ProjectPage = React.lazy(() => import('./pages/ProjectPage'));
@@ -74,7 +75,7 @@ function App() {
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<ErrorBoundary><Suspense fallback={<PageLoading />}><DashboardPage /></Suspense></ErrorBoundary>} />
             <Route path="today" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><TodayPage /></Suspense></ErrorBoundary>} />
-            <Route path="week" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><WeekPage /></Suspense></ErrorBoundary>} />
+            <Route path="week" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><WorkPage /></Suspense></ErrorBoundary>} />
             <Route path="forecast" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><ForecastPage /></Suspense></ErrorBoundary>} />
             <Route path="kpis" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><KpiPage /></Suspense></ErrorBoundary>} />
             <Route path="projects" element={<ErrorBoundary><Suspense fallback={<PageLoading />}><ProjectPage /></Suspense></ErrorBoundary>} />

@@ -8,8 +8,9 @@ struct DashForecast: Decodable {
     var quarter_time_progress_pct: Double
     var year_time_progress_pct: Double
     let indicators: [DashIndicator]?
+    let dept_groups: [DashDeptGroup]?
     let cps_linkage: DashCpsLinkage?
-    enum CodingKeys: String, CodingKey { case as_of, current_quarter, quarter_time_progress_pct, year_time_progress_pct, indicators, cps_linkage }
+    enum CodingKeys: String, CodingKey { case as_of, current_quarter, quarter_time_progress_pct, year_time_progress_pct, indicators, dept_groups, cps_linkage }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         as_of = try? c.decode(String.self, forKey: .as_of)
@@ -17,7 +18,54 @@ struct DashForecast: Decodable {
         quarter_time_progress_pct = c.decodeFlexDouble(.quarter_time_progress_pct)
         year_time_progress_pct = c.decodeFlexDouble(.year_time_progress_pct)
         indicators = try? c.decode([DashIndicator].self, forKey: .indicators)
+        dept_groups = try? c.decode([DashDeptGroup].self, forKey: .dept_groups)
         cps_linkage = try? c.decode(DashCpsLinkage.self, forKey: .cps_linkage)
+    }
+}
+
+struct DashQuarterPoint: Decodable, Identifiable {
+    let quarter: String?
+    var value: Double
+    let is_actual: Bool?
+    let is_current: Bool?
+    var id: String { quarter ?? UUID().uuidString }
+    enum CodingKeys: String, CodingKey { case quarter, value, is_actual, is_current }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        quarter = try? c.decode(String.self, forKey: .quarter)
+        value = c.decodeFlexDouble(.value)
+        is_actual = try? c.decode(Bool.self, forKey: .is_actual)
+        is_current = try? c.decode(Bool.self, forKey: .is_current)
+    }
+}
+
+struct DashDeptGroup: Decodable, Identifiable {
+    let dept_id: Int?
+    let dept_name: String?
+    let indicators: [DashDeptIndicator]?
+    var id: Int { dept_id ?? Int.random(in: 1...99999) }
+    enum CodingKeys: String, CodingKey { case dept_id, dept_name, indicators }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        dept_id = try? c.decode(Int.self, forKey: .dept_id)
+        dept_name = try? c.decode(String.self, forKey: .dept_name)
+        indicators = try? c.decode([DashDeptIndicator].self, forKey: .indicators)
+    }
+}
+
+struct DashDeptIndicator: Decodable, Identifiable {
+    let name: String?
+    let unit: String?
+    var full_year: Double
+    let confidence: String?
+    var id: String { name ?? UUID().uuidString }
+    enum CodingKeys: String, CodingKey { case name, unit, full_year, confidence }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        name = try? c.decode(String.self, forKey: .name)
+        unit = try? c.decode(String.self, forKey: .unit)
+        full_year = c.decodeFlexDouble(.full_year)
+        confidence = try? c.decode(String.self, forKey: .confidence)
     }
 }
 
@@ -26,14 +74,16 @@ struct DashIndicator: Decodable, Identifiable {
     let unit: String?
     let basis: DashBasis?
     let horizons: [DashHorizon]?
+    let quarter_projection: [DashQuarterPoint]?
     var id: String { name ?? UUID().uuidString }
-    enum CodingKeys: String, CodingKey { case name, unit, basis, horizons }
+    enum CodingKeys: String, CodingKey { case name, unit, basis, horizons, quarter_projection }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         name = try? c.decode(String.self, forKey: .name)
         unit = try? c.decode(String.self, forKey: .unit)
         basis = try? c.decode(DashBasis.self, forKey: .basis)
         horizons = try? c.decode([DashHorizon].self, forKey: .horizons)
+        quarter_projection = try? c.decode([DashQuarterPoint].self, forKey: .quarter_projection)
     }
 }
 
@@ -42,13 +92,15 @@ struct DashBasis: Decodable {
     var current_target: Double
     var applied_growth_pct: Double
     var time_progress_pct: Double
-    enum CodingKeys: String, CodingKey { case current_actual, current_target, applied_growth_pct, time_progress_pct }
+    let attainment_pct: Double?
+    enum CodingKeys: String, CodingKey { case current_actual, current_target, applied_growth_pct, time_progress_pct, attainment_pct }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         current_actual = c.decodeFlexDouble(.current_actual)
         current_target = c.decodeFlexDouble(.current_target)
         applied_growth_pct = c.decodeFlexDouble(.applied_growth_pct)
         time_progress_pct = c.decodeFlexDouble(.time_progress_pct)
+        attainment_pct = try? c.decode(Double.self, forKey: .attainment_pct)
     }
 }
 

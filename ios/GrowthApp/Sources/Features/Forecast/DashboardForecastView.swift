@@ -62,6 +62,7 @@ struct DashboardForecastView: View {
                     Text("时间进度 \(Int(f.quarter_time_progress_pct))%").font(.caption2).foregroundStyle(Theme.textTertiary)
                 }
                 ForEach(f.indicators ?? []) { ind in IndicatorCardView(ind: ind) }
+                if let groups = f.dept_groups, !groups.isEmpty { deptGroupsCard(groups) }
                 if let cps = f.cps_linkage { cpsLinkageCard(cps) }
                 Text("* KPI 为季度快照口径，本季已过越多越准；越靠后的季度越依赖外推与因素假设，请按“情景参考”看待。")
                     .font(.caption2).foregroundStyle(Theme.textTertiary).frame(maxWidth: .infinity, alignment: .leading)
@@ -98,6 +99,40 @@ struct DashboardForecastView: View {
         }
     }
 
+    private func deptGroupsCard(_ groups: [DashDeptGroup]) -> some View {
+        CardView {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle(text: "各部门产值预测")
+                Text("各部门 KPI 即该组产值（项目滚动进部门 KPI）").font(.caption2).foregroundStyle(Theme.textTertiary)
+                ForEach(groups) { g in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(g.dept_name ?? "—").font(.subheadline.weight(.bold)).foregroundStyle(Theme.textPrimary)
+                        ForEach(g.indicators ?? []) { ind in
+                            HStack {
+                                Text(ind.name ?? "").font(.caption).foregroundStyle(Theme.textSecondary)
+                                Spacer()
+                                Text(money(ind.full_year, ind.unit)).font(.footnote.weight(.bold)).foregroundStyle(Theme.textPrimary)
+                                confTag(ind.confidence)
+                            }
+                        }
+                    }.padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    private func confTag(_ c: String?) -> some View {
+        let label: String = c == "high" ? "高" : c == "medium" ? "中" : "低"
+        let color: Color = c == "high" ? Theme.success : c == "medium" ? Theme.warning : Theme.textTertiary
+        return Text(label).font(.caption2.weight(.semibold)).padding(.horizontal, 6).padding(.vertical, 1)
+            .background(color.opacity(0.14)).foregroundStyle(color).clipShape(Capsule())
+    }
+
+    private func money(_ v: Double, _ unit: String?) -> String {
+        let u = unit ?? ""
+        return abs(v) >= 10000 ? String(format: "%.1f万%@", v / 10000, u) : "\(Int(v))\(u)"
+    }
+
     private func cpsLinkageCard(_ cps: DashCpsLinkage) -> some View {
         CardView {
             VStack(alignment: .leading, spacing: 10) {
@@ -129,12 +164,18 @@ private struct IndicatorCardView: View {
     var body: some View {
         CardView(padding: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(spacing: 6) {
                     Text(ind.name ?? "—").font(.subheadline.weight(.bold)).foregroundStyle(Theme.textPrimary)
                     Text(ind.unit ?? "").font(.caption2).foregroundStyle(Theme.textTertiary)
+                    if let att = ind.basis?.attainment_pct {
+                        Text("达成\(Int(att))%").font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background((att >= (ind.basis?.time_progress_pct ?? 0) ? Theme.success : Theme.warning).opacity(0.14))
+                            .foregroundStyle(att >= (ind.basis?.time_progress_pct ?? 0) ? Theme.success : Theme.warning).clipShape(Capsule())
+                    }
                     Spacer()
                     if let b = ind.basis {
-                        Text("本季实际\(Int(b.current_actual))/目标\(Int(b.current_target))").font(.caption2).foregroundStyle(Theme.textTertiary)
+                        Text("实际\(Int(b.current_actual))/目标\(Int(b.current_target))").font(.caption2).foregroundStyle(Theme.textTertiary)
                     }
                 }
                 let cols = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
@@ -148,7 +189,26 @@ private struct IndicatorCardView: View {
                         }.frame(maxWidth: .infinity).padding(.vertical, 6).background(Theme.bgLayout).clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
+                if let proj = ind.quarter_projection, !proj.isEmpty {
+                    quarterBars(proj)
+                }
             }
         }
+    }
+
+    @ViewBuilder private func quarterBars(_ proj: [DashQuarterPoint]) -> some View {
+        let maxV = max(1.0, proj.map { abs($0.value) }.max() ?? 1.0)
+        HStack(alignment: .bottom, spacing: 8) {
+            ForEach(proj) { p in
+                VStack(spacing: 2) {
+                    Text(money(p.value, nil)).font(.system(size: 9)).foregroundStyle(Theme.textSecondary)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill((p.is_actual == true ? Theme.primary : p.is_current == true ? Theme.warning : Theme.textTertiary))
+                        .opacity(p.is_actual == true ? 1 : 0.55)
+                        .frame(height: max(3, CGFloat(abs(p.value) / maxV) * 46))
+                    Text("\(p.quarter ?? "")\(p.is_actual == true ? "·实" : p.is_current == true ? "·本季" : "")").font(.system(size: 9)).foregroundStyle(Theme.textTertiary)
+                }.frame(maxWidth: .infinity)
+            }
+        }.frame(height: 78).padding(.top, 2)
     }
 }

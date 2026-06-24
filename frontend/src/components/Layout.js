@@ -169,12 +169,9 @@ function AppLayout() {
   // ========== 主导航菜单（业务主线）==========
   const businessMenuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
-    { key: '/forecast', icon: <RiseOutlined />, label: '经营预测' },
-    { key: '/week', icon: <CalendarOutlined />, label: '本周' },
+    { key: '/week', icon: <CalendarOutlined />, label: '周｜月｜季度' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
     { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },
-    { key: '/monthly-tasks', icon: <FormOutlined />, label: '月度任务' },
-    { key: '/achievements', icon: <StarOutlined />, label: '季度成果' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报与复盘' },
     { key: '/cps', icon: <DollarOutlined />, label: '连包投流' },
     { key: '/aso', icon: <AppleOutlined />, label: 'ASO优化' },
