@@ -159,6 +159,7 @@ router.delete('/achievements/:id', ...auth, requirePermission('achievement.delet
 
 // ==================== 仪表盘 ====================
 router.get('/dashboard', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getDashboard);
+router.post('/dashboard/forecast', ...auth, requirePermission('dashboard.read'), dashboardController.getForecast);
 router.get('/dashboard/today-changes', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getTodayChanges);
 router.get('/dashboard/week-focus', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getWeekFocus);
 router.get('/dashboard/week-summary', ...auth, requirePermission('dashboard.read'), applyDataScope('dashboard'), dashboardController.getWeekSummary);

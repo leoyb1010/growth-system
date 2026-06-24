@@ -3,6 +3,18 @@ const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 const moment = require('moment');
 const { getQuarterTimeProgress, getYearTimeProgress, getProgressStatus, getWarningStatus, getProgressColorKey } = require('../utils/timeProgress');
+const dashboardForecastService = require('../services/dashboardForecastService');
+
+async function getForecast(req, res) {
+  try {
+    const body = req.body || {};
+    const data = await dashboardForecastService.getForecast({ year: body.year, factors: body.factors });
+    return success(res, data);
+  } catch (err) {
+    console.error('dashboard forecast error:', err);
+    return error(res, err.message || '获取经营预测失败');
+  }
+}
 
 /**
  * 获取仪表盘综合数据
@@ -537,7 +549,7 @@ async function getWeekSummary(req, res) {
   }
 }
 
-module.exports = { getDashboard, getTodayChanges, getWeekFocus, getWeekSummary, getTop3Priorities };
+module.exports = { getDashboard, getForecast, getTodayChanges, getWeekFocus, getWeekSummary, getTop3Priorities };
 
 /**
  * 今日三件事

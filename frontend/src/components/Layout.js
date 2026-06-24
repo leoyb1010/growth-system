@@ -4,6 +4,7 @@ import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, I
 import {
   DashboardOutlined,
   BellOutlined,
+  RiseOutlined,
   BarChartOutlined,
   ProjectOutlined,
   CalendarOutlined,
@@ -168,6 +169,7 @@ function AppLayout() {
   // ========== 主导航菜单（业务主线）==========
   const businessMenuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '总览' },
+    { key: '/forecast', icon: <RiseOutlined />, label: '经营预测' },
     { key: '/week', icon: <CalendarOutlined />, label: '本周' },
     { key: '/kpis', icon: <BarChartOutlined />, label: '指标与目标' },
     { key: '/projects', icon: <ProjectOutlined />, label: '项目推进' },

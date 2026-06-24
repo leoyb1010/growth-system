@@ -291,6 +291,7 @@ function DashboardPage() {
               key="mode" value={viewMode} onChange={(v) => setViewMode(v)}
               options={[{ label: `${data.current_quarter} 季度`, value: 'quarter' }, { label: '全年累计', value: 'year' }]}
             />,
+            <Button key="forecast" icon={<RiseOutlined />} onClick={() => navigate('/forecast')}>经营预测</Button>,
             <Button key="today" type="primary" ghost icon={<EditOutlined />} onClick={openTodayDrawer}>快速更新</Button>,
           ]}
         />
