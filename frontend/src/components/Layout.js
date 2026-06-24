@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown, Badge, Tooltip, Drawer, Grid, Input, Modal, List, Tag, Spin, Empty, Form, message } from 'antd';
 import {
   DashboardOutlined,
+  BellOutlined,
   BarChartOutlined,
   ProjectOutlined,
   CalendarOutlined,
@@ -78,6 +79,26 @@ function AppLayout() {
       }
     }).catch(() => { /* 静默 */ });
   }, []);
+
+  // ===== 每日提醒弹窗（每日首次打开弹一次，关闭后当天不再弹）=====
+  const [reminderData, setReminderData] = useState(null);
+  const [reminderVisible, setReminderVisible] = useState(false);
+  const todayKey = new Date().toLocaleDateString('sv');  // YYYY-MM-DD（本地日历日）
+
+  useEffect(() => {
+    if (localStorage.getItem('leobms_reminder_dismissed') === todayKey) return; // 今天已弹过
+    api.get('/me/daily-reminders').then(res => {
+      if (res.code === 0 && res.data?.count > 0) {
+        setReminderData(res.data);
+        setReminderVisible(true);
+      }
+    }).catch(() => { /* 静默，提醒失败不打扰 */ });
+  }, []);
+
+  const dismissReminder = () => {
+    localStorage.setItem('leobms_reminder_dismissed', todayKey);
+    setReminderVisible(false);
+  };
 
   // ===== AI 助手 =====
   const aiAssistant = useAIAssistant();
@@ -529,6 +550,45 @@ function AppLayout() {
             </div>
           </div>
         ))}
+      </Modal>
+
+      <Modal
+        title={<span><BellOutlined style={{ color: '#F59E0B', marginRight: 8 }} />今日提醒{reminderData?.count ? ` · ${reminderData.count} 项需关注` : ''}</span>}
+        open={reminderVisible}
+        onCancel={dismissReminder}
+        maskClosable={false}
+        footer={[
+          <Button key="go" type="primary" onClick={() => { dismissReminder(); navigate('/week'); }}>去本周管理</Button>,
+          <Button key="close" onClick={dismissReminder}>知道了</Button>,
+        ]}
+        width={560}
+      >
+        <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12 }}>仅展示与你相关的待关注项 · 每日首次打开提醒一次</div>
+        {(reminderData?.groups || []).map((g) => {
+          const color = { risk: '#DC2626', stale: '#F59E0B', action_due: '#3B5AFB', cps_alert: '#8B5CF6' }[g.type] || '#6B7280';
+          return (
+            <div key={g.type} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
+                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: color, marginRight: 8 }} />
+                {g.title} <span style={{ color: '#9CA3AF', fontWeight: 400 }}>{g.count}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {g.items.slice(0, 6).map((it) => (
+                  <div key={`${g.type}-${it.id}`} onClick={() => { dismissReminder(); navigate(it.link || '/'); }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, background: '#F9FAFB' }}>
+                    <span style={{ fontSize: 13, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+                    {g.type === 'stale' && <Tag color="warning" style={{ margin: 0 }}>{it.days}天未更新</Tag>}
+                    {g.type === 'action_due' && <Tag color={it.overdue ? 'error' : 'warning'} style={{ margin: 0 }}>{it.overdue ? '已逾期' : '临期'}</Tag>}
+                    {g.type === 'cps_alert' && <Tag color="purple" style={{ margin: 0 }}>{it.level}</Tag>}
+                    {g.type === 'risk' && <Tag color="error" style={{ margin: 0 }}>风险</Tag>}
+                    {it.dept && <span style={{ fontSize: 11, color: '#9CA3AF' }}>{it.dept}</span>}
+                  </div>
+                ))}
+                {g.count > 6 && <div style={{ fontSize: 11, color: '#9CA3AF', paddingLeft: 10 }}>等 {g.count} 项…</div>}
+              </div>
+            </div>
+          );
+        })}
       </Modal>
     </Layout>
   );

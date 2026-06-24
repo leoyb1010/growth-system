@@ -27,6 +27,7 @@ const riskRegisterController = require('../controllers/riskRegisterController');
 const cpsController = require('../controllers/cpsController');
 const cpsAdminController = require('../controllers/cpsAdminController');
 const pushController = require('../controllers/pushController');
+const reminderController = require('../controllers/reminderController');
 const aiRoutes = require('../ai/routes/aiRoutes');
 const agentRoutes = require('./agentRoutes');
 const cpsAiController = require('../ai/controllers/cpsAiController');
@@ -91,6 +92,7 @@ router.get('/changelog', (req, res) => {
 router.post('/auth/login', loginLimiter || [], authController.login);
 router.post('/auth/register', registerLimiter || [], authController.register);  // 用户注册（公开，含限流）
 router.get('/auth/me', authenticate, authController.getCurrentUser);
+router.get('/me/daily-reminders', ...auth, reminderController.getDailyReminders);
 router.post('/auth/change-password', authenticate, authController.changePassword);
 router.post('/auth/refresh', authController.refreshToken);                      // 刷新 Token
 router.post('/auth/logout', authenticate, authController.logout);               // 登出
