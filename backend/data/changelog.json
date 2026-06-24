@@ -1,6 +1,15 @@
 {
-  "latestVersion": "1.22.1",
+  "latestVersion": "1.22.2",
   "releases": [
+    {
+      "version": "1.22.2",
+      "date": "2026-06-24",
+      "title": "视觉精修：原生中文字体栈 + 分层柔和阴影 + 组件令牌统一",
+      "changes": [
+        { "type": "improve", "module": "视觉", "desc": "字体栈改为原生系统字体(PingFang/微软雅黑优先),去掉未加载的 Inter,中文渲染更清晰一致;数字启用等宽(tnum)" },
+        { "type": "improve", "module": "视觉", "desc": "antd 主题统一精修:分层柔和阴影(去纯黑投影、统一 slate 冷调)、圆角体系一致化、Tabs/Segmented/Tag/Modal/Tooltip/Menu 组件令牌统一,整体观感更高级、更一致(零结构改动)" }
+      ]
+    },
     {
       "version": "1.22.1",
       "date": "2026-06-24",
