@@ -480,6 +480,7 @@ function DashboardPage() {
             key="mode" value={viewMode} onChange={(v) => setViewMode(v)}
             options={[{ label: `${data.current_quarter} 季度`, value: 'quarter' }, { label: '全年累计', value: 'year' }]}
           />,
+          <Button key="forecast" type="primary" ghost icon={<RiseOutlined />} onClick={() => navigate('/forecast')}>经营预测</Button>,
           <Button key="today" type="primary" ghost icon={<ClockCircleOutlined />} onClick={openTodayDrawer}>今日更新</Button>,
           <Button key="ai" icon={<RobotOutlined />} onClick={() => window.__aiAssistant?.openDrawer('today_judgment')}>AI 分析</Button>,
           can(role, 'weekly_report.generate') && <Button key="report" type="primary" icon={<FileTextOutlined />} onClick={handleGenerateReport}>生成周报</Button>,
