@@ -112,7 +112,13 @@ function ProjectPage() {
       setEditingRecord(null);
       form.resetFields();
       localStorage.removeItem(PROJECT_DRAFT_KEY); // 提交成功清除草稿
-      fetchData();
+      // 若保存到的季度 ≠ 当前筛选季度，自动切到该季度——否则项目会被季度过滤掉、看起来"保存后消失了"
+      if (values.quarter && values.quarter !== filters.quarter) {
+        message.info(`该项目属于 ${values.quarter}，已为你切换到 ${values.quarter} 查看`);
+        setFilters(prev => ({ ...prev, quarter: values.quarter })); // 触发重新拉取
+      } else {
+        fetchData();
+      }
     } catch (err) { message.error(err?.response?.data?.message || err?.message || '操作失败'); }
   };
 
