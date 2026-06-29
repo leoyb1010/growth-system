@@ -70,6 +70,12 @@ async function createKpi(req, res) {
       return error(res, '无权为其他部门创建数据', 403, 403);
     }
 
+    // 去重：同 部门+季度+年+指标 已存在则禁止重复创建（防止重复录入导致目标总计虚高、完成度错乱）
+    const dup = await Kpi.findOne({ where: { dept_id, quarter, year: year || 2026, indicator_name } });
+    if (dup) {
+      return error(res, `该部门 ${quarter} 的「${indicator_name}」指标已存在（目标 ${dup.target}），请直接编辑该指标，不要重复创建`);
+    }
+
     const kpi = await Kpi.create({
       dept_id,
       quarter,
