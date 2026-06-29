@@ -102,7 +102,9 @@ async function getDashboard(req, res) {
     
     kpis.forEach(k => {
       if (!deptKpiMap[k.dept_id]) return;
-      if (k.indicator_name.includes('GMV')) {
+      // 部门级 GMV 卡片只认汇总行「GMV」，排除拆分行(如「私域（语培）GMV」「学习会员GMV」)，
+      // 否则 includes('GMV') 会把汇总行与拆分行一起命中(且赋值 last-wins)，导致取错/重复计入部门GMV总计
+      if (k.indicator_name === 'GMV') {
         deptKpiMap[k.dept_id].gmv = k;
       } else if (k.indicator_name.includes('利润')) {
         deptKpiMap[k.dept_id].profit = k;

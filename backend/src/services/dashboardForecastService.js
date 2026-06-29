@@ -19,7 +19,8 @@ const cpsForecastService = require('./cpsForecastService');
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
 const SCENARIO_BIAS = { optimistic: 10, neutral: 0, conservative: -10 };
-const MONEY_INDICATORS = ['GMV', '净利润', '私域GMV']; // 金额类(产值)指标，用于分组与主展示
+// 金额类(产值)指标，用于分组产值预测。只取部门级汇总指标，不含 GMV 拆分行(私域/学习会员等)，避免与「GMV」汇总行重复计入分组产值
+const MONEY_INDICATORS = ['GMV', '净利润'];
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function round2(v) { return Number((Number(v) || 0).toFixed(2)); }

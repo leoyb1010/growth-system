@@ -558,7 +558,8 @@ async function filterReportContentForDept(content, deptId) {
 
 function regenerateConclusion(data) {
   const parts = [];
-  const kpis = data.kpi_summary || [];
+  // 排除 GMV 拆分行(如 私域（语培）GMV/学习会员GMV)，避免与汇总行「GMV」重复计入整体完成率
+  const kpis = (data.kpi_summary || []).filter(k => !(k.indicator && k.indicator.includes('GMV') && k.indicator !== 'GMV'));
   const totalTarget = kpis.reduce((s, k) => s + parseFloat(k.target || 0), 0);
   const totalActual = kpis.reduce((s, k) => s + parseFloat(k.actual || 0), 0);
   const totalRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;

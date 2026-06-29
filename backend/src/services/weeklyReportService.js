@@ -246,9 +246,10 @@ async function generateWeeklyReportData(weekStart, weekEnd, deptFilter = null, i
   });
 
   // KPI 分层分组：Row1 部门级 GMV+利润，Row2 各组 GMV，Row3 其他业务指标
-  const gmvKpis = kpiSummary.filter(k => k.indicator.includes('GMV'));
+  // 仅汇总行「GMV」进入部门GMV合计与各组GMV，拆分行(私域/学习会员等)归入 Row3，避免重复计入
+  const gmvKpis = kpiSummary.filter(k => k.indicator === 'GMV');
   const profitKpis = kpiSummary.filter(k => k.indicator.includes('利润'));
-  const otherKpis = kpiSummary.filter(k => !k.indicator.includes('GMV') && !k.indicator.includes('利润'));
+  const otherKpis = kpiSummary.filter(k => k.indicator !== 'GMV' && !k.indicator.includes('利润'));
 
   // 计算部门汇总 GMV 和利润
   const totalGmvTarget = gmvKpis.reduce((s, k) => s + (k.target || 0), 0);
